@@ -16,10 +16,6 @@ public class BankTransaction {
     @Column(name = "transaction_id")
     private Long transactionId;
 
-    @ManyToOne
-    @JoinColumn(name = "account_id")
-    private Account account;
-
     private String gateway;
 
     @Column(name = "transaction_date")
