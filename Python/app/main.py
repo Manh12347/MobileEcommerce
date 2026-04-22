@@ -8,9 +8,9 @@ from dotenv import load_dotenv
 from urllib.parse import urlparse
 
 from google.genai import types
-from app.decision import decide_chat
-from app.retriever import retrieve_products
-from app.chat import chat_with_gemini
+from app.decision import router as decision_router
+from app.chat import router as chat_router
+from app.retriever import router as retriever_router
 from app.api_key import client_embed
 
 load_dotenv()
@@ -37,6 +37,10 @@ app.add_middleware(
 # ============================
 # Health Check
 # ============================
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
 @app.get("/health")
 def health():
