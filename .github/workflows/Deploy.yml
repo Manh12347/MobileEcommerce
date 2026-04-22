@@ -35,11 +35,14 @@ jobs:
           echo "🧹 Clean + build"
           ./gradlew clean bootJar -x test
 
-          echo "📦 Keep only boot jar"
-          rm -f build/libs/*plain*.jar
+          echo "Check jar"
+          ls -lh build/libs
 
           echo "📤 Move jar to root"
           cp build/libs/app.jar ../app.jar
+
+          echo "Root after copy"
+          ls -lh ..
 
       # =========================
       # 4. Deploy to Server (SSH)
