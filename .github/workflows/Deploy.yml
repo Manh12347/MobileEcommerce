@@ -188,7 +188,6 @@ jobs:
             EOF
 
             echo "🌐 Apply Nginx"
-            sudo cp $REMOTE_DIR/nginx.conf /etc/nginx/nginx.conf
             sudo nginx -t
             sudo systemctl reload nginx
 
