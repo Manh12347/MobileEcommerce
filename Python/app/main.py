@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from urllib.parse import urlparse
 
 from google.genai import types
-from app.decision import router as decision_router
+from app.decision import decide_chat
 from app.chat import router as chat_router
 from app.retriever import router as retriever_router
 from app.api_key import client_embed
@@ -41,10 +41,6 @@ app.add_middleware(
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
-
-@app.get("/health")
-def health():
-    return {"status": "ok", "version": "2.0"}
 
 # ============================
 # Database Helper (SAFE)
