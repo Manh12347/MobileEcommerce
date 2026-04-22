@@ -1,0 +1,241 @@
+name: Deploy Backend + RAG
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # =========================
+      # 1. Checkout
+      # =========================
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # =========================
+      # 2. Setup Java
+      # =========================
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+
+      # =========================
+      # 3. Build Backend
+      # =========================
+      - name: Build Backend
+        run: |
+          cd Backend
+          chmod +x gradlew
+
+          echo "🧹 Clean + build"
+          ./gradlew clean bootJar -x test
+
+          echo "📦 Keep only boot jar"
+          rm -f build/libs/*plain*.jar
+
+          echo "📤 Move jar to root"
+          cp build/libs/app.jar ../app.jar
+
+      # =========================
+      # 4. Deploy to Server (SSH)
+      # =========================
+      - name: Deploy & Setup
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -e
+
+            REMOTE_DIR="/home/${{ secrets.SSH_USER }}/MobileEcommerce"
+
+            echo "📁 Create directory"
+            mkdir -p $REMOTE_DIR/Python
+
+            echo "🛑 Stop old services"
+            sudo systemctl stop ecommerce-backend || true
+            sudo systemctl stop ecommerce-rag || true
+
+            echo "📄 Create shared .env"
+            cat > $REMOTE_DIR/.env << EOF
+            SPRING_DATASOURCE_URL=${{ secrets.SPRING_DATASOURCE_URL }}
+            SPRING_DATASOURCE_USERNAME=${{ secrets.SPRING_DATASOURCE_USERNAME }}
+            SPRING_DATASOURCE_PASSWORD=${{ secrets.SPRING_DATASOURCE_PASSWORD }}
+
+            SERVER_PORT=5000
+            RAG_PORT=8000
+
+            SPRING_MAIL_HOST=smtp.gmail.com
+            SPRING_MAIL_PORT=587
+            SPRING_MAIL_USERNAME=${{ secrets.SPRING_MAIL_USERNAME }}
+            SPRING_MAIL_PASSWORD=${{ secrets.SPRING_MAIL_PASSWORD }}
+
+            SEPAY_ACCOUNT_NUMBER=${{ secrets.SEPAY_ACCOUNT_NUMBER }}
+            SEPAY_BANK_NAME=${{ secrets.SEPAY_BANK_NAME }}
+
+            HOOKS_API_KEY=${{ secrets.HOOKS_API_KEY }}
+            HOOKS_ORDER_ID_PATTERN=ORDER_
+            HOOKS_AMOUNT_TOLERANCE=0
+
+            APP_DOMAIN=${{ secrets.APP_DOMAIN }}
+            RAG_DOMAIN=${{ secrets.RAG_DOMAIN }}
+
+            RECAPTCHA_SITE_KEY=${{ secrets.RECAPTCHA_SITE_KEY }}
+            RECAPTCHA_SECRET_KEY=${{ secrets.RECAPTCHA_SECRET_KEY }}
+
+            GENAI_API_EMBED=${{ secrets.GENAI_API_EMBED }}
+            GENAI_API_DECISION=${{ secrets.GENAI_API_DECISION }}
+            GENAI_API_CHAT=${{ secrets.GENAI_API_CHAT }}
+            EOF
+
+            echo "✅ .env created"
+
+      # =========================
+      # 5. Copy files
+      # =========================
+      - name: Copy Backend JAR
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: app.jar
+          target: /home/${{ secrets.SSH_USER }}/MobileEcommerce/
+          overwrite: true
+
+      - name: Copy Python RAG
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: Python/
+          target: /home/${{ secrets.SSH_USER }}/MobileEcommerce/
+          overwrite: true
+
+      - name: Copy Nginx Config
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: nginx.conf
+          target: /home/${{ secrets.SSH_USER }}/MobileEcommerce/
+          overwrite: true
+
+      # =========================
+      # 6. Setup & Restart
+      # =========================
+      - name: Setup Services
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -e
+
+            REMOTE_DIR="/home/${{ secrets.SSH_USER }}/MobileEcommerce"
+
+            echo "⚙️ Setup Backend Service"
+            sudo tee /etc/systemd/system/ecommerce-backend.service > /dev/null << 'EOF'
+            [Unit]
+            Description=Spring Boot Backend
+            After=network.target
+
+            [Service]
+            Type=simple
+            User=${{ secrets.SSH_USER }}
+            WorkingDirectory=/home/${{ secrets.SSH_USER }}/MobileEcommerce
+            EnvironmentFile=/home/${{ secrets.SSH_USER }}/MobileEcommerce/.env
+            ExecStart=/usr/bin/java -jar app.jar
+            Restart=always
+            RestartSec=5
+            StandardOutput=journal
+            StandardError=journal
+
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+
+            echo "⚙️ Setup RAG Service"
+            cd $REMOTE_DIR/Python
+
+            if [ ! -d "venv" ]; then
+              python3 -m venv venv
+            fi
+
+            source venv/bin/activate
+            pip install -r requirements.txt
+
+            sudo tee /etc/systemd/system/ecommerce-rag.service > /dev/null << 'EOF'
+            [Unit]
+            Description=FastAPI RAG Service
+            After=network.target
+
+            [Service]
+            Type=simple
+            User=${{ secrets.SSH_USER }}
+            WorkingDirectory=/home/${{ secrets.SSH_USER }}/MobileEcommerce/Python
+            EnvironmentFile=/home/${{ secrets.SSH_USER }}/MobileEcommerce/.env
+            ExecStart=/home/${{ secrets.SSH_USER }}/MobileEcommerce/Python/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+            Restart=always
+            RestartSec=5
+            StandardOutput=journal
+            StandardError=journal
+
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+
+            echo "🌐 Apply Nginx"
+            sudo cp $REMOTE_DIR/nginx.conf /etc/nginx/nginx.conf
+            sudo nginx -t
+            sudo systemctl reload nginx
+
+            echo "🔄 Restart services"
+            sudo systemctl daemon-reload
+            sudo systemctl restart ecommerce-backend
+            sudo systemctl restart ecommerce-rag
+            sudo systemctl enable ecommerce-backend
+            sudo systemctl enable ecommerce-rag
+
+      # =========================
+      # 7. Verify
+      # =========================
+      - name: Verify Services
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            echo "📋 Backend:"
+            sudo systemctl status ecommerce-backend --no-pager
+
+            echo "📋 RAG:"
+            sudo systemctl status ecommerce-rag --no-pager
+
+            echo "📋 Nginx:"
+            sudo systemctl status nginx --no-pager
+
+      # =========================
+      # 8. Health Check
+      # =========================
+      - name: Health Check
+        run: |
+          sleep 20
+
+          echo "🩺 Backend:"
+          curl -v https://${{ secrets.APP_DOMAIN }}/actuator/health || true
+
+          echo "🩺 RAG:"
+          curl -v https://${{ secrets.RAG_DOMAIN }}/health || true
+
+          echo "✅ Done"
