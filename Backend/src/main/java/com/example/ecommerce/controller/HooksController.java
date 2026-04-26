@@ -50,13 +50,13 @@ public class HooksController {
                 return ResponseEntity.ok(createErrorResponse(false, "Invalid request: DTO is null"));
             }
 
-            // 2️⃣ Kiểm tra API key trong header
+            // 2️⃣ Validate API key (simple match, no format required)
             if (authHeader == null || authHeader.isBlank()) {
                 log.warn("[HooksController] ❌ Authorization header missing");
                 return ResponseEntity.ok(createErrorResponse(false, "Authorization header missing"));
             }
 
-            if (!validateApiKey(authHeader)) {
+            if (!authHeader.equals(hookConfig.getApiKey())) {
                 log.warn("[HooksController] ❌ Invalid API key");
                 return ResponseEntity.ok(createErrorResponse(false, "Invalid API key"));
             }
@@ -100,22 +100,7 @@ public class HooksController {
         }
     }
 
-    /**
-     * Validate Authorization header
-     */
-    private boolean validateApiKey(String authHeader) {
-        final String PREFIX = "Apikey ";
-        
-        if (!authHeader.startsWith(PREFIX)) {
-            log.warn("[HooksController] Invalid Authorization format");
-            return false;
-        }
-
-        String incomingApiKey = authHeader.substring(PREFIX.length()).trim();
-        return incomingApiKey.equals(hookConfig.getApiKey());
     }
-
-    /**
      * Parse transaction date from multiple formats
      */
     private LocalDateTime parseTransactionDate(String dateStr) {
