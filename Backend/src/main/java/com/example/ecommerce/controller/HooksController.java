@@ -101,6 +101,8 @@ public class HooksController {
     }
 
     /**
+     * Parse transaction date from multiple formats
+     */
     private LocalDateTime parseTransactionDate(String dateStr) {
         if (dateStr == null || dateStr.isBlank()) {
             log.warn("[HooksController] Transaction date is null, using current time");
