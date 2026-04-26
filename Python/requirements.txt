@@ -1,8 +1,9 @@
-fastapi
-uvicorn
-psycopg2-binary
-numpy
-scikit-learn
-google-genai
-openai
-python-dotenv
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+psycopg2-binary>=2.9.9
+numpy>=1.26.0
+scikit-learn>=1.4.0
+google-auth>=2.27.0
+vertexai>=1.47.0
+python-dotenv>=1.0.0
+pydantic>=2.5.0
