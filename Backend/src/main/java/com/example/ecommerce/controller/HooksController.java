@@ -50,13 +50,19 @@ public class HooksController {
                 return ResponseEntity.ok(createErrorResponse(false, "Invalid request: DTO is null"));
             }
 
-            // 2️⃣ Validate API key (simple match, no format required)
+            // 2️⃣ Validate API key (SePay sends "Apikey <key>")
             if (authHeader == null || authHeader.isBlank()) {
                 log.warn("[HooksController] ❌ Authorization header missing");
                 return ResponseEntity.ok(createErrorResponse(false, "Authorization header missing"));
             }
 
-            if (!authHeader.equals(hookConfig.getApiKey())) {
+            String expectedPrefix = "Apikey ";
+            String expectedKey = hookConfig.getApiKey();
+            String receivedKey = authHeader.startsWith(expectedPrefix) 
+                ? authHeader.substring(expectedPrefix.length()) 
+                : authHeader;
+
+            if (!receivedKey.equals(expectedKey)) {
                 log.warn("[HooksController] ❌ Invalid API key");
                 return ResponseEntity.ok(createErrorResponse(false, "Invalid API key"));
             }
