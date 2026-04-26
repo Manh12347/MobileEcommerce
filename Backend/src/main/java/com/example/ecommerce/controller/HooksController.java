@@ -28,7 +28,7 @@ public class HooksController {
     /**
      * Webhook endpoint to receive bank transactions from SePay
      * Format: POST /hooks/transaction
-     * Header: Authorization: Apikey <API_KEY>
+     * Header: Authorization: <API_KEY> (plain key, no prefix)
      * Body: JSON BankTransactionDto
      */
     @PostMapping("/transaction")
@@ -100,9 +100,7 @@ public class HooksController {
         }
     }
 
-    }
-     * Parse transaction date from multiple formats
-     */
+    /**
     private LocalDateTime parseTransactionDate(String dateStr) {
         if (dateStr == null || dateStr.isBlank()) {
             log.warn("[HooksController] Transaction date is null, using current time");
