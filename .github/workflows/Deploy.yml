@@ -65,6 +65,11 @@ jobs:
             sudo systemctl stop ecommerce-backend || true
             sudo systemctl stop ecommerce-rag || true
 
+            echo "🔐 Setup Google Cloud Credentials"
+            mkdir -p ~/.config/gcloud
+            echo "${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}" > ~/.config/gcloud/application_default_credentials.json
+            echo "✅ GCP credentials created"
+
             echo "📄 Create shared .env"
             cat > $REMOTE_DIR/.env << EOF
             SPRING_DATASOURCE_URL=${{ secrets.SPRING_DATASOURCE_URL }}
@@ -92,9 +97,10 @@ jobs:
             RECAPTCHA_SITE_KEY=${{ secrets.RECAPTCHA_SITE_KEY }}
             RECAPTCHA_SECRET_KEY=${{ secrets.RECAPTCHA_SECRET_KEY }}
 
-            GENAI_API_EMBED=${{ secrets.GENAI_API_EMBED }}
-            GENAI_API_DECISION=${{ secrets.GENAI_API_DECISION }}
-            GENAI_API_CHAT=${{ secrets.GENAI_API_CHAT }}
+            # Vertex AI (replaces Gemini API keys)
+            VERTEX_PROJECT_ID=${{ secrets.VERTEX_PROJECT_ID }}
+            VERTEX_LOCATION=${{ secrets.VERTEX_LOCATION }}
+            GOOGLE_APPLICATION_CREDENTIALS=/home/${{ secrets.SSH_USER }}/.config/gcloud/application_default_credentials.json
             EOF
 
             echo "✅ .env created"
@@ -135,6 +141,11 @@ jobs:
             set -e
 
             REMOTE_DIR="/home/${{ secrets.SSH_USER }}/MobileEcommerce"
+
+            echo "🔐 Setup GCP credentials on server"
+            mkdir -p ~/.config/gcloud
+            echo "${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}" > ~/.config/gcloud/application_default_credentials.json
+            echo "✅ GCP credentials created on server"
 
             echo "⚙️ Setup Backend Service"
             sudo tee /etc/systemd/system/ecommerce-backend.service > /dev/null << 'EOF'

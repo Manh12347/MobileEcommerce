@@ -69,7 +69,7 @@ CREATE TABLE product_items (
     description TEXT,
     images JSONB,
     main_image_url TEXT,
-    embedding vector(1536),
+    embedding vector(768),
     embedding_text TEXT,
     created_on TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (product_id) REFERENCES products(product_id) ON DELETE CASCADE

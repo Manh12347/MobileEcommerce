@@ -1,0 +1,57 @@
+# ============================
+# Environment & Secrets
+# ============================
+.env
+.env.local
+.env.*.local
+credentials/
+*.json
+!example*.json
+mobileemecommerce-*.json
+
+# ============================
+# Python
+# ============================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+ENV/
+
+# ============================
+# Java / Gradle
+# ============================
+Backend/build/
+Backend/.gradle/
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# ============================
+# IDE
+# ============================
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ============================
+# Logs
+# ============================
+*.log
+logs/
+
+# ============================
+# Temporary files
+# ============================
+*.tmp
+*.bak
+*.cache

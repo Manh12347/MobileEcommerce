@@ -1,25 +1,48 @@
+import os
+import traceback
+from contextlib import asynccontextmanager
+from pathlib import Path
+from urllib.parse import urlparse
+from uuid import uuid4
+
+import psycopg2
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from uuid import uuid4
-import psycopg2
-import os
-from dotenv import load_dotenv
-from urllib.parse import urlparse
 
-from google.genai import types
+from app.chat import chat_with_gemini
 from app.decision import decide_chat
-from app.chat import router as chat_router
-from app.retriever import router as retriever_router
-from app.api_key import client_embed
+from app.retriever import get_rag_data, generate_product_embedding, retrieve_products
 
-load_dotenv()
+repo_root = Path(__file__).resolve().parents[2]
+load_dotenv(dotenv_path=repo_root / "Backend" / ".env")
+
+import logging
+logging.basicConfig(level=logging.INFO)
+
+
+# ============================
+# LIFESPAN CONTEXT MANAGER
+# ============================
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Startup and shutdown events for FastAPI.
+    RAG data is loaded lazily, so no heavy initialization here.
+    """
+    print("Starting RAG Chatbot Service...")
+    print("RAG data will be loaded on first request (lazy loading)")
+    yield
+    print("Shutting down RAG Chatbot Service...")
+
 
 # ============================
 # FastAPI App
 # ============================
 
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 
 origins = [
     "https://rag.doantrang.online",
@@ -34,6 +57,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # ============================
 # Health Check
 # ============================
@@ -42,8 +66,9 @@ app.add_middleware(
 def health_check():
     return {"status": "ok"}
 
+
 # ============================
-# Database Helper (SAFE)
+# Database Helper
 # ============================
 
 def get_connection():
@@ -65,11 +90,13 @@ def get_connection():
         port=parsed.port
     )
 
+
 # ============================
-# Session storage (temporary)
+# Session Storage
 # ============================
 
 session_histories = {}
+
 
 # ============================
 # Request Models
@@ -81,7 +108,8 @@ class Message(BaseModel):
 
 
 class UpdateEmbeddingRequest(BaseModel):
-    product_id: int
+    product_item_id: int
+
 
 # ============================
 # Chat API
@@ -119,7 +147,7 @@ def chat_api(msg: Message):
                     specs = f" | Specs: {', '.join(specs_list[:3])}"
 
             retrieved_text += (
-                f"- ID: {p['product_id']} | {p['product_name']} | Giá: {p['price']}"
+                f"- ID: {p['product_item_id']} | {p['product_name']} | Giá: {p['price']}"
                 f"{sale_price} | Tồn kho: {p['stock']}{warranty}{specs} "
                 f"(Độ liên quan: {p['similarity']:.2%})\n"
             )
@@ -144,52 +172,56 @@ def chat_api(msg: Message):
         "retrieved_products": top_products if decision["action"] == "rag" else None
     }
 
+
 # ============================
 # Update Embedding API
 # ============================
 
 @app.post("/update-vector-by-product-id")
 def update_vector(req: UpdateEmbeddingRequest):
-    product_id = req.product_id
+    product_item_id = req.product_item_id
+    logging.info(f"Update embedding request for product_item_id: {product_item_id}")
 
-    # 1. Get description
-    with get_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                "SELECT description FROM products WHERE product_id = %s",
-                (product_id,)
-            )
-            row = cursor.fetchone()
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT description FROM product_items WHERE product_item_id = %s",
+                    (product_item_id,)
+                )
+                row = cursor.fetchone()
 
-            if not row:
-                raise HTTPException(status_code=404, detail="Product not found")
+                if not row:
+                    raise HTTPException(status_code=404, detail="Product Item not found")
 
-            description = row[0]
+                description = row[0]
+                logging.info(f"Description length: {len(description) if description else 0}")
 
-    if not description:
-        raise HTTPException(status_code=400, detail="Description is empty")
+        if not description:
+            raise HTTPException(status_code=400, detail="Description is empty")
 
-    # 2. Generate embedding
-    result = client_embed.models.embed_content(
-        model="gemini-embedding-001",
-        contents=[description],
-        config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
-    )
+        logging.info("Calling generate_product_embedding...")
+        embedding_vector = generate_product_embedding(description)
+        logging.info(f"Embedding generated, length: {len(embedding_vector)}")
 
-    embedding_vector = result.embeddings[0].values
-    embedding_str = str(list(embedding_vector))
+        embedding_str = "[" + ",".join(map(str, embedding_vector)) + "]"
+        logging.info(f"Embedding string format prepared, length: {len(embedding_str)}")
 
-    # 3. Update DB
-    with get_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                "UPDATE products SET embedding = %s WHERE product_id = %s",
-                (embedding_str, product_id)
-            )
-            conn.commit()
+        with get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE product_items SET embedding = %s::vector WHERE product_item_id = %s",
+                    (embedding_str, product_item_id)
+                )
+                conn.commit()
 
-    return {
-        "status": "success",
-        "product_id": product_id,
-        "embedding_length": len(embedding_vector)
-    }
+        logging.info("Embedding updated successfully")
+        return {
+            "status": "success",
+            "product_item_id": product_item_id,
+            "embedding_length": len(embedding_vector)
+        }
+    except Exception as e:
+        logging.error(f"Error updating embedding: {e}")
+        logging.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
