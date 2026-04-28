@@ -204,4 +204,37 @@ public class AuthService {
             accountRepository.save(account);
         }
     }
+
+    /**
+     * Resend OTP to email
+     * Rate limited: 1-5 attempts without CAPTCHA, 6-10 require CAPTCHA
+     */
+    public OtpSendResponse resendOtp(String email) {
+        if (email == null || email.isEmpty()) {
+            throw new AuthenticationException("Email không được để trống");
+        }
+        try {
+            return otpService.resendOtp(email);
+        } catch (IllegalArgumentException e) {
+            throw new AuthenticationException(e.getMessage());
+        }
+    }
+
+    /**
+     * Resend OTP with CAPTCHA verification
+     * Used when rate limit requires CAPTCHA
+     */
+    public OtpSendResponse resendOtpWithCaptcha(String email, String recaptchaToken) {
+        if (email == null || email.isEmpty()) {
+            throw new AuthenticationException("Email không được để trống");
+        }
+        if (recaptchaToken == null || recaptchaToken.isEmpty()) {
+            throw new AuthenticationException("reCAPTCHA token không được để trống");
+        }
+        try {
+            return otpService.resendOtpWithCaptcha(email, recaptchaToken);
+        } catch (IllegalArgumentException e) {
+            throw new AuthenticationException(e.getMessage());
+        }
+    }
 }
