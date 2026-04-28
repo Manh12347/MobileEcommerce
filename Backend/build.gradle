@@ -32,6 +32,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-mail'
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 	
 	// Lombok for annotations
 	compileOnly 'org.projectlombok:lombok'
@@ -51,6 +52,9 @@ dependencies {
 	// 2FA / TOTP (Time-based One-Time Password)
 	implementation 'dev.samstevens.totp:totp:1.7.1'
 	implementation 'dev.samstevens.totp:qr:1.7.1'
+	
+	// BCrypt for password hashing
+	implementation 'org.mindrot:jbcrypt:0.4'
 	
 	runtimeOnly 'org.postgresql:postgresql'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
