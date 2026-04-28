@@ -51,7 +51,6 @@ dependencies {
 	
 	// 2FA / TOTP (Time-based One-Time Password)
 	implementation 'dev.samstevens.totp:totp:1.7.1'
-	implementation 'dev.samstevens.totp:qr:1.7.1'
 	
 	// BCrypt for password hashing
 	implementation 'org.mindrot:jbcrypt:0.4'

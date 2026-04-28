@@ -1,7 +1,6 @@
 package com.example.ecommerce.security;
 
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -17,10 +16,10 @@ public class JwtTokenProvider {
     @Value("${jwt.secret:MyVeryLongSecretKeyForJWTTokenGenerationAndValidation12345}")
     private String jwtSecret;
 
-    @Value("${jwt.expiration:86400000}")  // 24 hours in milliseconds
+    @Value("${jwt.expiration:86400000}")
     private long jwtExpirationMs;
 
-    @Value("${jwt.refresh-expiration:604800000}")  // 7 days in milliseconds
+    @Value("${jwt.refresh-expiration:604800000}")
     private long refreshTokenExpirationMs;
 
     private SecretKey getSigningKey() {
@@ -45,37 +44,37 @@ public class JwtTokenProvider {
         Date expiryDate = new Date(now.getTime() + expirationMs);
 
         return Jwts.builder()
-                .setClaims(claims)
-                .setIssuedAt(now)
-                .setExpiration(expiryDate)
-                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
+                .claims(claims)
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(getSigningKey())
                 .compact();
     }
 
     public Integer getAccountIdFromToken(String token) {
-        return (Integer) Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
+        return Jwts.parser()
+                .verifyWith(getSigningKey())
                 .build()
-                .parseClaimsJws(token)
-                .getBody()
-                .get("accountId");
+                .parseSignedClaims(token)
+                .getPayload()
+                .get("accountId", Integer.class);
     }
 
     public String getEmailFromToken(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
+        return Jwts.parser()
+                .verifyWith(getSigningKey())
                 .build()
-                .parseClaimsJws(token)
-                .getBody()
+                .parseSignedClaims(token)
+                .getPayload()
                 .getSubject();
     }
 
     public boolean validateToken(String token) {
         try {
-            Jwts.parserBuilder()
-                    .setSigningKey(getSigningKey())
+            Jwts.parser()
+                    .verifyWith(getSigningKey())
                     .build()
-                    .parseClaimsJws(token);
+                    .parseSignedClaims(token);
             return true;
         } catch (Exception e) {
             return false;
