@@ -85,48 +85,4 @@ public class AuthController {
                     .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
         }
     }
-
-    /**
-     * Resend OTP endpoint
-     * POST /v1/api/auth/resend-otp
-     * 
-     * Request body: { email }
-     * Resends OTP to email for verification
-     * Rate limited: 1-5 attempts without CAPTCHA, 6-10 require CAPTCHA
-     */
-    @PostMapping("/resend-otp")
-    public ResponseEntity<ApiResponse<OtpSendResponse>> resendOtp(@RequestBody java.util.Map<String, String> request) {
-        try {
-            String email = request.get("email");
-            OtpSendResponse response = authService.resendOtp(email);
-            return ResponseEntity.ok(new ApiResponse<>(true, response.getMessage(), response));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(new ApiResponse<>(false, e.getMessage(), null));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
-        }
-    }
-
-    /**
-     * Resend OTP with CAPTCHA verification endpoint
-     * POST /v1/api/auth/resend-otp-captcha
-     * 
-     * Request body: { email, recaptchaToken }
-     * Used when rate limit requires CAPTCHA verification
-     */
-    @PostMapping("/resend-otp-captcha")
-    public ResponseEntity<ApiResponse<OtpSendResponse>> resendOtpWithCaptcha(@RequestBody CaptchaVerificationRequest request) {
-        try {
-            OtpSendResponse response = authService.resendOtpWithCaptcha(request.getEmail(), request.getRecaptchaToken());
-            return ResponseEntity.ok(new ApiResponse<>(true, response.getMessage(), response));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(new ApiResponse<>(false, e.getMessage(), null));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
-        }
-    }
 }
