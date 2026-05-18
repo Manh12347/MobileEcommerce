@@ -7,6 +7,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 
@@ -16,6 +17,11 @@ import jakarta.mail.internet.MimeMessage;
 public class MailService {
 
     private final JavaMailSender javaMailSender;
+
+    @PostConstruct
+    public void testMailSender() {
+        System.out.println("MAIL SENDER CLASS = " + javaMailSender.getClass());
+    }
 
     /**
      * Gửi email đơn giản (text)
@@ -40,8 +46,8 @@ public class MailService {
      * Gửi email HTML
      */
     public void sendHtmlEmail(String to, String subject, String htmlContent) {
+        MimeMessage message = javaMailSender.createMimeMessage();
         try {
-            MimeMessage message = javaMailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             
             helper.setFrom("lemanh151148@gmail.com");
@@ -51,8 +57,9 @@ public class MailService {
             
             javaMailSender.send(message);
             log.info("HTML email sent successfully to: {}", to);
-        } catch (MessagingException e) {
-            log.error("Failed to send HTML email to: {}", to, e);
+        } catch (Exception e) {
+            log.error("Error in sendHtmlEmail at MailService.java:", e);
+            e.printStackTrace();
             throw new RuntimeException("Failed to send email", e);
         }
     }

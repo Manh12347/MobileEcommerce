@@ -46,8 +46,8 @@ public class OtpService {
     // Pending registration expiration time in minutes
     private static final int PENDING_REGISTER_EXPIRY_MINUTES = 10;
     
-    // OTP active expiration time in SECONDS (for testing: 10 seconds)
-    private static final int OTP_EXPIRY_SECONDS = 10;
+    // OTP active expiration time in SECONDS (1 minute)
+    private static final int OTP_EXPIRY_SECONDS = 60;
     
     // Expired OTP storage time in minutes (1 hour)
     private static final int EXPIRED_OTP_STORAGE_MINUTES = 60;
@@ -90,7 +90,7 @@ public class OtpService {
         String otp = OtpUtil.generateOtp();
         String redisKey = OTP_KEY_PREFIX + email;
         
-        // Save OTP to Redis with 10 second active expiration (for testing)
+        // Save OTP to Redis with 1 minute active expiration
         redisTemplate.opsForValue().set(redisKey, otp, OTP_EXPIRY_SECONDS, TimeUnit.SECONDS);
         
         // Also save to expired OTP set (to prevent reuse after expiration)
@@ -238,7 +238,7 @@ public class OtpService {
 
     /**
      * Verify OTP
-     * - Check against active OTP (valid for 10 seconds - for testing)
+     * - Check against active OTP (valid for 1 minute)
      * - Prevent reuse of expired OTP (stored for 1 hour)
      * - Create account if pending registration exists
      * - Cleanup expired data after 1 hour of inactivity

@@ -1,7 +1,7 @@
 package com.example.ecommerce.config;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,29 +14,39 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import jakarta.mail.internet.MimeMessage;
 import java.io.InputStream;
 import java.util.Properties;
+import java.util.Arrays;
 
 @Configuration
 @Slf4j
 public class MailConfig {
 
-    @Bean
-    @ConditionalOnMissingBean(JavaMailSender.class)
-    public JavaMailSender javaMailSender() {
-        String host = System.getenv("MAIL_HOST");
-        String port = System.getenv("MAIL_PORT");
-        String username = System.getenv("MAIL_USERNAME");
-        String password = System.getenv("MAIL_PASSWORD");
+    @Value("${spring.mail.host:}")
+    private String host;
 
+    @Value("${spring.mail.port:587}")
+    private Integer port;
+
+    @Value("${spring.mail.username:}")
+    private String username;
+
+    @Value("${spring.mail.password:}")
+    private String password;
+
+    @Bean
+    public JavaMailSender javaMailSender() {
+        System.out.println("CUSTOM MAIL CONFIG ACTIVE");
+        
         // If mail configuration is not available, use no-op implementation
         if (host == null || host.isEmpty()) {
             log.warn("No mail configuration found. Using no-op email sender. Emails will not be sent.");
             return createNoOpMailSender();
         }
 
+        log.info("Initializing JavaMailSender with SMTP: {}:{}", host, port);
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         mailSender.setHost(host);
-        if (port != null && !port.isEmpty()) {
-            mailSender.setPort(Integer.parseInt(port));
+        if (port != null) {
+            mailSender.setPort(port);
         }
         mailSender.setUsername(username);
         mailSender.setPassword(password);
@@ -54,7 +64,7 @@ public class MailConfig {
         return new JavaMailSender() {
             @Override
             public void send(SimpleMailMessage simpleMailMessage) {
-                log.debug("No-op email sender: discarding message to {}", simpleMailMessage.getTo());
+                log.debug("No-op email sender: discarding message to {}", Arrays.toString(simpleMailMessage.getTo()));
             }
 
             @Override
@@ -64,12 +74,16 @@ public class MailConfig {
 
             @Override
             public MimeMessage createMimeMessage() {
-                return null;
+                return new JavaMailSenderImpl().createMimeMessage();
             }
 
             @Override
             public MimeMessage createMimeMessage(InputStream inputStream) {
-                return null;
+                try {
+                    return new JavaMailSenderImpl().createMimeMessage(inputStream);
+                } catch (Exception e) {
+                    return new JavaMailSenderImpl().createMimeMessage();
+                }
             }
 
             @Override
