@@ -296,3 +296,20 @@ CREATE TABLE bank_transactions (
     modified_on TIMESTAMP
 );
 CREATE INDEX idx_bank_date ON bank_transactions(transaction_date);
+
+
+
+
+-- 1️⃣ Xóa Foreign Key constraint
+ALTER TABLE bank_transactions 
+DROP CONSTRAINT IF EXISTS bank_transactions_account_id_fkey;
+
+-- 2️⃣ Xóa column account_id
+ALTER TABLE bank_transactions 
+DROP COLUMN IF EXISTS account_id;
+
+-- 3️⃣ Xóa index cũ (nếu có)
+DROP INDEX IF EXISTS idx_bank_account;
+
+-- ✅ Xác nhận lại structure
+\d bank_transactions
