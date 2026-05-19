@@ -84,6 +84,10 @@ public class ProductService {
     }
 
     public void deleteProduct(Integer productId) {
+        List<ProductItem> items = productItemRepository.findByProductProductId(productId);
+        if (!items.isEmpty()) {
+            throw new RuntimeException("Không thể xóa sản phẩm vì có " + items.size() + " product items đang sử dụng sản phẩm này");
+        }
         productRepository.deleteById(productId);
     }
 
