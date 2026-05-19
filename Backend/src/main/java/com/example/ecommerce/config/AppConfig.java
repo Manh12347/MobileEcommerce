@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 @ConfigurationProperties(prefix = "app")
 public class AppConfig {
     private String domain;
+    private String pythonApiUrl;
 
     public String getDomain() {
         return domain;
@@ -14,5 +15,13 @@ public class AppConfig {
 
     public void setDomain(String domain) {
         this.domain = domain;
+    }
+
+    public String getPythonApiUrl() {
+        return pythonApiUrl;
+    }
+
+    public void setPythonApiUrl(String pythonApiUrl) {
+        this.pythonApiUrl = pythonApiUrl;
     }
 }

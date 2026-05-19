@@ -43,4 +43,7 @@ public class Account extends BaseEntity {
 
     @Column(name = "last_failed_login")
     private java.time.LocalDateTime lastFailedLogin;
+
+    @OneToOne(mappedBy = "account", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Profile profile;
 }
