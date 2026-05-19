@@ -1,7 +1,9 @@
 package com.example.ecommerce.service;
 
 import com.example.ecommerce.entity.Brand;
+import com.example.ecommerce.entity.Product;
 import com.example.ecommerce.repository.BrandRepository;
+import com.example.ecommerce.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +17,9 @@ public class BrandService {
 
     @Autowired
     private BrandRepository brandRepository;
+
+    @Autowired
+    private ProductRepository productRepository;
 
     public Brand createBrand(String name, String country) {
         Brand brand = new Brand();
@@ -43,6 +48,10 @@ public class BrandService {
     }
 
     public void deleteBrand(Integer brandId) {
+        List<Product> products = productRepository.findByBrandBrandId(brandId);
+        if (!products.isEmpty()) {
+            throw new RuntimeException("Không thể xóa brand vì có " + products.size() + " sản phẩm đang sử dụng brand này");
+        }
         brandRepository.deleteById(brandId);
     }
 }
