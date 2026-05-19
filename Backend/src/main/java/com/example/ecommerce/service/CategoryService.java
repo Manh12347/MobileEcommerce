@@ -41,6 +41,10 @@ public class CategoryService {
     }
 
     public void deleteCategory(Integer categoryId) {
+        List<Product> products = productRepository.findByCategoryCategoryId(categoryId);
+        if (!products.isEmpty()) {
+            throw new RuntimeException("Không thể xóa category vì có " + products.size() + " sản phẩm đang sử dụng category này");
+        }
         categoryRepository.deleteById(categoryId);
     }
 }
