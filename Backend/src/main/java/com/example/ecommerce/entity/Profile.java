@@ -4,10 +4,12 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "profiles")
 @Getter @Setter
-public class Profile extends BaseEntity {
+public class Profile {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,4 +24,12 @@ public class Profile extends BaseEntity {
     private String phone;
     private String address;
     private String avatarUrl;
+
+    @Column(name = "created_on", updatable = false)
+    private LocalDateTime createdOn;
+
+    @PrePersist
+    protected void onCreate() {
+        createdOn = LocalDateTime.now();
+    }
 }

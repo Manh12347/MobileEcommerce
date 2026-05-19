@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "bank_transactions")
 @Getter @Setter
-public class BankTransaction {
+public class BankTransaction extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -44,10 +44,4 @@ public class BankTransaction {
 
     @Column(columnDefinition = "TEXT")
     private String description;
-
-    @Column(name = "created_on")
-    private LocalDateTime createdOn;
-
-    @Column(name = "modified_on")
-    private LocalDateTime modifiedOn;
 }

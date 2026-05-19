@@ -7,7 +7,7 @@ import lombok.Setter;
 @Entity
 @Table(name = "orders")
 @Getter @Setter
-public class Order extends BaseEntity {
+public class Order extends BaseCreatedEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
