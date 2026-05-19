@@ -80,22 +80,22 @@ export function LoginForm() {
 
         <div className="relative z-10 flex flex-col items-center justify-center p-12 xl:p-16 h-full text-center">
           {/* Logo */}
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
-              <Smartphone className="w-6 h-6 text-primary-foreground" />
+          <div className="flex items-center gap-4 mb-12">
+            <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center">
+              <Smartphone className="w-8 h-8 text-primary-foreground" />
             </div>
-            <span className="text-2xl font-semibold text-foreground">Ecommerce Shop Admin</span>
+            <span className="text-3xl font-bold text-foreground">Ecommerce Shop Admin</span>
           </div>
 
-          <h1 className="text-4xl xl:text-5xl font-bold text-foreground leading-tight mb-6 text-balance">
+          <h1 className="text-6xl xl:text-7xl font-bold text-foreground leading-tight mb-10 text-balance max-w-2xl">
             Quản lý ứng dụng
             <br />
-            <span className="text-primary">Mobile Ecommerce</span>
+            <span className="text-primary text-7xl xl:text-8xl">Mobile Ecommerce</span>
             <br />
             của bạn
           </h1>
 
-          <p className="text-muted-foreground text-lg max-w-md">
+          <p className="text-muted-foreground text-xl max-w-2xl">
             Bảng điều khiển mạnh mẽ để quản lý sản phẩm, đơn hàng và khách hàng trên ứng dụng di động của bạn.
           </p>
         </div>
@@ -103,7 +103,7 @@ export function LoginForm() {
 
       {/* Right Panel - Login Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 lg:p-12 bg-background">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-2xl">
           {/* Mobile Logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
@@ -112,11 +112,11 @@ export function LoginForm() {
             <span className="text-xl font-semibold text-foreground">Ecommerce Shop Admin</span>
           </div>
 
-          <div className="mb-8">
-            <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
+          <div className="mb-12">
+            <h2 className="text-4xl sm:text-5xl font-bold text-foreground mb-4">
               Chào mừng trở lại
             </h2>
-            <p className="text-muted-foreground">
+            <p className="text-lg text-muted-foreground">
               Đăng nhập vào tài khoản quản trị của bạn
             </p>
           </div>
@@ -143,9 +143,9 @@ export function LoginForm() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-foreground">
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="space-y-3">
+              <Label htmlFor="email" className="text-lg font-semibold text-foreground">
                 Email
               </Label>
               <Input
@@ -154,20 +154,20 @@ export function LoginForm() {
                 placeholder="admin@mobileshop.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="h-12"
+                className="h-14 text-base"
                 required
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-foreground">
+                <Label htmlFor="password" className="text-lg font-semibold text-foreground">
                   Mật khẩu
                 </Label>
                 <button
                   type="button"
                   onClick={handleForgotPassword}
-                  className="text-sm text-primary hover:text-primary/80 transition-colors"
+                  className="text-base text-primary hover:text-primary/80 transition-colors"
                 >
                   Quên mật khẩu?
                 </button>
@@ -179,7 +179,7 @@ export function LoginForm() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="h-12 pr-12"
+                  className="h-14 pr-14 text-base"
                   required
                 />
                 <button
@@ -188,24 +188,24 @@ export function LoginForm() {
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
+                    <EyeOff className="w-6 h-6" />
                   ) : (
-                    <Eye className="w-5 h-5" />
+                    <Eye className="w-6 h-6" />
                   )}
                 </button>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Checkbox id="remember" />
-              <Label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">
+            <div className="flex items-center gap-3">
+              <Checkbox id="remember" className="w-5 h-5" />
+              <Label htmlFor="remember" className="text-base text-muted-foreground cursor-pointer">
                 Ghi nhớ đăng nhập
               </Label>
             </div>
 
             <Button
               type="submit"
-              className="w-full h-12 text-base"
+              className="w-full h-14 text-lg font-semibold"
               disabled={isLoading}
             >
               {isLoading ? (
