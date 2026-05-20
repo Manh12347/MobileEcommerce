@@ -1,0 +1,8 @@
+export { DashboardPage } from './DashboardPage'
+export { UsersPage } from './UsersPage'
+export { DiscountsPage } from './DiscountsPage'
+export { BrandsPage } from './BrandsPage'
+export { CategoriesPage } from './CategoriesPage'
+export { ProductsPage } from './ProductsPage'
+export { OrdersPage } from './OrdersPage'
+export { WarrantyPage } from './WarrantyPage'

@@ -23,15 +23,25 @@ export function LoginForm() {
     try {
       const response = await authAPI.login(email, password)
       
+      console.log('Login response:', response.data)
+      
       if (response.data?.success) {
         const userData = response.data.data;
+        console.log('User data:', userData)
+        console.log('Role:', userData?.role)
+        console.log('Is Admin:', userData?.isAdmin)
+        console.log('Account Type:', userData?.accountType)
         
         // Check if user is admin (verify admin role/type from API response)
-        const isAdmin = userData?.role === 'ADMIN' || userData?.isAdmin === true || userData?.accountType === 'ADMIN';
+        // Support multiple role formats: 'ADMIN', 'admin', 'Admin', 1, true, etc.
+        const userRole = userData?.role?.toUpperCase?.() || userData?.accountType?.toUpperCase?.() || '';
+        const isAdmin = userRole === 'ADMIN' || userData?.isAdmin === true || userData?.isAdmin === 1;
+        
+        console.log('Is Admin determined:', isAdmin)
         
         if (!isAdmin) {
           // Account exists but is not an admin
-          setError("Tài khoản không tồn tại");
+          setError("Chỉ tài khoản quản trị viên mới có thể đăng nhập vào bảng điều khiển này");
           setIsLoading(false);
           return;
         }
@@ -40,14 +50,18 @@ export function LoginForm() {
         localStorage.setItem('accessToken', userData?.accessToken)
         localStorage.setItem('refreshToken', userData?.refreshToken)
         localStorage.setItem('userRole', userData?.role || 'ADMIN')
+        localStorage.setItem('userData', JSON.stringify(userData))
         setSuccess(response.data.message || "Đăng nhập thành công!")
         
         // Redirect after short delay
         setTimeout(() => {
           window.location.href = '/dashboard'
         }, 1000)
+      } else {
+        setError(response.data?.message || "Đăng nhập thất bại")
       }
     } catch (err) {
+      console.error('Login error:', err)
       const errorMsg = err.response?.data?.message || err.message || "Lỗi đăng nhập"
       setError(errorMsg)
     } finally {
