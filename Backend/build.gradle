@@ -34,6 +34,9 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-mail'
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 	
+	// Jackson JSR310 for LocalDateTime support
+	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+	
 	// Lombok for annotations
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
@@ -43,6 +46,12 @@ dependencies {
 	
 	// Dotenv for environment variables
 	implementation 'io.github.cdimascio:java-dotenv:5.2.2'
+	
+	// PGvector for PostgreSQL vector type
+	implementation 'com.pgvector:pgvector:0.1.6'
+	
+	// Hypersistence Utils for JSONB handling
+	implementation 'io.hypersistence:hypersistence-utils-hibernate-63:3.9.4'
 	
 	// JWT Token
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
