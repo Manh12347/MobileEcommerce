@@ -36,6 +36,50 @@ public class ProductItemService {
     @Autowired
     private EmbeddingService embeddingService;
 
+    /**
+     * Ensures JSONB field value is properly formatted JSON
+     */
+    private String formatJsonbValue(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        
+        String trimmed = value.trim();
+        
+        // Already valid JSON (object or array)
+        if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+            return trimmed;
+        }
+        
+        // Already a JSON string with quotes
+        if (trimmed.startsWith("\"") && trimmed.endsWith("\"") && trimmed.length() > 1) {
+            return trimmed;
+        }
+        
+        // Boolean or null
+        if (trimmed.equals("true") || trimmed.equals("false") || trimmed.equals("null")) {
+            return trimmed;
+        }
+        
+        // Try to parse as number
+        try {
+            Double.parseDouble(trimmed);
+            return trimmed;
+        } catch (NumberFormatException e) {
+            // Not a number, wrap as string
+        }
+        
+        // Plain string - escape and wrap as JSON string
+        String escaped = trimmed
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
+        
+        return "\"" + escaped + "\"";
+    }
+
     public ProductItemDTO createProductItem(CreateProductItemRequest request) {
         Optional<Product> productOpt = productRepository.findById(request.getProductId());
         if (!productOpt.isPresent()) {
@@ -65,7 +109,8 @@ public class ProductItemService {
             }
         }
 
-        return toDTO(savedItem, serials);
+        savedItem.setSerials(serials);
+        return toDTO(savedItem);
     }
 
     private List<SerialNumber> generateSerials(ProductItem productItem, int quantity) {
@@ -84,30 +129,22 @@ public class ProductItemService {
     }
 
     public ProductItemDTO getProductItem(Integer productItemId) {
-        ProductItem item = productItemRepository.findById(productItemId)
+        ProductItem item = productItemRepository.findByIdWithSerialsAndProduct(productItemId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy product item với id: " + productItemId));
-
-        List<SerialNumber> serials = serialNumberRepository.findByProductItemProductItemId(productItemId);
-        return toDTO(item, serials);
+        return toDTO(item);
     }
 
     public List<ProductItemDTO> getProductItemsByProduct(Integer productId) {
-        List<ProductItem> items = productItemRepository.findByProductProductId(productId);
+        List<ProductItem> items = productItemRepository.findByProductProductIdWithSerialsAndProduct(productId);
         return items.stream()
-                .map(item -> {
-                    List<SerialNumber> serials = serialNumberRepository.findByProductItemProductItemId(item.getProductItemId());
-                    return toDTO(item, serials);
-                })
+                .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
     public List<ProductItemDTO> getAllProductItems() {
-        List<ProductItem> items = productItemRepository.findAll();
+        List<ProductItem> items = productItemRepository.findAllWithSerialsAndProduct();
         return items.stream()
-                .map(item -> {
-                    List<SerialNumber> serials = serialNumberRepository.findByProductItemProductItemId(item.getProductItemId());
-                    return toDTO(item, serials);
-                })
+                .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
@@ -120,8 +157,8 @@ public class ProductItemService {
         if (request.getStatus() != null) item.setStatus(request.getStatus());
         if (request.getPrice() != null) item.setPrice(request.getPrice());
         if (request.getSalePrice() != null) item.setSalePrice(request.getSalePrice());
-        if (request.getSpecifications() != null) item.setSpecifications(request.getSpecifications());
-        if (request.getImages() != null) item.setImages(request.getImages());
+        if (request.getSpecifications() != null) item.setSpecifications(formatJsonbValue(request.getSpecifications()));
+        if (request.getImages() != null) item.setImages(formatJsonbValue(request.getImages()));
         if (request.getMainImageUrl() != null) item.setMainImageUrl(request.getMainImageUrl());
 
         if (request.getStockQuantity() != null) {
@@ -147,9 +184,7 @@ public class ProductItemService {
         }
 
         ProductItem updatedItem = productItemRepository.save(item);
-        List<SerialNumber> serials = serialNumberRepository.findByProductItemProductItemId(productItemId);
-
-        return toDTO(updatedItem, serials);
+        return toDTO(updatedItem);
     }
 
     private void deleteSerials(Integer productItemId, int quantity) {
@@ -181,21 +216,21 @@ public class ProductItemService {
     }
 
     public ProductItemDTO addStock(Integer productItemId, int quantity) {
-        ProductItem item = productItemRepository.findById(productItemId)
+        ProductItem item = productItemRepository.findByIdWithSerialsAndProduct(productItemId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy product item với id: " + productItemId));
 
         int newStock = item.getStockQuantity() + quantity;
         item.setStockQuantity(newStock);
         productItemRepository.save(item);
 
-        generateSerials(item, quantity);
+        List<SerialNumber> newSerials = generateSerials(item, quantity);
+        item.getSerials().addAll(newSerials);
 
-        List<SerialNumber> serials = serialNumberRepository.findByProductItemProductItemId(productItemId);
-        return toDTO(item, serials);
+        return toDTO(item);
     }
 
     public ProductItemDTO reduceStock(Integer productItemId, int quantity) {
-        ProductItem item = productItemRepository.findById(productItemId)
+        ProductItem item = productItemRepository.findByIdWithSerialsAndProduct(productItemId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy product item với id: " + productItemId));
 
         if (item.getStockQuantity() < quantity) {
@@ -204,15 +239,20 @@ public class ProductItemService {
 
         int newStock = item.getStockQuantity() - quantity;
         item.setStockQuantity(newStock);
+
+        List<SerialNumber> serialsToDelete = item.getSerials().stream()
+                .filter(s -> "in_stock".equals(s.getStatus()))
+                .limit(quantity)
+                .collect(Collectors.toList());
+        serialNumberRepository.deleteAll(serialsToDelete);
+        item.getSerials().removeAll(serialsToDelete);
+
         productItemRepository.save(item);
 
-        deleteSerials(productItemId, quantity);
-
-        List<SerialNumber> serials = serialNumberRepository.findByProductItemProductItemId(productItemId);
-        return toDTO(item, serials);
+        return toDTO(item);
     }
 
-    private ProductItemDTO toDTO(ProductItem item, List<SerialNumber> serials) {
+    private ProductItemDTO toDTO(ProductItem item) {
         ProductItemDTO dto = new ProductItemDTO();
         dto.setProductItemId(item.getProductItemId());
         dto.setSku(item.getSku());
@@ -231,14 +271,14 @@ public class ProductItemService {
             dto.setProductName(item.getProduct().getName());
         }
 
-        if (item.getCreatedOn() != null) dto.setCreatedAt(item.getCreatedOn());
+        if (item.getCreatedOn() != null) dto.setCreatedAt(item.getCreatedOn().toString());
 
-        List<ProductItemDTO.SerialDTO> serialDTOs = serials.stream()
+        List<ProductItemDTO.SerialDTO> serialDTOs = item.getSerials().stream()
                 .map(s -> new ProductItemDTO.SerialDTO(
                         s.getSerialId(),
                         s.getSerialCode(),
                         s.getStatus(),
-                        s.getImportDate()
+                        s.getImportDate() != null ? s.getImportDate().toString() : null
                 ))
                 .collect(Collectors.toList());
         dto.setSerials(serialDTOs);

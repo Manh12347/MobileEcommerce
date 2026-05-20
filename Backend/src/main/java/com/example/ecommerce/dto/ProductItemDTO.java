@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -25,8 +24,8 @@ public class ProductItemDTO {
     private Integer productId;
     private String productName;
     private List<SerialDTO> serials;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    private String createdAt;
+    private String updatedAt;
 
     @Data
     @NoArgsConstructor
@@ -35,6 +34,6 @@ public class ProductItemDTO {
         private Integer serialId;
         private String serialCode;
         private String status;
-        private LocalDateTime importDate;
+        private String importDate;
     }
 }

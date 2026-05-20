@@ -3,6 +3,12 @@ package com.example.ecommerce.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+import com.example.ecommerce.util.JsonbConverter;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "product_items")
@@ -22,24 +28,31 @@ public class ProductItem extends BaseCreatedEntity {
     private java.math.BigDecimal price;
     private java.math.BigDecimal salePrice;
 
-    // JSONB
+    // JSONB - tự động convert String -> JSON khi save
+    @Convert(converter = JsonbConverter.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private String specifications;
 
+    @Convert(converter = JsonbConverter.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private String images;
 
     @Column(name = "main_image_url")
     private String mainImageUrl;
 
-    // vector → tạm dùng float[]
-    @Column(columnDefinition = "vector(1536)")
+    // vector type không được Hibernate support tốt - bỏ qua khi load từ DB
+    @Transient
     private float[] embedding;
 
     @Column(name = "embedding_text")
     private String embeddingText;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "product_id")
     private Product product;
+
+    @OneToMany(mappedBy = "productItem", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<SerialNumber> serials = new ArrayList<>();
 }
