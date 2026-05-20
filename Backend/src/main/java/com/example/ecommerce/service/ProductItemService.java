@@ -13,6 +13,8 @@ import com.example.ecommerce.util.SerialUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -102,14 +104,23 @@ public class ProductItemService {
 
         List<SerialNumber> serials = generateSerials(savedItem, request.getStockQuantity());
 
+        savedItem.setSerials(serials);
+
+        // Call embedding API after transaction commits to ensure data is in DB
+        final Integer productItemId = savedItem.getProductItemId();
         if (request.getDescription() != null && !request.getDescription().isEmpty()) {
-            try {
-                embeddingService.createEmbedding(savedItem.getProductItemId());
-            } catch (Exception e) {
-            }
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    try {
+                        embeddingService.createEmbedding(productItemId);
+                    } catch (Exception e) {
+                        // Log but don't fail the transaction
+                    }
+                }
+            });
         }
 
-        savedItem.setSerials(serials);
         return toDTO(savedItem);
     }
 
