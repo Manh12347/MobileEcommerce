@@ -11,13 +11,46 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
+  const [errors, setErrors] = useState({})
   const [success, setSuccess] = useState("")
+
+  // Email validation regex
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+  // Validation function
+  const validateForm = () => {
+    const newErrors = {}
+
+    // Email validation
+    if (!email.trim()) {
+      newErrors.email = "Email không được để trống"
+    } else if (!emailRegex.test(email)) {
+      newErrors.email = "Email không đúng định dạng (ví dụ: example@domain.com)"
+    }
+
+    // Password validation
+    if (!password) {
+      newErrors.password = "Mật khẩu không được để trống"
+    } else if (password.length < 6) {
+      newErrors.password = "Mật khẩu phải có ít nhất 6 ký tự"
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setError("")
     setSuccess("")
+    
+    // Clear previous errors on submit attempt
+    setErrors({})
+
+    // Validate before submitting
+    if (!validateForm()) {
+      return
+    }
+
     setIsLoading(true)
 
     try {
@@ -26,32 +59,45 @@ export function LoginForm() {
       if (response.data?.success) {
         const userData = response.data.data;
         
-        // Check if user is admin (verify admin role/type from API response)
         const isAdmin = userData?.role === 'ADMIN' || userData?.isAdmin === true || userData?.accountType === 'ADMIN';
         
         if (!isAdmin) {
-          // Account exists but is not an admin
-          setError("Tài khoản không tồn tại");
+          setErrors({ general: "Tài khoản không tồn tại hoặc không có quyền truy cập" });
           setIsLoading(false);
           return;
         }
         
-        // Store tokens for admin users
         localStorage.setItem('accessToken', userData?.accessToken)
         localStorage.setItem('refreshToken', userData?.refreshToken)
         localStorage.setItem('userRole', userData?.role || 'ADMIN')
         setSuccess(response.data.message || "Đăng nhập thành công!")
         
-        // Redirect after short delay
         setTimeout(() => {
           window.location.href = '/dashboard'
         }, 1000)
       }
     } catch (err) {
       const errorMsg = err.response?.data?.message || err.message || "Lỗi đăng nhập"
-      setError(errorMsg)
+      setErrors({ general: errorMsg })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // Handle real-time validation on blur
+  const handleEmailBlur = () => {
+    if (email && !emailRegex.test(email)) {
+      setErrors(prev => ({ ...prev, email: "Email không đúng định dạng (ví dụ: example@domain.com)" }))
+    } else {
+      setErrors(prev => { const { email, ...rest } = prev; return rest })
+    }
+  }
+
+  const handlePasswordBlur = () => {
+    if (password && password.length < 6) {
+      setErrors(prev => ({ ...prev, password: "Mật khẩu phải có ít nhất 6 ký tự" }))
+    } else {
+      setErrors(prev => { const { password, ...rest } = prev; return rest })
     }
   }
 
@@ -121,12 +167,12 @@ export function LoginForm() {
             </p>
           </div>
 
-          {error && (
+          {errors.general && (
             <div className="mb-6 p-4 bg-destructive/15 border-l-4 border-destructive rounded-lg text-destructive animate-in fade-in slide-in-from-top-2 duration-300">
               <div className="flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium text-sm">{error}</p>
+                  <p className="font-medium text-sm">{errors.general}</p>
                 </div>
               </div>
             </div>
@@ -153,10 +199,22 @@ export function LoginForm() {
                 type="email"
                 placeholder="admin@mobileshop.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-14 text-base"
-                required
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  // Clear error when user starts typing
+                  if (errors.email) {
+                    setErrors(prev => { const { email, ...rest } = prev; return rest })
+                  }
+                }}
+                onBlur={handleEmailBlur}
+                className={`h-14 text-base ${errors.email ? 'border-destructive border-2' : ''}`}
               />
+              {errors.email && (
+                <p className="text-sm text-destructive flex items-center gap-1 mt-1">
+                  <AlertCircle className="w-4 h-4" />
+                  {errors.email}
+                </p>
+              )}
             </div>
 
             <div className="space-y-3">
@@ -178,9 +236,15 @@ export function LoginForm() {
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="h-14 pr-14 text-base"
-                  required
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    // Clear error when user starts typing
+                    if (errors.password) {
+                      setErrors(prev => { const { password, ...rest } = prev; return rest })
+                    }
+                  }}
+                  onBlur={handlePasswordBlur}
+                  className={`h-14 pr-14 text-base ${errors.password ? 'border-destructive border-2' : ''}`}
                 />
                 <button
                   type="button"
@@ -194,6 +258,12 @@ export function LoginForm() {
                   )}
                 </button>
               </div>
+              {errors.password && (
+                <p className="text-sm text-destructive flex items-center gap-1 mt-1">
+                  <AlertCircle className="w-4 h-4" />
+                  {errors.password}
+                </p>
+              )}
             </div>
 
             <div className="flex items-center gap-3">
