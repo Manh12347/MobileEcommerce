@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Search, Plus, FolderTree, MoreVertical, Edit, Trash2, ChevronRight, ChevronDown } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -6,6 +6,7 @@ import { Badge } from "../../components/ui/badge"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../../components/ui/table"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../../components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../../components/ui/dialog"
+import { PaginationControls } from "../../components/dashboard/PaginationControls"
 
 const mockCategories = [
   { id: 1, name: "Điện thoại", slug: "dien-thoai", icon: "📱", parent: null, products: 156, children: 3, status: "active" },
@@ -21,6 +22,8 @@ const mockCategories = [
 export function CategoriesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(5)
   const [categories, setCategories] = useState(mockCategories)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -54,6 +57,16 @@ export function CategoriesPage() {
       if (a.status !== "active" && b.status === "active") return 1
       return 0
     })
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, statusFilter, pageSize])
+
+  const rootCategories = filteredCategories.filter((cat) => cat.parent === null)
+  const pagedRootCategories = rootCategories.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  )
 
   return (
     <div className="space-y-6">
@@ -106,137 +119,142 @@ export function CategoriesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredCategories
-              .filter(cat => cat.parent === null)
-              .map((cat) => (
-                <>
-                  <TableRow
-                    key={cat.id}
-                    className="cursor-pointer hover:bg-secondary/30"
-                    onClick={() => toggleRow(cat.id)}
-                  >
-                    <TableCell className="text-center">
-                      {cat.children > 0 && (
-                        expandedRows.includes(cat.id) ? (
-                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                        ) : (
-                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                        )
-                      )}
-                    </TableCell>
-                    <TableCell className="text-left">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center text-xl">
-                          {cat.icon}
-                        </div>
-                        <span className="font-medium text-foreground">{cat.name}</span>
+            {pagedRootCategories.map((cat) => (
+              <>
+                <TableRow key={cat.id} className="cursor-pointer hover:bg-secondary/30" onClick={() => toggleRow(cat.id)}>
+                  <TableCell className="text-center">
+                    {cat.children > 0 && (
+                      expandedRows.includes(cat.id) ? (
+                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                      )
+                    )}
+                  </TableCell>
+                  <TableCell className="text-left">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center text-xl">
+                        {cat.icon}
                       </div>
-                    </TableCell>
-                    <TableCell className="text-left">
-                      <code className="text-sm text-muted-foreground">{cat.slug}</code>
-                    </TableCell>
-                    <TableCell className="text-left text-muted-foreground">
-                      {cat.products} sản phẩm
-                    </TableCell>
-                    <TableCell className="text-left">
-                      <Badge variant="secondary">{cat.children} danh mục con</Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={cat.status === "active" ? "success" : "destructive"}>
-                        {cat.status === "active" ? "Hoạt động" : "Không hoạt động"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger>
-                          <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-primary/10 hover:text-primary transition-colors">
-                            <MoreVertical className="w-5 h-5" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-44">
-                          <DropdownMenuItem
-                            className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer"
-                            onSelect={() => {
-                              setSelectedCategory(cat)
-                              setEditForm({
-                                name: cat.name,
-                                slug: cat.slug,
-                                icon: cat.icon,
-                                parent: cat.parent || ""
-                              })
-                              setEditDialogOpen(true)
-                            }}
-                          >
-                            <Edit className="w-5 h-5 mr-3 text-blue-500" />
-                            Chỉnh sửa
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer text-red-500 hover:bg-red-50"
-                            onSelect={() => {
-                              setSelectedCategory(cat)
-                              setDeleteDialogOpen(true)
-                            }}
-                          >
-                            <Trash2 className="w-5 h-5 mr-3" />
-                            Xóa
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                  {expandedRows.includes(cat.id) &&
-                    filteredCategories
-                      .filter(child => child.parent === cat.id)
-                      .map((child) => (
-                        <TableRow key={child.id} className="bg-secondary/20">
-                          <TableCell className="text-center"></TableCell>
-                          <TableCell className="text-left">
-                            <div className="flex items-center gap-3 ml-6">
-                              <span className="text-xl">{child.icon}</span>
-                              <span className="text-foreground">{child.name}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-left">
-                            <code className="text-sm text-muted-foreground">{child.slug}</code>
-                          </TableCell>
-                          <TableCell className="text-left text-muted-foreground">
-                            {child.products} sản phẩm
-                          </TableCell>
-                          <TableCell className="text-left"></TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant={child.status === "active" ? "success" : "destructive"}>
-                              {child.status === "active" ? "Hoạt động" : "Không hoạt động"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger>
-                                <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-primary/10 hover:text-primary transition-colors">
-                                  <MoreVertical className="w-5 h-5" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-36">
-                                <DropdownMenuItem
-                                  className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer text-red-500 hover:bg-red-50"
-                                  onSelect={() => {
-                                    setSelectedCategory(child)
-                                    setDeleteDialogOpen(true)
-                                  }}
-                                >
-                                  <Trash2 className="w-5 h-5 mr-3" />
-                                  Xóa
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                  }
-                </>
-              ))}
+                      <span className="font-medium text-foreground">{cat.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-left">
+                    <code className="text-sm text-muted-foreground">{cat.slug}</code>
+                  </TableCell>
+                  <TableCell className="text-left text-muted-foreground">
+                    {cat.products} sản phẩm
+                  </TableCell>
+                  <TableCell className="text-left">
+                    <Badge variant="secondary">{cat.children} danh mục con</Badge>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant={cat.status === "active" ? "success" : "destructive"}>
+                      {cat.status === "active" ? "Hoạt động" : "Không hoạt động"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger>
+                        <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-primary/10 hover:text-primary transition-colors">
+                          <MoreVertical className="w-5 h-5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem
+                          className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer"
+                          onSelect={() => {
+                            setSelectedCategory(cat)
+                            setEditForm({
+                              name: cat.name,
+                              slug: cat.slug,
+                              icon: cat.icon,
+                              parent: cat.parent || ""
+                            })
+                            setEditDialogOpen(true)
+                          }}
+                        >
+                          <Edit className="w-5 h-5 mr-3 text-blue-500" />
+                          Chỉnh sửa
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer text-red-500 hover:bg-red-50"
+                          onSelect={() => {
+                            setSelectedCategory(cat)
+                            setDeleteDialogOpen(true)
+                          }}
+                        >
+                          <Trash2 className="w-5 h-5 mr-3" />
+                          Xóa
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+                {expandedRows.includes(cat.id) &&
+                  filteredCategories
+                    .filter((child) => child.parent === cat.id)
+                    .map((child) => (
+                      <TableRow key={child.id} className="bg-secondary/20">
+                        <TableCell className="text-center"></TableCell>
+                        <TableCell className="text-left">
+                          <div className="flex items-center gap-3 ml-6">
+                            <span className="text-xl">{child.icon}</span>
+                            <span className="text-foreground">{child.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-left">
+                          <code className="text-sm text-muted-foreground">{child.slug}</code>
+                        </TableCell>
+                        <TableCell className="text-left text-muted-foreground">
+                          {child.products} sản phẩm
+                        </TableCell>
+                        <TableCell className="text-left"></TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant={child.status === "active" ? "success" : "destructive"}>
+                            {child.status === "active" ? "Hoạt động" : "Không hoạt động"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger>
+                              <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-primary/10 hover:text-primary transition-colors">
+                                <MoreVertical className="w-5 h-5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-36">
+                              <DropdownMenuItem
+                                className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer text-red-500 hover:bg-red-50"
+                                onSelect={() => {
+                                  setSelectedCategory(child)
+                                  setDeleteDialogOpen(true)
+                                }}
+                              >
+                                <Trash2 className="w-5 h-5 mr-3" />
+                                Xóa
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+              </>
+            ))}
+              ))
           </TableBody>
         </Table>
       </div>
+
+      <PaginationControls
+        totalItems={rootCategories.length}
+        pageSize={pageSize}
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size)
+          setCurrentPage(1)
+        }}
+      />
 
       {/* Add Category Dialog */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>

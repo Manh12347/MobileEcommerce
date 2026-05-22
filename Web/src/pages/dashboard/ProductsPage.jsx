@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Search, Plus, Package, MoreVertical, Edit, Trash2, Star, ChevronRight, ChevronDown } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -7,6 +7,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from ".
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../../components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../../components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs"
+import { PaginationControls } from "../../components/dashboard/PaginationControls"
 
 const mockProducts = [
   {
@@ -63,6 +64,8 @@ const formatCurrency = (value) => {
 export function ProductsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusTab, setStatusTab] = useState("all")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(5)
   const [products, setProducts] = useState(mockProducts)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -98,6 +101,15 @@ export function ProductsPage() {
       if (a.status !== "active" && b.status === "active") return 1
       return 0
     })
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, statusTab, pageSize])
+
+  const pagedProducts = filteredProducts.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  )
 
   const renderStars = (rating) => {
     return (
@@ -176,7 +188,7 @@ export function ProductsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredProducts.map((product) => (
+            {pagedProducts.map((product) => (
               <>
                 {/* Product Row (Parent) */}
                 <TableRow
@@ -339,6 +351,17 @@ export function ProductsPage() {
           </TableBody>
         </Table>
       </div>
+
+      <PaginationControls
+        totalItems={filteredProducts.length}
+        pageSize={pageSize}
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size)
+          setCurrentPage(1)
+        }}
+      />
 
       {/* Add Product Dialog */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
