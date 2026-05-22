@@ -12,6 +12,7 @@ import {
   Package,
   Layers3,
   ClipboardList,
+  ShieldCheck,
 } from "lucide-react"
 
 const menuItems = [
@@ -20,6 +21,7 @@ const menuItems = [
   { icon: Building2, label: "Thương hiệu", href: "/dashboard/brands" },
   { icon: FolderTree, label: "Danh mục", href: "/dashboard/categories" },
   { icon: ClipboardList, label: "Đơn hàng", href: "/dashboard/orders" },
+  { icon: ShieldCheck, label: "Bảo hành", href: "/dashboard/warranty" },
   { icon: Package, label: "Sản phẩm", href: "/dashboard/products" },
   { icon: Layers3, label: "Biến thể", href: "/dashboard/variants" },
 ]
