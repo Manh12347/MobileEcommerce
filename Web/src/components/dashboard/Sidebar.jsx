@@ -2,15 +2,16 @@ import { useState } from "react"
 import { Link, useLocation } from "react-router-dom"
 import {
   LayoutDashboard,
+  Percent,
   ChevronLeft,
   ChevronRight,
   Smartphone,
   LogOut,
-  Menu,
 } from "lucide-react"
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Tổng quan", href: "/dashboard" },
+  { icon: Percent, label: "Giảm giá", href: "/dashboard/discounts" },
 ]
 
 export function Sidebar({ collapsed, onCollapsedChange }) {
