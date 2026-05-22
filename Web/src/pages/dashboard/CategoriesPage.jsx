@@ -240,7 +240,7 @@ export function CategoriesPage() {
                     ))}
               </>
             ))}
-              ))}
+              ))
           </TableBody>
         </Table>
       </div>

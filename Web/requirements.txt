@@ -1,0 +1,23 @@
+Web project setup requirements
+
+This file is for rebuilding the React/Vite app in this folder from scratch when package.json is missing after a pull.
+
+1. Open a terminal in Web
+2. Run:
+   npm init -y
+   npm pkg set type=module
+   npm pkg set scripts.dev="vite"
+   npm pkg set scripts.build="vite build"
+   npm pkg set scripts.preview="vite preview"
+3. Install runtime dependencies:
+   npm install react react-dom react-router-dom axios lucide-react recharts
+4. Install dev dependencies:
+   npm install -D vite @vitejs/plugin-react tailwindcss @tailwindcss/postcss postcss autoprefixer
+5. Start the app:
+   npm run dev
+
+Notes:
+- Use Node.js 18+.
+- package.json is required for npm scripts to work.
+- Tailwind is configured through postcss.config.js, tailwind.config.js, and src/index.css.
+- Do not skip npm init -y if package.json is missing.
