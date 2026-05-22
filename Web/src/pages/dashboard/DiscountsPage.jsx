@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Search, Plus, Tag, Calendar, MoreVertical, Trash2, Edit } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -6,6 +6,7 @@ import { Badge } from "../../components/ui/badge"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../../components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../../components/ui/dialog"
+import { PaginationControls } from "../../components/dashboard/PaginationControls"
 
 const mockDiscounts = [
   { id: 1, code: "SUMMER2026", name: "Khuyến mãi mùa hè", type: "percent", value: 30, minOrder: 500000, maxDiscount: 200000, startDate: "2026-05-01", endDate: "2026-05-31", status: "active", usage: 1250 },
@@ -17,6 +18,8 @@ const mockDiscounts = [
 export function DiscountsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(5)
   const [discounts, setDiscounts] = useState(mockDiscounts)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -44,6 +47,15 @@ export function DiscountsPage() {
       if (a.status !== "active" && b.status === "active") return 1
       return 0
     })
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, statusFilter, pageSize])
+
+  const pagedDiscounts = filteredDiscounts.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  )
 
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('vi-VN').format(value) + 'đ'
@@ -102,7 +114,7 @@ export function DiscountsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredDiscounts.map((discount) => (
+            {pagedDiscounts.map((discount) => (
               <TableRow key={discount.id}>
                 <TableCell className="text-left">
                   <div className="flex items-center gap-2">
@@ -188,6 +200,17 @@ export function DiscountsPage() {
           </TableBody>
         </Table>
       </div>
+
+      <PaginationControls
+        totalItems={filteredDiscounts.length}
+        pageSize={pageSize}
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size)
+          setCurrentPage(1)
+        }}
+      />
 
       {/* Edit Discount Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
