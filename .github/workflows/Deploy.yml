@@ -45,6 +45,35 @@ jobs:
           ls -lh ..
 
       # =========================
+      # 3.5 Build Website Frontend
+      # =========================
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Web Dependencies
+        run: |
+          cd Web
+          npm install
+
+      - name: Build Frontend
+        run: |
+          cd Web
+          npm run build
+
+      - name: Copy Frontend dist
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "Web/dist/*"
+          target: "/home/${{ secrets.SSH_USER }}/MobileEcommerce/Web/dist/"
+          strip_components: 2
+          overwrite: true
+
+      # =========================
       # 4. Deploy to Server (SSH)
       # =========================
       - name: Deploy & Setup
