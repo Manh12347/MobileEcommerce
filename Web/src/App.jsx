@@ -3,6 +3,7 @@ import { LoginForm } from './components/login-form'
 import { DashboardLayout } from './components/dashboard/DashboardLayout'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { DiscountsPage } from './pages/dashboard/DiscountsPage'
+import { BrandsPage } from './pages/dashboard/BrandsPage'
 import './index.css'
 
 function ProtectedRoute({ children }) {
@@ -36,6 +37,16 @@ function App() {
             <ProtectedRoute>
               <DashboardLayout>
                 <DiscountsPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/brands"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <BrandsPage />
               </DashboardLayout>
             </ProtectedRoute>
           }
