@@ -6,6 +6,7 @@ import { DiscountsPage } from './pages/dashboard/DiscountsPage'
 import { BrandsPage } from './pages/dashboard/BrandsPage'
 import { CategoriesPage } from './pages/dashboard/CategoriesPage'
 import { ProductsPage } from './pages/dashboard/ProductsPage'
+import { VariantsPage } from './pages/dashboard/VariantsPage'
 import './index.css'
 
 function ProtectedRoute({ children }) {
@@ -69,6 +70,16 @@ function App() {
             <ProtectedRoute>
               <DashboardLayout>
                 <ProductsPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/variants"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <VariantsPage />
               </DashboardLayout>
             </ProtectedRoute>
           }
