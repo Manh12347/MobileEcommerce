@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom"
 import {
   LayoutDashboard,
   Percent,
+  Building2,
   ChevronLeft,
   ChevronRight,
   Smartphone,
@@ -12,6 +13,7 @@ import {
 const menuItems = [
   { icon: LayoutDashboard, label: "Tổng quan", href: "/dashboard" },
   { icon: Percent, label: "Giảm giá", href: "/dashboard/discounts" },
+  { icon: Building2, label: "Thương hiệu", href: "/dashboard/brands" },
 ]
 
 export function Sidebar({ collapsed, onCollapsedChange }) {

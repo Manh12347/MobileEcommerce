@@ -17,14 +17,33 @@ const mockDiscounts = [
 export function DiscountsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [discounts, setDiscounts] = useState(mockDiscounts)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
-
-  const filteredDiscounts = mockDiscounts.filter(discount => {
-    const matchesSearch = discount.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          discount.name.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === "all" || discount.status === statusFilter
-    return matchesSearch && matchesStatus
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [selectedDiscount, setSelectedDiscount] = useState(null)
+  const [editForm, setEditForm] = useState({
+    code: "",
+    name: "",
+    type: "percent",
+    value: 0,
+    minOrder: 0,
+    startDate: "",
+    endDate: ""
   })
+
+  const filteredDiscounts = discounts
+    .filter(discount => {
+      const matchesSearch = discount.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            discount.name.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesStatus = statusFilter === "all" || discount.status === statusFilter
+      return matchesSearch && matchesStatus
+    })
+    .sort((a, b) => {
+      if (a.status === "active" && b.status !== "active") return -1
+      if (a.status !== "active" && b.status === "active") return 1
+      return 0
+    })
 
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('vi-VN').format(value) + 'đ'
@@ -72,32 +91,32 @@ export function DiscountsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Mã giảm giá</TableHead>
-              <TableHead>Loại</TableHead>
-              <TableHead>Giảm</TableHead>
-              <TableHead>Đơn hàng tối thiểu</TableHead>
-              <TableHead>Thời gian</TableHead>
-              <TableHead>Trạng thái</TableHead>
-              <TableHead>Đã sử dụng</TableHead>
-              <TableHead className="w-12"></TableHead>
+              <TableHead className="text-left">Mã giảm giá</TableHead>
+              <TableHead className="text-center">Loại</TableHead>
+              <TableHead className="text-left">Giảm</TableHead>
+              <TableHead className="text-left">Đơn hàng tối thiểu</TableHead>
+              <TableHead className="text-left">Thời gian</TableHead>
+              <TableHead className="text-center">Trạng thái</TableHead>
+              <TableHead className="text-left">Đã sử dụng</TableHead>
+              <TableHead className="w-12 text-center"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredDiscounts.map((discount) => (
               <TableRow key={discount.id}>
-                <TableCell>
+                <TableCell className="text-left">
                   <div className="flex items-center gap-2">
                     <Tag className="w-4 h-4 text-primary" />
                     <span className="font-mono font-medium text-primary">{discount.code}</span>
                   </div>
                   <span className="text-xs text-muted-foreground">{discount.name}</span>
                 </TableCell>
-                <TableCell>
+                <TableCell className="text-center">
                   <Badge variant={discount.type === "percent" ? "info" : "warning"}>
                     {discount.type === "percent" ? "Phần trăm" : "Cố định"}
                   </Badge>
                 </TableCell>
-                <TableCell className="font-medium">
+                <TableCell className="text-left font-medium">
                   {discount.type === "percent" ? `${discount.value}%` : formatCurrency(discount.value)}
                   {discount.maxDiscount && (
                     <span className="text-xs text-muted-foreground block">
@@ -105,38 +124,59 @@ export function DiscountsPage() {
                     </span>
                   )}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="text-left text-muted-foreground">
                   {discount.minOrder > 0 ? formatCurrency(discount.minOrder) : "Không có"}
                 </TableCell>
-                <TableCell>
+                <TableCell className="text-left">
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Calendar className="w-3 h-3" />
                     {discount.startDate} - {discount.endDate}
                   </div>
                 </TableCell>
-                <TableCell>
-                  <Badge 
+                <TableCell className="text-center">
+                  <Badge
                     variant={discount.status === "active" ? "success" : "destructive"}
                   >
                     {discount.status === "active" ? "Hoạt động" : "Hết hạn"}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="text-left text-muted-foreground">
                   {new Intl.NumberFormat('vi-VN').format(discount.usage)} lượt
                 </TableCell>
-                <TableCell>
+                <TableCell className="text-center">
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
+                    <DropdownMenuTrigger>
                       <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-primary/10 hover:text-primary transition-colors">
                         <MoreVertical className="w-5 h-5" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="min-w-[160px] p-2">
-                      <DropdownMenuItem className="py-3 px-4 text-base rounded-md cursor-pointer">
-                        <Edit className="w-5 h-5 mr-3 text-blue-400" />
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuItem
+                        className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer"
+                        onSelect={() => {
+                          setSelectedDiscount(discount)
+                          setEditForm({
+                            code: discount.code,
+                            name: discount.name,
+                            type: discount.type,
+                            value: discount.value,
+                            minOrder: discount.minOrder,
+                            startDate: discount.startDate,
+                            endDate: discount.endDate
+                          })
+                          setEditDialogOpen(true)
+                        }}
+                      >
+                        <Edit className="w-5 h-5 mr-3 text-blue-500" />
                         Chỉnh sửa
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="py-3 px-4 text-base rounded-md cursor-pointer text-destructive hover:bg-destructive/10">
+                      <DropdownMenuItem
+                        className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer text-red-500 hover:bg-red-50"
+                        onSelect={() => {
+                          setSelectedDiscount(discount)
+                          setDeleteDialogOpen(true)
+                        }}
+                      >
                         <Trash2 className="w-5 h-5 mr-3" />
                         Xóa
                       </DropdownMenuItem>
@@ -149,54 +189,140 @@ export function DiscountsPage() {
         </Table>
       </div>
 
-      {/* Add Discount Dialog */}
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+      {/* Edit Discount Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader className="text-left mb-4">
-            <DialogTitle className="text-xl">Tạo mã giảm giá mới</DialogTitle>
+            <DialogTitle className="text-xl">Chỉnh sửa mã giảm giá</DialogTitle>
             <DialogDescription>
-              Điền thông tin để tạo chương trình khuyến mãi mới
+              Cập nhật thông tin mã giảm giá: <span className="font-medium text-foreground">{selectedDiscount?.code}</span>
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div>
-              <label className="text-sm font-medium mb-1 block text-left">Mã giảm giá</label>
-              <Input placeholder="VD: SUMMER2026" className="font-mono" />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block text-left">Tên chương trình</label>
-              <Input placeholder="Nhập tên chương trình" />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-1 block text-left">Mã giảm giá</label>
+                <Input
+                  placeholder="VD: SUMMER2026"
+                  className="font-mono h-11"
+                  value={editForm.code}
+                  onChange={(e) => setEditForm({ ...editForm, code: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block text-left">Tên chương trình</label>
+                <Input
+                  placeholder="Nhập tên chương trình"
+                  className="h-11"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-1 block text-left">Loại</label>
-                <select className="w-full h-11 px-3 rounded-md border border-input bg-background text-sm">
+                <select
+                  className="w-full h-11 px-3 rounded-md border border-input bg-background text-sm"
+                  value={editForm.type}
+                  onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}
+                >
                   <option value="percent">Phần trăm</option>
                   <option value="fixed">Cố định</option>
                 </select>
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block text-left">Giá trị</label>
-                <Input type="number" placeholder="0" className="h-11" />
+                <Input
+                  type="number"
+                  placeholder="0"
+                  className="h-11"
+                  value={editForm.value}
+                  onChange={(e) => setEditForm({ ...editForm, value: parseInt(e.target.value) })}
+                />
               </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block text-left">Đơn hàng tối thiểu</label>
+              <Input
+                type="number"
+                placeholder="0"
+                className="h-11"
+                value={editForm.minOrder}
+                onChange={(e) => setEditForm({ ...editForm, minOrder: parseInt(e.target.value) })}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-1 block text-left">Ngày bắt đầu</label>
-                <Input type="date" className="h-11" />
+                <Input
+                  type="date"
+                  className="h-11"
+                  value={editForm.startDate}
+                  onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })}
+                />
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block text-left">Ngày kết thúc</label>
-                <Input type="date" className="h-11" />
+                <Input
+                  type="date"
+                  className="h-11"
+                  value={editForm.endDate}
+                  onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })}
+                />
               </div>
             </div>
           </div>
           <DialogFooter className="gap-3 pt-4">
-            <Button variant="outline" onClick={() => setAddDialogOpen(false)} className="h-11 px-6 text-base font-medium">
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)} className="h-11 px-6 text-base font-medium">
               Hủy
             </Button>
-            <Button onClick={() => setAddDialogOpen(false)} className="h-11 px-6 text-base font-semibold shadow-lg shadow-primary/20">
-              Tạo mã giảm giá
+            <Button
+              onClick={() => {
+                setDiscounts(discounts.map(d => d.id === selectedDiscount?.id ? { ...d, ...editForm } : d))
+                setEditDialogOpen(false)
+              }}
+              className="h-11 px-6 text-base font-semibold shadow-lg shadow-primary/20"
+            >
+              Lưu thay đổi
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader className="text-left mb-4">
+            <DialogTitle className="text-xl">Xác nhận xóa mã giảm giá</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc chắn muốn xóa mã giảm giá <span className="font-medium text-foreground">{selectedDiscount?.code}</span>? Hành động này không thể hoàn tác.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="flex items-center gap-3 p-4 bg-red-50 rounded-lg border border-red-200">
+              <div className="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center">
+                <Tag className="w-6 h-6 text-red-500" />
+              </div>
+              <div>
+                <p className="font-mono font-medium text-foreground">{selectedDiscount?.code}</p>
+                <p className="text-sm text-muted-foreground">{selectedDiscount?.name}</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-3 pt-4">
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} className="h-11 px-6 text-base font-medium">
+              Hủy
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setDiscounts(discounts.filter(d => d.id !== selectedDiscount?.id))
+                setDeleteDialogOpen(false)
+              }}
+              className="h-11 px-6 text-base font-medium"
+            >
+              Xóa mã giảm giá
             </Button>
           </DialogFooter>
         </DialogContent>

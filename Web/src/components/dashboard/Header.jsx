@@ -6,6 +6,7 @@ import { Input } from "../ui/input"
 const breadcrumbMap = {
   "/dashboard": { parent: "Trang chủ", current: "Tổng quan" },
   "/dashboard/discounts": { parent: "Trang chủ", current: "Giảm giá" },
+  "/dashboard/brands": { parent: "Trang chủ", current: "Thương hiệu" },
 }
 
 export function Header({ sidebarCollapsed, onMenuClick }) {
