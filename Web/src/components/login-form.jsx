@@ -59,7 +59,7 @@ export function LoginForm() {
       if (response.data?.success) {
         const userData = response.data.data;
         
-        const isAdmin = userData?.role === 'ADMIN' || userData?.isAdmin === true || userData?.accountType === 'ADMIN';
+        const isAdmin = userData?.role?.toUpperCase() === 'ADMIN' || userData?.isAdmin === true || userData?.accountType?.toUpperCase() === 'ADMIN';
         
         if (!isAdmin) {
           setErrors({ general: "Tài khoản không tồn tại hoặc không có quyền truy cập" });
@@ -69,7 +69,7 @@ export function LoginForm() {
         
         localStorage.setItem('accessToken', userData?.accessToken)
         localStorage.setItem('refreshToken', userData?.refreshToken)
-        localStorage.setItem('userRole', userData?.role || 'ADMIN')
+        localStorage.setItem('userRole', userData?.role || 'admin')
         setSuccess(response.data.message || "Đăng nhập thành công!")
         
         setTimeout(() => {
