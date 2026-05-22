@@ -24,15 +24,15 @@ export function DropdownMenu({ children }) {
   }, []);
 
   const handleToggle = useCallback(() => {
-    if (!open && triggerRef.current) {
+    if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
       setPosition({
-        top: rect.bottom + window.scrollY,
-        left: rect.left + window.scrollX
+        top: rect.bottom,
+        left: rect.left
       });
     }
     setOpen(prev => !prev);
-  }, [open]);
+  }, []);
 
   return (
     <DropdownMenuContext.Provider value={{ open, setOpen }}>
@@ -69,6 +69,7 @@ export function DropdownMenuTrigger({ children, onToggle, triggerRef }) {
     if (!child) return null;
     return React.cloneElement(child, {
       onClick: (e) => {
+        e.stopPropagation();
         if (child.props.onClick) {
           child.props.onClick(e);
         }
@@ -79,14 +80,14 @@ export function DropdownMenuTrigger({ children, onToggle, triggerRef }) {
   });
 }
 
-export function DropdownMenuContent({ children, align = 'end', className = '', position, menuRef, sideOffset = 8 }) {
+export function DropdownMenuContent({ children, align = 'end', className = '', position, menuRef, sideOffset = 4 }) {
   return (
     <div
       ref={menuRef}
-      className={`fixed min-w-[160px] overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-xl animate-in fade-in-0 zoom-in-95 ${className}`}
+      className={`fixed z-50 min-w-[160px] overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-xl animate-in fade-in-0 zoom-in-95 ${className}`}
       style={{
         top: position.top + sideOffset,
-        left: align === 'end' ? Math.max(position.left - 160, 8) : position.left,
+        left: align === 'end' ? position.left - 160 : position.left,
         zIndex: 9999,
       }}
     >
