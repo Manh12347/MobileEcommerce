@@ -5,6 +5,7 @@ import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { DiscountsPage } from './pages/dashboard/DiscountsPage'
 import { BrandsPage } from './pages/dashboard/BrandsPage'
 import { CategoriesPage } from './pages/dashboard/CategoriesPage'
+import { OrdersPage } from './pages/dashboard/OrdersPage'
 import { ProductsPage } from './pages/dashboard/ProductsPage'
 import { VariantsPage } from './pages/dashboard/VariantsPage'
 import './index.css'
@@ -60,6 +61,16 @@ function App() {
             <ProtectedRoute>
               <DashboardLayout>
                 <CategoriesPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/orders"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <OrdersPage />
               </DashboardLayout>
             </ProtectedRoute>
           }
