@@ -10,6 +10,7 @@ import {
   LogOut,
   FolderTree,
   Package,
+  Layers3,
 } from "lucide-react"
 
 const menuItems = [
@@ -18,6 +19,7 @@ const menuItems = [
   { icon: Building2, label: "Thương hiệu", href: "/dashboard/brands" },
   { icon: FolderTree, label: "Danh mục", href: "/dashboard/categories" },
   { icon: Package, label: "Sản phẩm", href: "/dashboard/products" },
+  { icon: Layers3, label: "Biến thể", href: "/dashboard/variants" },
 ]
 
 export function Sidebar({ collapsed, onCollapsedChange }) {
