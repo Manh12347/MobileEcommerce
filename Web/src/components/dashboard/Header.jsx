@@ -7,6 +7,7 @@ const breadcrumbMap = {
   "/dashboard": { parent: "Trang chủ", current: "Tổng quan" },
   "/dashboard/discounts": { parent: "Trang chủ", current: "Giảm giá" },
   "/dashboard/brands": { parent: "Trang chủ", current: "Thương hiệu" },
+  "/dashboard/variants": { parent: "Trang chủ", current: "Biến thể" },
 }
 
 export function Header({ sidebarCollapsed, onMenuClick }) {

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Search, Plus, Building2, MoreVertical, Edit, Ban, Trash2 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -6,6 +6,7 @@ import { Badge } from "../../components/ui/badge"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../../components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../../components/ui/dialog"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../../components/ui/dropdown-menu"
+import { PaginationControls } from "../../components/dashboard/PaginationControls"
 
 const mockBrands = [
   { id: 1, name: "Apple", slug: "apple", logo: "🍎", products: 45, status: "active" },
@@ -19,6 +20,8 @@ const mockBrands = [
 export function BrandsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(5)
   const [brands, setBrands] = useState(mockBrands)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -37,6 +40,15 @@ export function BrandsPage() {
       if (a.status !== "active" && b.status === "active") return 1
       return 0
     })
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, statusFilter, pageSize])
+
+  const pagedBrands = filteredBrands.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  )
 
   return (
     <div className="space-y-6">
@@ -87,7 +99,7 @@ export function BrandsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredBrands.map((brand) => (
+            {pagedBrands.map((brand) => (
               <TableRow key={brand.id}>
                 <TableCell className="text-left">
                   <div className="flex items-center gap-3">
@@ -145,6 +157,17 @@ export function BrandsPage() {
           </TableBody>
         </Table>
       </div>
+
+      <PaginationControls
+        totalItems={filteredBrands.length}
+        pageSize={pageSize}
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size)
+          setCurrentPage(1)
+        }}
+      />
 
       {/* Add Brand Dialog */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
