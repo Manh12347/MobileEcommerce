@@ -4,15 +4,16 @@ import { DashboardLayout } from './components/dashboard/DashboardLayout'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { DiscountsPage } from './pages/dashboard/DiscountsPage'
 import { BrandsPage } from './pages/dashboard/BrandsPage'
+import { CategoriesPage } from './pages/dashboard/CategoriesPage'
 import './index.css'
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('accessToken')
-  
+
   if (!token) {
     return <Navigate to="/" replace />
   }
-  
+
   return children
 }
 
@@ -47,6 +48,16 @@ function App() {
             <ProtectedRoute>
               <DashboardLayout>
                 <BrandsPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/categories"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <CategoriesPage />
               </DashboardLayout>
             </ProtectedRoute>
           }
