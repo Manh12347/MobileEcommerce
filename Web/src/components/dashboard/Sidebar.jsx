@@ -11,6 +11,7 @@ import {
   FolderTree,
   Package,
   Layers3,
+  ClipboardList,
 } from "lucide-react"
 
 const menuItems = [
@@ -18,6 +19,7 @@ const menuItems = [
   { icon: Percent, label: "Giảm giá", href: "/dashboard/discounts" },
   { icon: Building2, label: "Thương hiệu", href: "/dashboard/brands" },
   { icon: FolderTree, label: "Danh mục", href: "/dashboard/categories" },
+  { icon: ClipboardList, label: "Đơn hàng", href: "/dashboard/orders" },
   { icon: Package, label: "Sản phẩm", href: "/dashboard/products" },
   { icon: Layers3, label: "Biến thể", href: "/dashboard/variants" },
 ]
