@@ -8,12 +8,14 @@ import {
   ChevronRight,
   Smartphone,
   LogOut,
+  FolderTree,
 } from "lucide-react"
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Tổng quan", href: "/dashboard" },
   { icon: Percent, label: "Giảm giá", href: "/dashboard/discounts" },
   { icon: Building2, label: "Thương hiệu", href: "/dashboard/brands" },
+  { icon: FolderTree, label: "Danh mục", href: "/dashboard/categories" },
 ]
 
 export function Sidebar({ collapsed, onCollapsedChange }) {
