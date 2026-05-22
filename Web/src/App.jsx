@@ -6,6 +6,7 @@ import { DiscountsPage } from './pages/dashboard/DiscountsPage'
 import { BrandsPage } from './pages/dashboard/BrandsPage'
 import { CategoriesPage } from './pages/dashboard/CategoriesPage'
 import { OrdersPage } from './pages/dashboard/OrdersPage'
+import { WarrantyPage } from './pages/dashboard/WarrantyPage'
 import { ProductsPage } from './pages/dashboard/ProductsPage'
 import { VariantsPage } from './pages/dashboard/VariantsPage'
 import './index.css'
@@ -71,6 +72,16 @@ function App() {
             <ProtectedRoute>
               <DashboardLayout>
                 <OrdersPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/warranty"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <WarrantyPage />
               </DashboardLayout>
             </ProtectedRoute>
           }
