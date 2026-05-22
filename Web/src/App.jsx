@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { LoginForm } from './components/login-form'
 import { DashboardLayout } from './components/dashboard/DashboardLayout'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
+import { DiscountsPage } from './pages/dashboard/DiscountsPage'
 import './index.css'
 
 function ProtectedRoute({ children }) {
@@ -25,6 +26,16 @@ function App() {
             <ProtectedRoute>
               <DashboardLayout>
                 <DashboardPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/discounts"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <DiscountsPage />
               </DashboardLayout>
             </ProtectedRoute>
           }
