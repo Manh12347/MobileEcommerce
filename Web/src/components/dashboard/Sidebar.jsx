@@ -9,6 +9,7 @@ import {
   Smartphone,
   LogOut,
   FolderTree,
+  Package,
 } from "lucide-react"
 
 const menuItems = [
@@ -16,6 +17,7 @@ const menuItems = [
   { icon: Percent, label: "Giảm giá", href: "/dashboard/discounts" },
   { icon: Building2, label: "Thương hiệu", href: "/dashboard/brands" },
   { icon: FolderTree, label: "Danh mục", href: "/dashboard/categories" },
+  { icon: Package, label: "Sản phẩm", href: "/dashboard/products" },
 ]
 
 export function Sidebar({ collapsed, onCollapsedChange }) {
