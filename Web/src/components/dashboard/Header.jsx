@@ -1,8 +1,17 @@
 import { Bell, Search, Settings, User, Menu as MenuIcon } from "lucide-react"
+import { useLocation } from "react-router-dom"
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
 
+const breadcrumbMap = {
+  "/dashboard": { parent: "Trang chủ", current: "Tổng quan" },
+  "/dashboard/discounts": { parent: "Trang chủ", current: "Giảm giá" },
+}
+
 export function Header({ sidebarCollapsed, onMenuClick }) {
+  const location = useLocation()
+  const breadcrumb = breadcrumbMap[location.pathname] || { parent: "Trang chủ", current: "Admin" }
+
   return (
     <header
       className="fixed top-0 right-0 z-30 h-16 bg-card border-b border-border flex items-center justify-between px-6 transition-all duration-300"
@@ -23,11 +32,11 @@ export function Header({ sidebarCollapsed, onMenuClick }) {
 
       {/* Breadcrumb */}
       <div className="hidden md:flex items-center gap-2 text-sm">
-        <span className="text-muted-foreground">Trang chủ</span>
+        <span className="text-muted-foreground">{breadcrumb.parent}</span>
         <span className="text-muted-foreground">/</span>
         <span className="text-primary">Admin</span>
         <span className="text-muted-foreground">/</span>
-        <span className="text-foreground font-medium">Tổng quan</span>
+        <span className="text-foreground font-medium">{breadcrumb.current}</span>
       </div>
 
       {/* Right Actions */}
