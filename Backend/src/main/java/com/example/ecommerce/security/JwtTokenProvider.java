@@ -60,6 +60,15 @@ public class JwtTokenProvider {
                 .get("accountId", Integer.class);
     }
 
+    public String getRoleFromToken(String token) {
+        return Jwts.parser()
+                .verifyWith(getSigningKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .get("role", String.class);
+    }
+
     public String getEmailFromToken(String token) {
         return Jwts.parser()
                 .verifyWith(getSigningKey())
