@@ -24,7 +24,13 @@ public class WarrantyService {
 
     public Warranty createWarranty(Integer serialId, LocalDate startDate, LocalDate endDate) {
         Optional<SerialNumber> serialOpt = serialNumberRepository.findById(serialId.longValue());
-        if (!serialOpt.isPresent()) return null;
+        if (!serialOpt.isPresent()) {
+            throw new RuntimeException("Serial number not found with id: " + serialId);
+        }
+
+        if (warrantyRepository.findBySerialNumber_SerialId(serialId).isPresent()) {
+            throw new RuntimeException("Warranty already exists for serial id: " + serialId);
+        }
 
         Warranty warranty = new Warranty();
         warranty.setSerialNumber(serialOpt.get());
@@ -35,8 +41,21 @@ public class WarrantyService {
         return warrantyRepository.save(warranty);
     }
 
+    public Warranty createWarranty(Integer serialId, LocalDate startDate, LocalDate endDate, String status) {
+        Warranty warranty = createWarranty(serialId, startDate, endDate);
+        if (status != null && !status.isBlank()) {
+            warranty.setStatus(status);
+            return warrantyRepository.save(warranty);
+        }
+        return warranty;
+    }
+
     public Warranty getWarranty(Integer warrantyId) {
         return warrantyRepository.findById(warrantyId).orElse(null);
+    }
+
+    public List<Warranty> getAllWarranties() {
+        return warrantyRepository.findAll();
     }
 
     public Warranty getWarrantyBySerialId(Integer serialId) {
@@ -53,6 +72,33 @@ public class WarrantyService {
 
         Warranty warranty = warrantyOpt.get();
         warranty.setStatus(status);
+        return warrantyRepository.save(warranty);
+    }
+
+    public Warranty updateWarranty(Integer warrantyId, Integer serialId, LocalDate startDate, LocalDate endDate, String status) {
+        Optional<Warranty> warrantyOpt = warrantyRepository.findById(warrantyId);
+        if (!warrantyOpt.isPresent()) return null;
+
+        Warranty warranty = warrantyOpt.get();
+
+        if (serialId != null) {
+            Optional<SerialNumber> serialOpt = serialNumberRepository.findById(serialId.longValue());
+            if (!serialOpt.isPresent()) {
+                throw new RuntimeException("Serial number not found with id: " + serialId);
+            }
+
+            Optional<Warranty> existingWarranty = warrantyRepository.findBySerialNumber_SerialId(serialId);
+            if (existingWarranty.isPresent() && !existingWarranty.get().getWarrantyId().equals(warrantyId)) {
+                throw new RuntimeException("Warranty already exists for serial id: " + serialId);
+            }
+
+            warranty.setSerialNumber(serialOpt.get());
+        }
+
+        if (startDate != null) warranty.setStartDate(startDate);
+        if (endDate != null) warranty.setEndDate(endDate);
+        if (status != null) warranty.setStatus(status);
+
         return warrantyRepository.save(warranty);
     }
 

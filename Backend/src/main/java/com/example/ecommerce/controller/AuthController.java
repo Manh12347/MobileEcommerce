@@ -19,6 +19,25 @@ public class AuthController {
     private AuthService authService;
 
     /**
+     * Lightweight OAuth endpoint for mobile clients.
+     * Android verifies the provider identity, then sends the basic user data here.
+     */
+    @PostMapping("/oauth")
+    public ResponseEntity<ApiResponse<LoginResponse>> oauthLogin(@RequestBody OAuthLoginRequest request) {
+        try {
+            LoginResponse response = authService.oauthLogin(request);
+            return ResponseEntity.ok(new ApiResponse<>(true, response.getMessage(), response));
+        } catch (AuthenticationException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (Exception e) {
+            log.error("Server error during oauth login:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Server error: " + e.getMessage(), null));
+        }
+    }
+
+    /**
      * Login endpoint
      * POST /v1/api/auth/login
      * 
