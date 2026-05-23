@@ -1,21 +1,16 @@
-# Web
+# React + Vite
 
-Đây là phần frontend của dự án MobileEcommerce, được xây dựng bằng React + Vite.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Cài đặt và chạy
+Currently, two official plugins are available:
 
-Mở terminal tại thư mục gốc của dự án, sau đó chạy:
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-```bash
-npm install
-cd Web
-npm run dev
-```
+## React Compiler
 
-Sau khi chạy xong, Vite sẽ hiển thị địa chỉ local để mở ứng dụng trên trình duyệt.
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-## Lưu ý
+## Expanding the ESLint configuration
 
-- Nếu bạn vừa clone dự án về, hãy chạy `npm install` một lần để cài dependencies.
-- Lệnh `npm run dev` dùng để khởi động môi trường phát triển.
-- Nếu cần build production, dùng `npm run build`.
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.

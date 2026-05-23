@@ -136,9 +136,13 @@ CREATE TABLE cart_items (
     cart_id INT NOT NULL,
     product_item_id INT NOT NULL,
     quantity INT DEFAULT 1 CHECK (quantity > 0),
+    price NUMERIC(15, 2) NOT NULL DEFAULT 0,
     FOREIGN KEY (cart_id) REFERENCES carts(cart_id) ON DELETE CASCADE,
     FOREIGN KEY (product_item_id) REFERENCES product_items(product_item_id)
 );
+
+-- Migration for existing databases:
+-- ALTER TABLE cart_items ADD COLUMN IF NOT EXISTS price NUMERIC(15, 2) NOT NULL DEFAULT 0;
 
 -- ========================
 -- 11. ORDERS

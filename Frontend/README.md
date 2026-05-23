@@ -1,54 +1,17 @@
-# Frontend
+# mobile_ecommerce
 
-Đây là phần giao diện người dùng của dự án MobileEcommerce, được xây dựng bằng Flutter.
+A new Flutter project.
 
-## Yêu cầu
+## Getting Started
 
-- Flutter SDK tương thích với Dart `^3.11.1`.
-- Android Studio, VS Code hoặc IDE có hỗ trợ Flutter.
-- Thiết bị thật, emulator, hoặc trình duyệt web để chạy thử.
+This project is a starting point for a Flutter application.
 
-## Cài đặt
+A few resources to get you started if this is your first Flutter project:
 
-Mở terminal tại thư mục gốc của dự án, sau đó chạy:
+- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
+- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
+- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
 
-```bash
-cd Frontend
-flutter pub get
-```
-
-## Chạy ứng dụng
-
-Sau khi cài dependency, chạy:
-
-```bash
-flutter run
-```
-
-Nếu bạn muốn chọn thiết bị cụ thể, có thể kiểm tra danh sách thiết bị bằng:
-
-```bash
-flutter devices
-```
-
-Rồi chạy với device id tương ứng:
-
-```bash
-flutter run -d <device_id>
-```
-
-## Cấu hình API
-
-Frontend đang gọi backend qua file `lib/config/api_config.dart`.
-
-```dart
-const String API_BASE_URL = 'https://doantrang.online/v1/api';
-```
-
-Nếu bạn chạy backend ở môi trường khác, hãy đổi giá trị này cho đúng địa chỉ API của bạn.
-
-## Ghi chú
-
-- Điểm vào của ứng dụng là `lib/main.dart`.
-- Màn hình đầu tiên là `LoginScreen`.
-- Nếu đổi backend, nhớ kiểm tra lại các request đăng nhập, đăng ký và OTP trong `lib/services/api_service.dart`.
+For help getting started with Flutter development, view the
+[online documentation](https://docs.flutter.dev/), which offers tutorials,
+samples, guidance on mobile development, and a full API reference.
