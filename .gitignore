@@ -5,7 +5,6 @@
 .env.local
 .env.*.local
 credentials/
-*.json
 !example*.json
 mobileemecommerce-*.json
 
