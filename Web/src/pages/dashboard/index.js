@@ -1,6 +1,0 @@
-export { DashboardPage } from "./DashboardPage"
-export { DiscountsPage } from "./DiscountsPage"
-export { BrandsPage } from "./BrandsPage"
-export { CategoriesPage } from "./CategoriesPage"
-export { OrdersPage } from "./OrdersPage"
-export { WarrantyPage } from "./WarrantyPage"
