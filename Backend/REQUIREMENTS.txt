@@ -13,7 +13,7 @@
 - org.springframework.boot:spring-boot-starter-mail (SMTP Mail)
 
 ### API Documentation
-- org.springdoc:springdoc-openapi-starter-webmvc-ui:2.0.2 (Swagger/OpenAPI)
+- org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9 (Swagger/OpenAPI)
 
 ### Code Generation
 - org.projectlombok:lombok (Reduce Boilerplate)
