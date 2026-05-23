@@ -55,4 +55,15 @@ export const authAPI = {
     apiClient.post('/auth/refresh-token', { refreshToken }),
 };
 
+export const warrantyAPI = {
+  getClaimGroups: (params = {}) =>
+    apiClient.get('/warranty-claims/grouped', { params }),
+
+  getClaims: (params = {}) =>
+    apiClient.get('/warranty-claims', { params }),
+
+  updateClaimStatus: (claimId, status) =>
+    apiClient.put(`/warranty-claims/${claimId}`, { status }),
+};
+
 export default apiClient;

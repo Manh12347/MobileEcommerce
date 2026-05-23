@@ -5,10 +5,8 @@ import {
   MoreVertical,
   Eye,
   ShieldCheck,
-  Clock3,
   Wrench,
   PackageCheck,
-  CalendarDays,
   MapPin,
   Phone,
   CheckCircle2,
@@ -40,161 +38,202 @@ import {
   DialogFooter,
 } from "../../components/ui/dialog"
 import { PaginationControls } from "../../components/dashboard/PaginationControls"
-
-const mockWarranties = [
-  {
-    id: 1,
-    code: "WR-24001",
-    customer: "Nguyễn Văn A",
-    phone: "0901 234 567",
-    email: "nva@gmail.com",
-    product: "iPhone 15 Pro Max",
-    serial: "SN-IPH15PM-001",
-    purchaseDate: "2026-03-10",
-    warrantyEnd: "2027-03-10",
-    issue: "Màn hình chập chờn, cảm ứng lúc được lúc không",
-    status: "processing",
-    priority: "high",
-    technician: "Trần Minh Khoa",
-    branch: "Trung tâm bảo hành Q.1",
-    createdAt: "2026-05-20 10:25",
-  },
-  {
-    id: 2,
-    code: "WR-24002",
-    customer: "Trần Thị B",
-    phone: "0912 345 678",
-    email: "ttb@gmail.com",
-    product: "Samsung Galaxy S24 Ultra",
-    serial: "SN-S24U-014",
-    purchaseDate: "2026-02-18",
-    warrantyEnd: "2027-02-18",
-    issue: "Loa ngoài rè khi mở âm lượng lớn",
-    status: "completed",
-    priority: "medium",
-    technician: "Lê Hoàng Nam",
-    branch: "Chi nhánh Cần Thơ",
-    createdAt: "2026-05-19 14:12",
-  },
-  {
-    id: 3,
-    code: "WR-24003",
-    customer: "Lê Minh C",
-    phone: "0933 456 789",
-    email: "lmc@gmail.com",
-    product: "Xiaomi Redmi Note 13 Pro",
-    serial: "SN-XMN13P-002",
-    purchaseDate: "2026-04-02",
-    warrantyEnd: "2027-04-02",
-    issue: "Máy nóng bất thường khi sạc",
-    status: "pending",
-    priority: "low",
-    technician: "",
-    branch: "Tiếp nhận online",
-    createdAt: "2026-05-18 08:50",
-  },
-  {
-    id: 4,
-    code: "WR-24004",
-    customer: "Phạm Thu D",
-    phone: "0944 567 890",
-    email: "ptd@gmail.com",
-    product: "iPad Pro M4 11 inch",
-    serial: "SN-IPDP11M4-008",
-    purchaseDate: "2025-12-21",
-    warrantyEnd: "2026-12-21",
-    issue: "Máy không nhận Apple Pencil",
-    status: "rejected",
-    priority: "medium",
-    technician: "Đặng Quang Huy",
-    branch: "Trung tâm bảo hành Đà Nẵng",
-    createdAt: "2026-05-17 16:45",
-  },
-  {
-    id: 5,
-    code: "WR-24005",
-    customer: "Hoàng Anh E",
-    phone: "0977 888 999",
-    email: "hae@gmail.com",
-    product: "AirPods Pro 2",
-    serial: "SN-AIRP2-104",
-    purchaseDate: "2026-01-12",
-    warrantyEnd: "2027-01-12",
-    issue: "Pin tai nghe tụt nhanh, pin hộp sạc yếu",
-    status: "processing",
-    priority: "high",
-    technician: "Nguyễn Minh Tâm",
-    branch: "Chi nhánh Nha Trang",
-    createdAt: "2026-05-16 11:30",
-  },
-  {
-    id: 6,
-    code: "WR-24006",
-    customer: "Vũ Quốc F",
-    phone: "0988 111 222",
-    email: "vqf@gmail.com",
-    product: "OPPO Find X7 Pro",
-    serial: "SN-OPFX7P-020",
-    purchaseDate: "2026-03-28",
-    warrantyEnd: "2027-03-28",
-    issue: "Camera rung nhẹ khi quay video",
-    status: "completed",
-    priority: "medium",
-    technician: "Lê Hoàng Nam",
-    branch: "Trung tâm bảo hành Q.7",
-    createdAt: "2026-05-15 09:05",
-  },
-]
+import { warrantyAPI } from "../../api/client"
 
 const statusLabels = {
-  pending: "Chờ tiếp nhận",
-  processing: "Đang xử lý",
-  completed: "Hoàn tất",
-  rejected: "Từ chối",
+  processing: "\u0110ang x\u1eed l\u00fd",
+  completed: "Ho\u00e0n t\u1ea5t",
+  cancelled: "B\u1ecb h\u1ee7y",
 }
 
-const priorityLabels = {
-  low: "Thấp",
-  medium: "Trung bình",
-  high: "Cao",
+const uiText = {
+  title: "B\u1ea3o h\u00e0nh",
+  subtitle: "Qu\u1ea3n l\u00fd phi\u1ebfu b\u1ea3o h\u00e0nh, tr\u1ea1ng th\u00e1i v\u00e0 ti\u1ebfn tr\u00ecnh x\u1eed l\u00fd",
+  createTicket: "T\u1ea1o phi\u1ebfu b\u1ea3o h\u00e0nh",
+  totalTickets: "T\u1ed5ng phi\u1ebfu",
+  completedTickets: "\u0110\u00e3 ho\u00e0n t\u1ea5t",
+  searchPlaceholder: "T\u00ecm theo m\u00e3 phi\u1ebfu, kh\u00e1ch h\u00e0ng, s\u1ea3n ph\u1ea9m, serial...",
+  allStatuses: "T\u1ea5t c\u1ea3 tr\u1ea1ng th\u00e1i",
+  ticket: "Phi\u1ebfu",
+  customer: "Kh\u00e1ch h\u00e0ng",
+  product: "S\u1ea3n ph\u1ea9m",
+  status: "Tr\u1ea1ng th\u00e1i",
+  created: "Ng\u00e0y t\u1ea1o",
+  loading: "\u0110ang t\u1ea3i nh\u00f3m phi\u1ebfu b\u1ea3o h\u00e0nh...",
+  empty: "Kh\u00f4ng c\u00f3 nh\u00f3m phi\u1ebfu b\u1ea3o h\u00e0nh",
+  viewDetail: "Xem chi ti\u1ebft",
+  updateStatus: "C\u1eadp nh\u1eadt tr\u1ea1ng th\u00e1i",
+  lockWarning: "Phi\u1ebfu \u0111\u00e3 ho\u00e0n t\u1ea5t, kh\u00f4ng th\u1ec3 thay \u0111\u1ed5i tr\u1ea1ng th\u00e1i.",
+  completeConfirm: "Sau khi chuy\u1ec3n sang Ho\u00e0n t\u1ea5t, tr\u1ea1ng th\u00e1i s\u1ebd kh\u00f4ng th\u1ec3 thay \u0111\u1ed5i. B\u1ea1n c\u00f3 ch\u1eafc mu\u1ed1n ti\u1ebfp t\u1ee5c?",
+  loadError: "Kh\u00f4ng th\u1ec3 t\u1ea3i phi\u1ebfu b\u1ea3o h\u00e0nh",
+  updateError: "Kh\u00f4ng th\u1ec3 c\u1eadp nh\u1eadt tr\u1ea1ng th\u00e1i",
+  detailTitle: "Chi ti\u1ebft phi\u1ebfu",
+  detailDescription: "Th\u00f4ng tin ti\u1ebfp nh\u1eadn, t\u00ecnh tr\u1ea1ng s\u1ea3n ph\u1ea9m v\u00e0 x\u1eed l\u00fd b\u1ea3o h\u00e0nh.",
+  customerInfo: "Th\u00f4ng tin kh\u00e1ch h\u00e0ng",
+  warrantyStatus: "Tr\u1ea1ng th\u00e1i b\u1ea3o h\u00e0nh",
+  claimCount: "S\u1ed1 y\u00eau c\u1ea7u",
+  productInfo: "Th\u00f4ng tin s\u1ea3n ph\u1ea9m",
+  purchaseDate: "Ng\u00e0y mua",
+  warrantyEnd: "Ng\u00e0y h\u1ebft h\u1ea1n",
+  claimList: "Danh s\u00e1ch y\u00eau c\u1ea7u trong nh\u00f3m",
+  close: "\u0110\u00f3ng",
+  unknownCustomer: "Ch\u01b0a c\u00f3 kh\u00e1ch h\u00e0ng",
+  unknownProduct: "Ch\u01b0a c\u00f3 s\u1ea3n ph\u1ea9m",
+  unknownSerial: "Ch\u01b0a c\u00f3 serial",
+  noIssue: "Ch\u01b0a c\u00f3 m\u00f4 t\u1ea3 l\u1ed7i",
 }
 
-const formatDate = (value) => value.split("-").reverse().join("/")
+const formatDate = (value) => {
+  if (!value) return "-"
+  const rawValue = String(value)
+  const datePart = rawValue.includes("T") ? rawValue.split("T")[0] : rawValue.split(" ")[0]
+  return datePart.includes("-") ? datePart.split("-").reverse().join("/") : value
+}
+
+const formatDateTime = (value) => {
+  if (!value) return "-"
+  const rawValue = String(value)
+  const [datePart, timePart = ""] = rawValue.split(/[T ]/)
+  const formattedDate = formatDate(datePart)
+  const formattedTime = timePart.slice(0, 5)
+  return formattedTime ? `${formattedDate} ${formattedTime}` : formattedDate
+}
+
+const statusOrder = {
+  processing: 0,
+  cancelled: 1,
+  completed: 2,
+}
+
+const uniqueBy = (items, getKey) => {
+  const seen = new Set()
+  return items.filter((item) => {
+    const key = getKey(item)
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+const normalizeStatus = (statusCounts = {}) => {
+  const processing = (statusCounts.processing || 0) + (statusCounts.pending || 0) + (statusCounts.approved || 0)
+  const cancelled = (statusCounts.cancelled || 0) + (statusCounts.canceled || 0) + (statusCounts.rejected || 0)
+  const completed = statusCounts.completed || 0
+
+  if (processing > 0) return "processing"
+  if (cancelled > 0 && completed === 0) return "cancelled"
+  if (completed > 0 && cancelled === 0) return "completed"
+  if (cancelled > 0 || completed > 0) return "processing"
+  return "processing"
+}
+
+const groupToWarrantyRow = (group, index) => {
+  const claims = uniqueBy(
+    group.claims || [],
+    (claim) => claim.claimId || `${claim.serialCode || ""}-${claim.createdAt || ""}-${claim.issueDescription || ""}`
+  )
+  const latestClaim = claims[0] || {}
+  const serialCodes = claims.map((claim) => claim.serialCode).filter(Boolean)
+  const customerNames = group.customerNames?.length
+    ? group.customerNames
+    : claims.map((claim) => claim.customerName || claim.accountEmail).filter(Boolean)
+  const uniqueCustomerNames = [...new Set(customerNames)]
+  const customerPhones = group.customerPhones?.length
+    ? group.customerPhones
+    : claims.map((claim) => claim.customerPhone).filter(Boolean)
+  const customerEmails = [...new Set(claims.map((claim) => claim.accountEmail).filter(Boolean))]
+
+  return {
+    id: `${group.productName || "product"}-${group.serialSeries || "series"}-${index}`,
+    code: group.serialSeries || uiText.unknownSerial,
+    customer: uniqueCustomerNames.length ? uniqueCustomerNames.join(", ") : uiText.unknownCustomer,
+    phone: customerPhones.length ? [...new Set(customerPhones)].join(", ") : "",
+    email: customerEmails.join(", "),
+    product: group.productName || uiText.unknownProduct,
+    serial: group.serialSeries || uiText.unknownSerial,
+    productSku: group.productSku || latestClaim.productSku || "",
+    serialCodes,
+    purchaseDate: group.earliestWarrantyStartDate || latestClaim.warrantyStartDate || "",
+    warrantyEnd: group.latestWarrantyEndDate || latestClaim.warrantyEndDate || "",
+    issue: latestClaim.issueDescription || "",
+    status: normalizeStatus(group.statusCounts),
+    createdAt: group.latestCreatedAt || latestClaim.createdAt || "",
+    claimCount: group.claimCount || claims.length,
+    customerNames: uniqueCustomerNames,
+    statusCounts: group.statusCounts || {},
+    claims,
+  }
+}
 
 export function WarrantyPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [priorityFilter, setPriorityFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(5)
-  const [warranties, setWarranties] = useState(mockWarranties)
+  const [warranties, setWarranties] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState("")
   const [selectedWarranty, setSelectedWarranty] = useState(null)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
 
+  const fetchWarrantyGroups = async () => {
+    setIsLoading(true)
+    setErrorMessage("")
+
+    try {
+      const response = await warrantyAPI.getClaimGroups()
+      const groups = response.data?.data || []
+      const rows = groups.map(groupToWarrantyRow)
+      setWarranties(rows)
+      return rows
+    } catch (error) {
+      setWarranties([])
+      setErrorMessage(error.response?.data?.message || error.message || uiText.loadError)
+      return []
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchWarrantyGroups()
+  }, [])
+
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, statusFilter, priorityFilter, pageSize])
+  }, [searchTerm, statusFilter, pageSize])
 
   const stats = useMemo(() => {
-    const total = warranties.length
-    const pending = warranties.filter((item) => item.status === "pending").length
-    const processing = warranties.filter((item) => item.status === "processing").length
-    const completed = warranties.filter((item) => item.status === "completed").length
+    const total = warranties.reduce((sum, item) => sum + (item.claimCount || 0), 0)
+    const processing = warranties.reduce(
+      (sum, item) => sum + (item.statusCounts.processing || 0) + (item.statusCounts.pending || 0) + (item.statusCounts.approved || 0),
+      0
+    )
+    const cancelled = warranties.reduce(
+      (sum, item) => sum + (item.statusCounts.cancelled || 0) + (item.statusCounts.canceled || 0) + (item.statusCounts.rejected || 0),
+      0
+    )
+    const completed = warranties.reduce((sum, item) => sum + (item.statusCounts.completed || 0), 0)
 
-    return { total, pending, processing, completed }
+    return { total, processing, cancelled, completed }
   }, [warranties])
 
-  const filteredWarranties = warranties.filter((item) => {
-    const search = searchTerm.toLowerCase()
-    const matchesSearch =
-      item.code.toLowerCase().includes(search) ||
-      item.customer.toLowerCase().includes(search) ||
-      item.product.toLowerCase().includes(search) ||
-      item.serial.toLowerCase().includes(search)
-    const matchesStatus = statusFilter === "all" || item.status === statusFilter
-    const matchesPriority = priorityFilter === "all" || item.priority === priorityFilter
-    return matchesSearch && matchesStatus && matchesPriority
-  })
+  const filteredWarranties = warranties
+    .filter((item) => {
+      const search = searchTerm.toLowerCase()
+      const matchesSearch =
+        item.code.toLowerCase().includes(search) ||
+        item.customer.toLowerCase().includes(search) ||
+        item.product.toLowerCase().includes(search) ||
+        item.serial.toLowerCase().includes(search)
+      const matchesStatus = statusFilter === "all" || item.status === statusFilter
+      return matchesSearch && matchesStatus
+    })
+    .sort((a, b) => {
+      const byStatus = (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)
+      if (byStatus !== 0) return byStatus
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+    })
 
   const pagedWarranties = filteredWarranties.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
@@ -203,29 +242,66 @@ export function WarrantyPage() {
     setDetailDialogOpen(true)
   }
 
-  const getStatusVariant = (status) => {
-    if (status === "completed") return "success"
-    if (status === "processing") return "info"
-    if (status === "rejected") return "destructive"
-    return "warning"
+  const updateClaimStatus = async (claim, nextStatus) => {
+    if (claim.status === "completed") {
+      setErrorMessage(uiText.lockWarning)
+      return
+    }
+    if (nextStatus === "completed" && !window.confirm(uiText.completeConfirm)) {
+      return
+    }
+
+    try {
+      await warrantyAPI.updateClaimStatus(claim.claimId, nextStatus)
+      const rows = await fetchWarrantyGroups()
+      const refreshed = rows.find((row) => row.id === selectedWarranty?.id)
+      if (refreshed) {
+        setSelectedWarranty(refreshed)
+      }
+    } catch (error) {
+      setErrorMessage(error.response?.data?.message || error.message || uiText.updateError)
+    }
   }
 
-  const getPriorityVariant = (priority) => {
-    if (priority === "high") return "destructive"
-    if (priority === "medium") return "warning"
-    return "secondary"
+  const updateWarrantyGroupStatus = async (item, nextStatus) => {
+    const editableClaims = (item.claims || []).filter((claim) => claim.status !== "completed")
+
+    if (editableClaims.length === 0) {
+      setErrorMessage(uiText.lockWarning)
+      return
+    }
+    if (nextStatus === "completed" && !window.confirm(uiText.completeConfirm)) {
+      return
+    }
+
+    try {
+      await Promise.all(editableClaims.map((claim) => warrantyAPI.updateClaimStatus(claim.claimId, nextStatus)))
+      const rows = await fetchWarrantyGroups()
+      const refreshed = rows.find((row) => row.id === selectedWarranty?.id)
+      if (refreshed) {
+        setSelectedWarranty(refreshed)
+      }
+    } catch (error) {
+      setErrorMessage(error.response?.data?.message || error.message || uiText.updateError)
+    }
+  }
+
+  const getStatusVariant = (status) => {
+    if (status === "completed") return "success"
+    if (status === "cancelled") return "destructive"
+    return "info"
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Bảo hành</h1>
-          <p className="text-muted-foreground">Quản lý phiếu bảo hành, trạng thái tiếp nhận và xử lý</p>
+          <h1 className="text-2xl font-bold text-foreground">{uiText.title}</h1>
+          <p className="text-muted-foreground">{uiText.subtitle}</p>
         </div>
         <Button className="h-11 px-6 text-base font-semibold shadow-lg shadow-primary/20">
           <Plus className="mr-2 h-5 w-5" />
-          Tạo phiếu bảo hành
+          {uiText.createTicket}
         </Button>
       </div>
 
@@ -233,7 +309,7 @@ export function WarrantyPage() {
         <div className="rounded-lg border border-border bg-card p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">Tổng phiếu</p>
+              <p className="text-sm text-muted-foreground">{uiText.totalTickets}</p>
               <p className="mt-2 text-2xl font-bold text-foreground">{stats.total}</p>
             </div>
             <div className="rounded-full bg-primary/10 p-3 text-primary">
@@ -244,18 +320,18 @@ export function WarrantyPage() {
         <div className="rounded-lg border border-border bg-card p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">Chờ tiếp nhận</p>
-              <p className="mt-2 text-2xl font-bold text-foreground">{stats.pending}</p>
+              <p className="text-sm text-muted-foreground">{statusLabels.cancelled}</p>
+              <p className="mt-2 text-2xl font-bold text-foreground">{stats.cancelled}</p>
             </div>
             <div className="rounded-full bg-amber-500/10 p-3 text-amber-400">
-              <Clock3 className="h-5 w-5" />
+              <XCircle className="h-5 w-5" />
             </div>
           </div>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">Đang xử lý</p>
+              <p className="text-sm text-muted-foreground">{statusLabels.processing}</p>
               <p className="mt-2 text-2xl font-bold text-foreground">{stats.processing}</p>
             </div>
             <div className="rounded-full bg-blue-500/10 p-3 text-blue-400">
@@ -266,7 +342,7 @@ export function WarrantyPage() {
         <div className="rounded-lg border border-border bg-card p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">Đã hoàn tất</p>
+              <p className="text-sm text-muted-foreground">{uiText.completedTickets}</p>
               <p className="mt-2 text-2xl font-bold text-foreground">{stats.completed}</p>
             </div>
             <div className="rounded-full bg-emerald-500/10 p-3 text-emerald-400">
@@ -276,11 +352,11 @@ export function WarrantyPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-[1.4fr_0.8fr_0.8fr]">
+      <div className="grid gap-3 lg:grid-cols-[1.4fr_0.8fr]">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Tìm theo mã phiếu, khách hàng, sản phẩm, serial..."
+            placeholder={uiText.searchPlaceholder}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9"
@@ -291,21 +367,10 @@ export function WarrantyPage() {
           onChange={(e) => setStatusFilter(e.target.value)}
           className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
         >
-          <option value="all">Tất cả trạng thái</option>
-          <option value="pending">Chờ tiếp nhận</option>
-          <option value="processing">Đang xử lý</option>
-          <option value="completed">Hoàn tất</option>
-          <option value="rejected">Từ chối</option>
-        </select>
-        <select
-          value={priorityFilter}
-          onChange={(e) => setPriorityFilter(e.target.value)}
-          className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-        >
-          <option value="all">Tất cả mức ưu tiên</option>
-          <option value="low">Thấp</option>
-          <option value="medium">Trung bình</option>
-          <option value="high">Cao</option>
+          <option value="all">{uiText.allStatuses}</option>
+          <option value="processing">{statusLabels.processing}</option>
+          <option value="cancelled">{statusLabels.cancelled}</option>
+          <option value="completed">{statusLabels.completed}</option>
         </select>
       </div>
 
@@ -313,16 +378,36 @@ export function WarrantyPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="text-left">Phiếu</TableHead>
-              <TableHead className="text-left">Khách hàng</TableHead>
-              <TableHead className="text-left">Sản phẩm</TableHead>
-              <TableHead className="text-left">Mức ưu tiên</TableHead>
-              <TableHead className="text-left">Trạng thái</TableHead>
-              <TableHead className="text-left">Ngày tạo</TableHead>
+              <TableHead className="text-left">{uiText.ticket}</TableHead>
+              <TableHead className="text-left">{uiText.customer}</TableHead>
+              <TableHead className="text-left">{uiText.product}</TableHead>
+              <TableHead className="text-left">{uiText.status}</TableHead>
+              <TableHead className="text-left">{uiText.created}</TableHead>
               <TableHead className="w-12 text-center"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
+            {isLoading && (
+              <TableRow>
+                <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                  {uiText.loading}
+                </TableCell>
+              </TableRow>
+            )}
+            {!isLoading && errorMessage && (
+              <TableRow>
+                <TableCell colSpan={6} className="py-8 text-center text-destructive">
+                  {errorMessage}
+                </TableCell>
+              </TableRow>
+            )}
+            {!isLoading && !errorMessage && pagedWarranties.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                  {uiText.empty}
+                </TableCell>
+              </TableRow>
+            )}
             {pagedWarranties.map((item) => (
               <TableRow key={item.id}>
                 <TableCell className="text-left">
@@ -334,7 +419,7 @@ export function WarrantyPage() {
                 <TableCell className="text-left">
                   <div>
                     <p className="font-medium text-foreground">{item.customer}</p>
-                    <p className="text-xs text-muted-foreground">{item.phone}</p>
+                    {item.phone && <p className="text-xs text-muted-foreground">{item.phone}</p>}
                   </div>
                 </TableCell>
                 <TableCell className="text-left">
@@ -344,12 +429,9 @@ export function WarrantyPage() {
                   </div>
                 </TableCell>
                 <TableCell className="text-left">
-                  <Badge variant={getPriorityVariant(item.priority)}>{priorityLabels[item.priority]}</Badge>
-                </TableCell>
-                <TableCell className="text-left">
                   <Badge variant={getStatusVariant(item.status)}>{statusLabels[item.status]}</Badge>
                 </TableCell>
-                <TableCell className="text-left text-muted-foreground">{item.createdAt}</TableCell>
+                <TableCell className="text-left text-muted-foreground">{formatDateTime(item.createdAt)}</TableCell>
                 <TableCell className="text-center">
                   <DropdownMenu>
                     <DropdownMenuTrigger>
@@ -357,13 +439,27 @@ export function WarrantyPage() {
                         <MoreVertical className="h-5 w-5" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuContent align="end" className="w-56">
                       <DropdownMenuItem
                         className="flex cursor-pointer items-center rounded-md px-4 py-3 text-base"
                         onSelect={() => openDetail(item)}
                       >
                         <Eye className="mr-3 h-5 w-5 text-blue-500" />
-                        Xem chi tiết
+                        {uiText.viewDetail}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="flex cursor-pointer items-center rounded-md px-4 py-3 text-base"
+                        onSelect={() => updateWarrantyGroupStatus(item, "cancelled")}
+                      >
+                        <XCircle className="mr-3 h-5 w-5 text-amber-500" />
+                        {uiText.updateStatus}: {statusLabels.cancelled}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="flex cursor-pointer items-center rounded-md px-4 py-3 text-base"
+                        onSelect={() => updateWarrantyGroupStatus(item, "completed")}
+                      >
+                        <CheckCircle2 className="mr-3 h-5 w-5 text-emerald-500" />
+                        {uiText.updateStatus}: {statusLabels.completed}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -386,85 +482,133 @@ export function WarrantyPage() {
       />
 
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto p-7 text-left">
           <DialogHeader className="text-left">
-            <DialogTitle className="text-xl">Chi tiết phiếu {selectedWarranty?.code}</DialogTitle>
+            <DialogTitle className="text-2xl">{uiText.detailTitle} {selectedWarranty?.code}</DialogTitle>
             <DialogDescription>
-              Thông tin tiếp nhận, tình trạng sản phẩm và xử lý bảo hành.
+              {uiText.detailDescription}
             </DialogDescription>
           </DialogHeader>
 
           {selectedWarranty && (
-            <div className="space-y-5 py-2">
+            <div className="space-y-4 py-2">
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-lg border border-border bg-secondary/20 p-4">
-                  <p className="mb-3 text-sm font-semibold text-foreground">Thông tin khách hàng</p>
+                <div className="rounded-lg border border-border bg-secondary/20 p-4 text-left">
+                  <p className="mb-3 text-sm font-semibold text-foreground">{uiText.customerInfo}</p>
                   <div className="space-y-2 text-sm text-muted-foreground">
-                    <p>{selectedWarranty.customer}</p>
-                    <p className="flex items-center gap-2"><Phone className="h-4 w-4" />{selectedWarranty.phone}</p>
-                    <p>{selectedWarranty.email}</p>
-                    <p className="flex items-start gap-2">
-                      <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                      <span>{selectedWarranty.branch}</span>
-                    </p>
+                    <p className="font-medium text-foreground">{selectedWarranty.customer}</p>
+                    {selectedWarranty.phone && (
+                      <p className="flex items-center gap-2">
+                        <Phone className="h-4 w-4" />
+                        <span>{selectedWarranty.phone}</span>
+                      </p>
+                    )}
+                    {selectedWarranty.email && selectedWarranty.email !== selectedWarranty.customer && (
+                      <p>{selectedWarranty.email}</p>
+                    )}
+                    {selectedWarranty.claims?.some((claim) => claim.customerAddress) && (
+                      <p className="flex items-start gap-2">
+                        <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                        <span>{selectedWarranty.claims.find((claim) => claim.customerAddress)?.customerAddress}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-border bg-secondary/20 p-4">
-                  <p className="mb-3 text-sm font-semibold text-foreground">Trạng thái bảo hành</p>
+                <div className="rounded-lg border border-border bg-secondary/20 p-4 text-left">
+                  <p className="mb-3 text-sm font-semibold text-foreground">{uiText.warrantyStatus}</p>
                   <div className="space-y-3 text-sm">
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Trạng thái</span>
+                      <span className="text-muted-foreground">{uiText.status}</span>
                       <Badge variant={getStatusVariant(selectedWarranty.status)}>{statusLabels[selectedWarranty.status]}</Badge>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Ưu tiên</span>
-                      <Badge variant={getPriorityVariant(selectedWarranty.priority)}>{priorityLabels[selectedWarranty.priority]}</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Kỹ thuật viên</span>
-                      <span className="font-medium text-foreground">{selectedWarranty.technician || "Chưa phân công"}</span>
+                      <span className="text-muted-foreground">{uiText.claimCount}</span>
+                      <span className="font-medium text-foreground">{selectedWarranty.claimCount}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-lg border border-border bg-secondary/20 p-4">
-                <p className="mb-3 text-sm font-semibold text-foreground">Thông tin sản phẩm</p>
-                <div className="grid gap-3 text-sm md:grid-cols-2">
+              <div className="rounded-lg border border-border bg-secondary/20 p-4 text-left">
+                <p className="mb-3 text-sm font-semibold text-foreground">{uiText.productInfo}</p>
+                <div className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
                   <div>
-                    <p className="text-muted-foreground">Sản phẩm</p>
+                    <p className="text-muted-foreground">{uiText.product}</p>
                     <p className="font-medium text-foreground">{selectedWarranty.product}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">SKU</p>
+                    <p className="font-medium text-foreground">{selectedWarranty.productSku || "-"}</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Serial</p>
                     <p className="font-medium text-foreground">{selectedWarranty.serial}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Ngày mua</p>
+                    <p className="text-muted-foreground">{uiText.purchaseDate}</p>
                     <p className="font-medium text-foreground">{formatDate(selectedWarranty.purchaseDate)}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Ngày hết hạn</p>
+                    <p className="text-muted-foreground">{uiText.warrantyEnd}</p>
                     <p className="font-medium text-foreground">{formatDate(selectedWarranty.warrantyEnd)}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-lg border border-border bg-secondary/20 p-4">
-                <p className="mb-3 text-sm font-semibold text-foreground">Mô tả lỗi</p>
-                <p className="text-sm leading-6 text-muted-foreground">{selectedWarranty.issue}</p>
+              <div className="rounded-lg border border-border bg-secondary/20 p-4 text-left">
+                <p className="mb-3 text-sm font-semibold text-foreground">{uiText.claimList}</p>
+                <div className="divide-y divide-border overflow-hidden rounded-md border border-border bg-background">
+                  {selectedWarranty.claims?.map((claim, index) => (
+                    <div key={claim.claimId || `${claim.serialCode}-${index}`} className="p-4 text-sm">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0 space-y-1">
+                          <p className="font-medium text-foreground">{claim.serialCode || uiText.unknownSerial}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {claim.customerName || claim.accountEmail || uiText.unknownCustomer}
+                          </p>
+                        </div>
+                        <Badge variant={getStatusVariant(claim.status)} className="self-start">
+                          {statusLabels[claim.status] || claim.status}
+                        </Badge>
+                      </div>
+                      <p className="mt-3 leading-6 text-muted-foreground">{claim.issueDescription || uiText.noIssue}</p>
+                      {claim.status === "completed" ? (
+                        <p className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                          {uiText.lockWarning}
+                        </p>
+                      ) : (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-9 px-3 text-sm"
+                            disabled={claim.status === "cancelled"}
+                            onClick={() => updateClaimStatus(claim, "cancelled")}
+                          >
+                            <XCircle className="mr-2 h-4 w-4" />
+                            {statusLabels.cancelled}
+                          </Button>
+                          <Button
+                            type="button"
+                            className="h-9 px-3 text-sm"
+                            onClick={() => updateClaimStatus(claim, "completed")}
+                          >
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                            {statusLabels.completed}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
 
           <DialogFooter className="gap-3 pt-2">
             <Button variant="outline" onClick={() => setDetailDialogOpen(false)} className="h-11 px-6 text-base font-medium">
-              Đóng
-            </Button>
-            <Button className="h-11 px-6 text-base font-semibold shadow-lg shadow-primary/20">
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              Cập nhật xử lý
+              {uiText.close}
             </Button>
           </DialogFooter>
         </DialogContent>
