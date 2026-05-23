@@ -1,16 +1,21 @@
 package com.example.ecommerce.service;
 
-import com.example.ecommerce.dto.cart.*;
+import com.example.ecommerce.dto.AddCartItemRequest;
+import com.example.ecommerce.dto.CartDTO;
+import com.example.ecommerce.dto.CartItemDTO;
+import com.example.ecommerce.dto.UpdateCartItemRequest;
 
 public interface CartService {
 
-    CartMessageResponse addToCart(AddCartRequest request);
+    CartDTO getOrCreateCartForAccount(Integer accountId);
 
-    CartResponse getCartByUser(Integer userId);
+    CartDTO getCartForAccount(Integer accountId, Integer cartId);
 
-    CartMessageResponse updateCart(UpdateCartRequest request);
+    CartItemDTO addItemForAccount(Integer accountId, AddCartItemRequest request);
 
-    CartMessageResponse removeItem(Integer cartItemId);
+    CartItemDTO updateItemQuantityForAccount(Integer accountId, Integer cartItemId, UpdateCartItemRequest request);
 
-    CartResponse syncCart(SyncCartRequest request);
+    void removeItemForAccount(Integer accountId, Integer cartItemId);
+
+    CartDTO clearCartForAccount(Integer accountId);
 }
