@@ -17,6 +17,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private JwtTokenProvider jwtTokenProvider;
 
     public static final String ACCOUNT_ID_ATTRIBUTE = "accountId";
+    public static final String ROLE_ATTRIBUTE = "role";
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -26,7 +27,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             if (token != null && jwtTokenProvider.validateToken(token)) {
                 Integer accountId = jwtTokenProvider.getAccountIdFromToken(token);
+                String role = jwtTokenProvider.getRoleFromToken(token);
                 request.setAttribute(ACCOUNT_ID_ATTRIBUTE, accountId);
+                request.setAttribute(ROLE_ATTRIBUTE, role);
             }
         } catch (Exception e) {
             logger.error("JWT Token validation failed: " + e.getMessage());

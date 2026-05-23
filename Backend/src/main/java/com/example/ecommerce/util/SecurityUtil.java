@@ -23,4 +23,22 @@ public class SecurityUtil {
     public static boolean isAuthenticated() {
         return getCurrentAccountId() != null;
     }
+
+    public static String getCurrentRole() {
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attributes == null) {
+            return null;
+        }
+        HttpServletRequest request = attributes.getRequest();
+        Object roleObj = request.getAttribute(JwtAuthenticationFilter.ROLE_ATTRIBUTE);
+        if (roleObj instanceof String) {
+            return (String) roleObj;
+        }
+        return null;
+    }
+
+    public static boolean isStaff() {
+        String role = getCurrentRole();
+        return "staff".equals(role) || "admin".equals(role);
+    }
 }
