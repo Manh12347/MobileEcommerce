@@ -27,4 +27,7 @@ public class SerialNumber {
 
     @Column(name = "import_date")
     private LocalDateTime importDate = LocalDateTime.now();
+
+    @OneToOne(mappedBy = "serialNumber", fetch = FetchType.LAZY)
+    private Warranty warranty;
 }

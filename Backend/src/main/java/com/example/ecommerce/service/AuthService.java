@@ -2,8 +2,10 @@ package com.example.ecommerce.service;
 
 import com.example.ecommerce.dto.*;
 import com.example.ecommerce.entity.Account;
+import com.example.ecommerce.entity.Profile;
 import com.example.ecommerce.exception.AuthenticationException;
 import com.example.ecommerce.repository.AccountRepository;
+import com.example.ecommerce.repository.ProfileRepository;
 import com.example.ecommerce.security.JwtTokenProvider;
 import org.mindrot.jbcrypt.BCrypt;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -21,6 +24,9 @@ public class AuthService {
     private AccountRepository accountRepository;
 
     @Autowired
+    private ProfileRepository profileRepository;
+
+    @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
     @Autowired
@@ -28,6 +34,93 @@ public class AuthService {
 
     @Autowired
     private OtpService otpService;
+
+    public LoginResponse oauthLogin(OAuthLoginRequest request) {
+        if (request.getProvider() == null || request.getProvider().isBlank()) {
+            throw new AuthenticationException("Provider is required");
+        }
+        if (request.getProviderUserId() == null || request.getProviderUserId().isBlank()) {
+            throw new AuthenticationException("Provider user ID is required");
+        }
+        if (request.getEmail() == null || request.getEmail().isBlank()) {
+            throw new AuthenticationException("Email is required");
+        }
+
+        String email = request.getEmail().trim().toLowerCase();
+        Account account = accountRepository.findByEmail(email).orElse(null);
+
+        if (account == null) {
+            account = new Account();
+            account.setEmail(email);
+            account.setPasswordHash(BCrypt.hashpw(UUID.randomUUID().toString(), BCrypt.gensalt(12)));
+            account.setRole("customer");
+            account.setStatus("active");
+            account.setEmailConfirm(true);
+            account.setIs2faEnabled(false);
+            account.setFailedLoginAttempts(0);
+            account = accountRepository.save(account);
+        } else {
+            if ("locked".equals(account.getStatus())) {
+                throw new AuthenticationException("Account is locked");
+            }
+            if ("disabled".equals(account.getStatus())) {
+                throw new AuthenticationException("Account is disabled");
+            }
+            if ("pending".equals(account.getStatus())) {
+                account.setStatus("active");
+            }
+            account.setEmailConfirm(true);
+            account.setFailedLoginAttempts(0);
+            account.setLastFailedLogin(null);
+            account = accountRepository.save(account);
+        }
+
+        upsertOAuthProfile(account, request);
+        return createOAuthLoginResponse(account);
+    }
+
+    private LoginResponse createOAuthLoginResponse(Account account) {
+        String accessToken = jwtTokenProvider.generateAccessToken(
+                account.getAccountId(),
+                account.getEmail(),
+                account.getRole()
+        );
+        String refreshToken = jwtTokenProvider.generateRefreshToken(
+                account.getAccountId(),
+                account.getEmail()
+        );
+
+        LocalDateTime expiresAt = LocalDateTime.now().plusDays(7);
+        userSessionService.createSession(account, refreshToken, expiresAt);
+
+        LoginResponse response = new LoginResponse();
+        response.setAccountId(account.getAccountId());
+        response.setEmail(account.getEmail());
+        response.setRole(account.getRole());
+        response.setAccessToken(accessToken);
+        response.setRefreshToken(refreshToken);
+        response.setRequire2FA(false);
+        response.setMessage("OAuth login successful");
+        return response;
+    }
+
+    private void upsertOAuthProfile(Account account, OAuthLoginRequest request) {
+        Profile profile = profileRepository.findByAccountAccountId(account.getAccountId())
+                .orElseGet(() -> {
+                    Profile newProfile = new Profile();
+                    newProfile.setAccount(account);
+                    return newProfile;
+                });
+
+        if (request.getFullName() != null && !request.getFullName().isBlank()) {
+            profile.setFullName(request.getFullName());
+        }
+        if (request.getAvatarUrl() != null && !request.getAvatarUrl().isBlank()) {
+            profile.setAvatarUrl(request.getAvatarUrl());
+        }
+
+        profileRepository.save(profile);
+    }
 
     public LoginResponse login(LoginRequest loginRequest) {
         String email = loginRequest.getEmail();
