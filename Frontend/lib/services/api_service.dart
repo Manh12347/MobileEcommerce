@@ -6,6 +6,7 @@ import '../config/api_config.dart';
 import '../models/api_response.dart';
 import '../models/login_request.dart';
 import '../models/login_response.dart';
+import '../models/oauth_login_request.dart';
 import '../models/register_request.dart';
 import '../models/register_response.dart';
 import '../models/verify_otp_request.dart';
@@ -56,6 +57,41 @@ class ApiService {
         throw Exception(_extractMessage(
           response,
           fallback: 'Lỗi đăng nhập. Vui lòng thử lại',
+        ));
+      }
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<LoginResponse>> oauthLogin(
+    OAuthLoginRequest request,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/oauth'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(request.toJson()),
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw Exception('Request timeout'),
+      );
+
+      final body = _decodeJsonBody(response.body);
+
+      if (response.statusCode == 200 ||
+          response.statusCode == 400 ||
+          response.statusCode == 401) {
+        return ApiResponse<LoginResponse>.fromJson(
+          body,
+          (json) => LoginResponse.fromJson(json),
+        );
+      } else {
+        throw Exception(_extractMessage(
+          response,
+          fallback: 'OAuth login failed. Please try again',
         ));
       }
     } on Exception catch (e) {

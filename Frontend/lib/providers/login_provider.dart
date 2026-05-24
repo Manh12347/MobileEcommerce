@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import '../config/api_config.dart';
 import '../models/login_request.dart';
 import '../models/login_response.dart';
+import '../models/oauth_login_request.dart';
 import '../models/register_request.dart';
 import '../models/register_response.dart';
 import '../models/verify_otp_request.dart';
@@ -12,6 +15,7 @@ class LoginProvider extends ChangeNotifier {
   LoginResponse? _loginResponse;
   RegisterResponse? _registerResponse;
   String? _otpMessage;
+  Future<void>? _googleInitFuture;
 
   bool get isLoading => _isLoading;
   String get errorMessage => _errorMessage;
@@ -49,6 +53,76 @@ class LoginProvider extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  Future<void> _ensureGoogleSignInInitialized() {
+    return _googleInitFuture ??= GoogleSignIn.instance.initialize(
+      serverClientId: GOOGLE_OAUTH_SERVER_CLIENT_ID.isEmpty
+          ? null
+          : GOOGLE_OAUTH_SERVER_CLIENT_ID,
+    );
+  }
+
+  Future<bool> loginWithGoogle() async {
+    _isLoading = true;
+    _errorMessage = '';
+    notifyListeners();
+
+    try {
+      await _ensureGoogleSignInInitialized();
+
+      if (!GoogleSignIn.instance.supportsAuthenticate()) {
+        throw Exception('Google sign-in is not supported on this device');
+      }
+
+      final account = await GoogleSignIn.instance.authenticate();
+      final response = await ApiService.oauthLogin(
+        OAuthLoginRequest(
+          provider: 'google',
+          providerUserId: account.id,
+          email: account.email,
+          fullName: account.displayName,
+          avatarUrl: account.photoUrl,
+        ),
+      );
+
+      _loginResponse = response.data;
+
+      if (response.success) {
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      }
+
+      _errorMessage =
+          response.message.isNotEmpty ? response.message : 'Google login failed';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } on GoogleSignInException catch (e) {
+      _errorMessage = _googleErrorMessage(e);
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  String _googleErrorMessage(GoogleSignInException e) {
+    if (e.code == GoogleSignInExceptionCode.canceled ||
+        e.code == GoogleSignInExceptionCode.interrupted) {
+      return 'Google sign-in was cancelled';
+    }
+
+    if (e.code == GoogleSignInExceptionCode.clientConfigurationError) {
+      return 'Google sign-in is not configured. Add google-services.json or pass GOOGLE_OAUTH_SERVER_CLIENT_ID.';
+    }
+
+    return e.description ?? 'Google sign-in failed. Please try again';
   }
 
   void clearError() {
