@@ -9,6 +9,7 @@ import { OrdersPage } from './pages/dashboard/OrdersPage'
 import { WarrantyPage } from './pages/dashboard/WarrantyPage'
 import { ProductsPage } from './pages/dashboard/ProductsPage'
 import { VariantsPage } from './pages/dashboard/VariantsPage'
+import { UsersPage } from './pages/dashboard/UsersPage'
 import { Toaster } from './components/ui/toast'
 import './index.css'
 
@@ -104,6 +105,16 @@ function App() {
             <ProtectedRoute>
               <DashboardLayout>
                 <VariantsPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/users"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <UsersPage />
               </DashboardLayout>
             </ProtectedRoute>
           }

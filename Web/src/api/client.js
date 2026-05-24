@@ -99,4 +99,13 @@ export const productItemAPI = {
   reduceStock: (id, quantity) => apiClient.post(`/product-items/${id}/reduce-stock`, null, { params: { quantity } }),
 };
 
+export const usersAPI = {
+  getAll: (params = {}) => apiClient.get('/users', { params }),
+  getById: (id) => apiClient.get(`/users/${id}`),
+  create: (payload) => apiClient.post('/users', payload),
+  update: (id, payload) => apiClient.put(`/users/${id}`, payload),
+  delete: (id) => apiClient.delete(`/users/${id}`),
+  search: (keyword) => apiClient.get('/users/search', { params: { keyword } }),
+};
+
 export default apiClient;
