@@ -14,7 +14,9 @@ import {
   ClipboardList,
   ShieldCheck,
   Users,
+  Settings,
 } from "lucide-react"
+import { clearAdminSession } from "../../api/authSession"
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Tổng quan", href: "/dashboard" },
@@ -22,6 +24,7 @@ const menuItems = [
   { icon: ClipboardList, label: "Đơn hàng", href: "/dashboard/orders" },
   { icon: ShieldCheck, label: "Bảo hành", href: "/dashboard/warranty" },
   { icon: Users, label: "Người dùng", href: "/dashboard/users" },
+  { icon: Settings, label: "Cài đặt", href: "/dashboard/settings" },
   { icon: Building2, label: "Thương hiệu", href: "/dashboard/brands" },
   { icon: FolderTree, label: "Danh mục", href: "/dashboard/categories" },
   { icon: Package, label: "Sản phẩm", href: "/dashboard/products" },
@@ -88,9 +91,7 @@ export function Sidebar({ collapsed, onCollapsedChange }) {
       <div className="p-3 border-t border-sidebar-border">
         <button
           onClick={() => {
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            localStorage.removeItem('userRole');
+            clearAdminSession();
             window.location.href = '/';
           }}
           className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors w-full text-muted-foreground hover:bg-sidebar-accent hover:text-destructive ${

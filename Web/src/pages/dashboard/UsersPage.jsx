@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { Search, Plus, MoreVertical, Edit, Trash2, Eye, Users, UserCheck, UserX, Shield, Check, X, EyeOff, Lock } from "lucide-react"
+import { Search, Plus, MoreVertical, Edit, Eye, Users, UserCheck, UserX, Shield, Check, X, Lock } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Badge } from "../../components/ui/badge"
@@ -88,12 +88,36 @@ export function UsersPage() {
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
 
   const [selectedUser, setSelectedUser] = useState(null)
   const [createForm, setCreateForm] = useState(DEFAULT_CREATE_FORM)
   const [editForm, setEditForm] = useState(DEFAULT_UPDATE_FORM)
+  const [banDialogOpen, setBanDialogOpen] = useState(false)
+  const [showCreatePassword, setShowCreatePassword] = useState(false)
+  const [showEditPassword, setShowEditPassword] = useState(false)
+  const [actionLoading, setActionLoading] = useState(false)
+
+  const handleBanUser = async () => {
+    if (!selectedUser) return
+    setActionLoading(true)
+    try {
+      if (selectedUser.status === "disabled") {
+        await usersAPI.unban(selectedUser.accountId || selectedUser.account_id)
+        toast({ title: "Thành công", description: "Đã kích hoạt lại người dùng" })
+      } else {
+        await usersAPI.ban(selectedUser.accountId || selectedUser.account_id)
+        toast({ title: "Thành công", description: "Đã vô hiệu hóa người dùng" })
+      }
+      setBanDialogOpen(false)
+      setSelectedUser(null)
+      loadUsers()
+    } catch (error) {
+      toast({ title: "Lỗi", description: error?.response?.data?.message || "Thao tác thất bại", variant: "destructive" })
+    } finally {
+      setActionLoading(false)
+    }
+  }
 
   const loadUsers = async () => {
     try {
@@ -212,25 +236,6 @@ export function UsersPage() {
       toast({
         title: "Lỗi",
         description: error?.response?.data?.message || "Cập nhật người dùng thất bại",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleDeleteUser = async () => {
-    if (!selectedUser) return
-
-    try {
-      await usersAPI.delete(selectedUser.accountId)
-      setDeleteDialogOpen(false)
-      setSelectedUser(null)
-      await loadUsers()
-      toast({ title: "Thành công", description: "Đã xóa người dùng" })
-    } catch (error) {
-      console.error("Delete user error", error)
-      toast({
-        title: "Lỗi",
-        description: error?.response?.data?.message || "Xóa người dùng thất bại",
         variant: "destructive",
       })
     }
@@ -454,7 +459,7 @@ export function UsersPage() {
                             <MoreVertical className="w-5 h-5" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuContent align="end" className="w-52">
                           <DropdownMenuItem
                             className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer"
                             onSelect={() => openDetailDialog(user)}
@@ -470,14 +475,23 @@ export function UsersPage() {
                             Chỉnh sửa
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer text-red-500 hover:bg-red-50"
+                            className={`flex items-center py-3 px-4 text-base rounded-md cursor-pointer ${user.status === "disabled" ? "text-green-500 hover:bg-green-50" : "text-red-500 hover:bg-red-50"}`}
                             onSelect={() => {
                               setSelectedUser(user)
-                              setDeleteDialogOpen(true)
+                              setBanDialogOpen(true)
                             }}
                           >
-                            <Trash2 className="w-5 h-5 mr-3" />
-                            Xóa
+                            {user.status === "disabled" ? (
+                              <>
+                                <UserCheck className="w-5 h-5 mr-3" />
+                                Kích hoạt lại
+                              </>
+                            ) : (
+                              <>
+                                <UserX className="w-5 h-5 mr-3" />
+                                Vô hiệu hóa
+                              </>
+                            )}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -522,12 +536,19 @@ export function UsersPage() {
               <label className="text-sm font-medium mb-1 block text-left">Mật khẩu *</label>
               <div className="relative">
                 <Input
-                  type="password"
+                  type={showCreatePassword ? "text" : "password"}
                   placeholder="Nhập mật khẩu"
                   className="h-11 pr-10"
                   value={createForm.password}
                   onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowCreatePassword(!showCreatePassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  {showCreatePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
               {createForm.password && (
                 <div className="mt-2 space-y-1.5">
@@ -682,13 +703,22 @@ export function UsersPage() {
                 <Lock className="w-4 h-4" />
                 Đổi mật khẩu (để trống nếu không đổi)
               </label>
-              <Input
-                type="password"
-                placeholder="Nhập mật khẩu mới"
-                className="h-11"
-                value={editForm.newPassword}
-                onChange={(e) => setEditForm({ ...editForm, newPassword: e.target.value })}
-              />
+              <div className="relative">
+                <Input
+                  type={showEditPassword ? "text" : "password"}
+                  placeholder="Nhập mật khẩu mới"
+                  className="h-11 pr-10"
+                  value={editForm.newPassword}
+                  onChange={(e) => setEditForm({ ...editForm, newPassword: e.target.value })}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowEditPassword(!showEditPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  {showEditPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
               {editForm.newPassword && (
                 <div className="mt-2 space-y-1.5">
                   {validatePassword(editForm.newPassword).map((req) => (
@@ -729,34 +759,6 @@ export function UsersPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="text-left mb-4">
-            <DialogTitle className="text-xl">Xác nhận xóa người dùng</DialogTitle>
-            <DialogDescription>
-              Bạn có chắc chắn muốn xóa người dùng{" "}
-              <span className="font-medium text-foreground">{selectedUser?.email}</span>? Hành động này không thể hoàn tác.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-3 pt-4">
-            <Button
-              variant="outline"
-              onClick={() => setDeleteDialogOpen(false)}
-              className="h-11 px-6 text-base font-medium"
-            >
-              Hủy
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteUser}
-              className="h-11 px-6 text-base font-medium"
-            >
-              Xóa
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader className="text-left mb-4">
@@ -766,15 +768,15 @@ export function UsersPage() {
           {selectedUser && (
             <div className="space-y-4 py-2">
               <div className="flex items-center gap-4 p-4 rounded-lg border border-border bg-secondary/20">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                   {selectedUser.avatarUrl ? (
                     <img
                       src={selectedUser.avatarUrl}
                       alt={selectedUser.fullName || selectedUser.email}
-                      className="w-16 h-16 rounded-full object-cover"
+                      className="w-20 h-20 rounded-full object-cover"
                     />
                   ) : (
-                    <Users className="w-8 h-8 text-primary" />
+                    <Users className="w-10 h-10 text-primary" />
                   )}
                 </div>
                 <div>
@@ -888,6 +890,36 @@ export function UsersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog Vô hiệu hóa / Kích hoạt lại */}
+      <Dialog open={banDialogOpen} onOpenChange={(open) => { if (!open) setSelectedUser(null); setBanDialogOpen(open); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader className="text-left">
+            <DialogTitle className="text-xl">
+              {selectedUser?.status === "disabled" ? "Kích hoạt lại người dùng" : "Vô hiệu hóa người dùng"}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedUser?.status === "disabled"
+                ? `Bạn có chắc muốn kích hoạt lại tài khoản của "${selectedUser?.fullName || selectedUser?.email}"?`
+                : `Bạn có chắc muốn vô hiệu hóa tài khoản của "${selectedUser?.fullName || selectedUser?.email}"? Người dùng sẽ không thể đăng nhập.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-3">
+            <Button variant="outline" onClick={() => setBanDialogOpen(false)} className="h-11 px-6 text-base font-medium">
+              Hủy
+            </Button>
+            <Button
+              variant={selectedUser?.status === "disabled" ? "default" : "destructive"}
+              onClick={handleBanUser}
+              disabled={actionLoading}
+              className="h-11 px-6 text-base font-semibold"
+            >
+              {actionLoading ? "Đang xử lý..." : selectedUser?.status === "disabled" ? "Kích hoạt lại" : "Vô hiệu hóa"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   )
 }

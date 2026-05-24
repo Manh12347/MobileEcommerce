@@ -10,13 +10,13 @@ import { WarrantyPage } from './pages/dashboard/WarrantyPage'
 import { ProductsPage } from './pages/dashboard/ProductsPage'
 import { VariantsPage } from './pages/dashboard/VariantsPage'
 import { UsersPage } from './pages/dashboard/UsersPage'
+import { SettingsPage } from './pages/dashboard/SettingsPage'
 import { Toaster } from './components/ui/toast'
+import { isAdminSessionActive } from './api/authSession'
 import './index.css'
 
 function ProtectedRoute({ children }) {
-  const token = localStorage.getItem('accessToken')
-
-  if (!token) {
+  if (!isAdminSessionActive()) {
     return <Navigate to="/" replace />
   }
 
@@ -115,6 +115,16 @@ function App() {
             <ProtectedRoute>
               <DashboardLayout>
                 <UsersPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/settings"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <SettingsPage />
               </DashboardLayout>
             </ProtectedRoute>
           }

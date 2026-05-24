@@ -1,8 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 
-export function Tabs({ value, onValueChange, children, className = '', ...props }) {
+export function Tabs({ value, onValueChange, defaultValue, children, className = '', ...props }) {
+  const [internalValue, setInternalValue] = useState(defaultValue || '');
+
+  const currentValue = value !== undefined ? value : internalValue;
+  const handleValueChange = onValueChange || setInternalValue;
+
   return (
-    <TabsContext.Provider value={{ value, onValueChange }}>
+    <TabsContext.Provider value={{ value: currentValue, onValueChange: handleValueChange }}>
       <div className={`${className}`} {...props}>
         {children}
       </div>

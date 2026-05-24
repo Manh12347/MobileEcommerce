@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { clearAdminSession, getAdminAccessToken } from './authSession';
 
 // Detect environment and set base URL
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://doantrang.online/v1/api';
@@ -14,7 +15,7 @@ const apiClient = axios.create({
 // Request interceptor
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken');
+    const token = config.skipAuth ? null : getAdminAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -27,26 +28,37 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Token expired or unauthorized
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      window.location.href = '/login';
+    if (error.response?.status === 401 && !error.config?.skipAuthRedirect) {
+      clearAdminSession();
+      if (window.location.pathname !== '/') {
+        window.location.href = '/';
+      }
     }
     return Promise.reject(error);
   }
 );
 
+const publicRequest = { skipAuth: true, skipAuthRedirect: true };
+
 // Auth endpoints
 export const authAPI = {
   register: (email, password) =>
-    apiClient.post('/auth/register', { email, password }),
+    apiClient.post('/auth/register', { email, password }, publicRequest),
   
   verifyOtp: (email, otp) =>
-    apiClient.post('/auth/verify-otp', { email, otp }),
+    apiClient.post('/auth/verify-otp', { email, otp }, publicRequest),
+
+  sendLoginOtp: (email) =>
+    apiClient.post('/auth/otp/send', { email }, publicRequest),
+
+  verifyLoginOtp: (email, otp) =>
+    apiClient.post('/auth/otp/verify', { email, otp }, publicRequest),
+
+  verify2FA: (pendingToken, code) =>
+    apiClient.post('/auth/2fa/verify', { pendingToken, code }, publicRequest),
   
   login: (email, password) =>
-    apiClient.post('/auth/login', { email, password }),
+    apiClient.post('/auth/login', { email, password }, publicRequest),
   
   logout: () =>
     apiClient.post('/auth/logout'),
@@ -64,6 +76,9 @@ export const warrantyAPI = {
 
   updateClaimStatus: (claimId, status) =>
     apiClient.put(`/warranty-claims/${claimId}`, { status }),
+
+  createClaimBySerial: (serialNumber, description) =>
+    apiClient.post('/warranty-claims/by-serial', { serialNumber, description }),
 };
 
 export const catalogAPI = {
@@ -84,6 +99,7 @@ export const catalogAPI = {
   createProduct: (payload) => apiClient.post('/catalogs/products', payload),
   updateProduct: (id, payload) => apiClient.put(`/catalogs/products/${id}`, payload),
   toggleProductStatus: (id) => apiClient.put(`/catalogs/products/${id}/toggle-status`),
+  discontinueProduct: (id) => apiClient.put(`/catalogs/products/${id}/discontinue`),
   deleteProduct: (id) => apiClient.delete(`/catalogs/products/${id}`),
 };
 
@@ -94,6 +110,7 @@ export const productItemAPI = {
   create: (payload) => apiClient.post('/product-items', payload),
   update: (id, payload) => apiClient.put(`/product-items/${id}`, payload),
   toggleStatus: (id) => apiClient.put(`/product-items/${id}/toggle-status`),
+  discontinue: (id) => apiClient.put(`/product-items/${id}/discontinue`),
   delete: (id) => apiClient.delete(`/product-items/${id}`),
   addStock: (id, quantity) => apiClient.post(`/product-items/${id}/add-stock`, null, { params: { quantity } }),
   reduceStock: (id, quantity) => apiClient.post(`/product-items/${id}/reduce-stock`, null, { params: { quantity } }),
@@ -106,6 +123,41 @@ export const usersAPI = {
   update: (id, payload) => apiClient.put(`/users/${id}`, payload),
   delete: (id) => apiClient.delete(`/users/${id}`),
   search: (keyword) => apiClient.get('/users/search', { params: { keyword } }),
+  changePassword: (id, newPassword) => apiClient.post(`/users/${id}/change-password`, { newPassword }),
+  ban: (id) => apiClient.put(`/users/${id}/ban`),
+  unban: (id) => apiClient.put(`/users/${id}/unban`),
+};
+
+export const profileAPI = {
+  getProfile: () => apiClient.get('/profile'),
+  updateProfile: (payload) => apiClient.put('/profile', payload),
+  changePassword: (payload) => apiClient.post('/profile/change-password', payload),
+};
+
+export const twoFactorAPI = {
+  setup: () => apiClient.post('/auth/2fa/setup'),
+  enable: (code) => apiClient.post('/auth/2fa/enable', { code }),
+  disable: (code) => apiClient.post('/auth/2fa/disable', { code }),
+  verify: (pendingToken, code) => apiClient.post('/auth/2fa/verify', { pendingToken, code }),
+};
+
+export const uploadAPI = {
+  uploadUserAvatar: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post('/uploads/users', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      skipAuth: false,
+    });
+  },
+  uploadProductImage: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post('/uploads/products', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      skipAuth: false,
+    });
+  },
 };
 
 export default apiClient;

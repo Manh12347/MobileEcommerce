@@ -1,18 +1,28 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Eye, EyeOff, Smartphone, Loader2, AlertCircle, CheckCircle } from "lucide-react"
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { Label } from "./ui/label"
 import { Checkbox } from "./ui/checkbox"
 import { authAPI } from "../api/client"
+import { isAdminSessionActive, saveAdminSession } from "../api/authSession"
 
 export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [otp, setOtp] = useState("")
+  const [pending2FAUser, setPending2FAUser] = useState(null)
+  const [pendingToken, setPendingToken] = useState(null)
   const [errors, setErrors] = useState({})
   const [success, setSuccess] = useState("")
+
+  useEffect(() => {
+    if (isAdminSessionActive()) {
+      window.location.href = '/dashboard'
+    }
+  }, [])
 
   // Email validation regex
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -39,12 +49,56 @@ export function LoginForm() {
     return Object.keys(newErrors).length === 0
   }
 
+  const validateOtp = () => {
+    const newErrors = {}
+
+    if (!otp.trim()) {
+      newErrors.otp = "Vui lòng nhập mã OTP"
+    } else if (!/^\d{6}$/.test(otp.trim())) {
+      newErrors.otp = "Mã OTP phải gồm 6 chữ số"
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSuccess("")
     
     // Clear previous errors on submit attempt
     setErrors({})
+
+    if (pending2FAUser) {
+      if (!validateOtp()) {
+        return
+      }
+
+      setIsLoading(true)
+
+      try {
+        const response = await authAPI.verify2FA(pendingToken, otp.trim())
+
+        if (response.data?.success) {
+          const verifiedUserData = response.data.data
+          saveAdminSession(verifiedUserData)
+          setSuccess("Xác thực 2FA thành công!")
+
+          setTimeout(() => {
+            window.location.href = '/dashboard'
+          }, 700)
+        } else {
+          setErrors({ otp: response.data?.message || "Mã xác thực không chính xác" })
+        }
+      } catch (err) {
+        const errorMsg = err.response?.data?.message || err.message || "Lỗi xác thực 2FA"
+        setErrors({ otp: errorMsg })
+      } finally {
+        setIsLoading(false)
+      }
+
+      return
+    }
 
     // Validate before submitting
     if (!validateForm()) {
@@ -67,9 +121,28 @@ export function LoginForm() {
           return;
         }
         
-        localStorage.setItem('accessToken', userData?.accessToken)
-        localStorage.setItem('refreshToken', userData?.refreshToken)
-        localStorage.setItem('userRole', userData?.role || 'admin')
+        const requires2FA =
+          userData?.require2FA === true ||
+          userData?.require2fa === true ||
+          userData?.requires2FA === true ||
+          userData?.requires2fa === true
+
+        if (requires2FA) {
+          const token = userData?.pendingToken
+          if (!token) {
+            setErrors({ general: "Không nhận được mã xác thực. Vui lòng thử lại." })
+            setIsLoading(false)
+            return
+          }
+          setPendingToken(token)
+          setPending2FAUser(userData)
+          setOtp("")
+          setSuccess("Tài khoản đã bật 2FA. Vui lòng nhập mã từ ứng dụng xác thực.")
+          setIsLoading(false)
+          return
+        }
+
+        saveAdminSession(userData)
         setSuccess(response.data.message || "Đăng nhập thành công!")
         
         setTimeout(() => {
@@ -107,6 +180,14 @@ export function LoginForm() {
 
   const handleForgotPassword = () => {
     window.location.href = '/forgot-password'
+  }
+
+  const handleBackToPassword = () => {
+    setPending2FAUser(null)
+    setPendingToken(null)
+    setOtp("")
+    setSuccess("")
+    setErrors({})
   }
 
   return (
@@ -190,7 +271,7 @@ export function LoginForm() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="space-y-3">
+            <div className={`space-y-3 ${pending2FAUser ? 'hidden' : ''}`}>
               <Label htmlFor="email" className="text-lg font-semibold text-foreground">
                 Email
               </Label>
@@ -199,6 +280,7 @@ export function LoginForm() {
                 type="email"
                 placeholder="admin@mobileshop.com"
                 value={email}
+                disabled={Boolean(pending2FAUser)}
                 onChange={(e) => {
                   setEmail(e.target.value)
                   // Clear error when user starts typing
@@ -217,7 +299,7 @@ export function LoginForm() {
               )}
             </div>
 
-            <div className="space-y-3">
+            <div className={`space-y-3 ${pending2FAUser ? 'hidden' : ''}`}>
               <div className="flex items-center justify-between">
                 <Label htmlFor="password" className="text-lg font-semibold text-foreground">
                   Mật khẩu
@@ -236,6 +318,7 @@ export function LoginForm() {
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={password}
+                  disabled={Boolean(pending2FAUser)}
                   onChange={(e) => {
                     setPassword(e.target.value)
                     // Clear error when user starts typing
@@ -266,31 +349,95 @@ export function LoginForm() {
               )}
             </div>
 
-            <div className="flex items-center gap-3">
+            {pending2FAUser && (
+              <div className="space-y-3">
+                <div className="text-center space-y-3 mb-8">
+                  <h3 className="text-3xl font-bold text-foreground">Xác minh OTP</h3>
+                  <p className="text-base text-muted-foreground">
+                    Nhập mã gồm 6 chữ số đã được gửi đến email của bạn.
+                  </p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="otp" className="text-lg font-semibold text-foreground">
+                    Mã OTP
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={handleBackToPassword}
+                    className="text-base text-primary hover:text-primary/80 transition-colors"
+                  >
+                    Đổi tài khoản
+                  </button>
+                </div>
+                <Input
+                  id="otp"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  placeholder="123456"
+                  value={otp}
+                  onChange={(e) => {
+                    setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
+                    if (errors.otp) {
+                      setErrors(prev => { const { otp, ...rest } = prev; return rest })
+                    }
+                  }}
+                  className={`h-14 text-center text-xl tracking-[0.5em] ${errors.otp ? 'border-destructive border-2' : ''}`}
+                  autoFocus
+                />
+                {errors.otp && (
+                  <p className="text-sm text-destructive flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-4 h-4" />
+                    {errors.otp}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className={`flex items-center gap-3 ${pending2FAUser ? 'hidden' : ''}`}>
               <Checkbox id="remember" className="w-5 h-5" />
               <Label htmlFor="remember" className="text-base text-muted-foreground cursor-pointer">
                 Ghi nhớ đăng nhập
               </Label>
             </div>
 
-            <Button
-              type="submit"
-              className="w-full h-14 text-lg font-semibold"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                  Đang đăng nhập...
-                </>
-              ) : (
-                "Đăng nhập"
-              )}
-            </Button>
+            {pending2FAUser && (
+              <Button
+                type="submit"
+                className="w-full h-14 text-lg font-semibold"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                    Đang xác thực...
+                  </>
+                ) : (
+                  "Xác thực OTP"
+                )}
+              </Button>
+            )}
+
+            {!pending2FAUser && (
+              <Button
+                type="submit"
+                className="w-full h-14 text-lg font-semibold"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                    Đang đăng nhập...
+                  </>
+                ) : (
+                  "Đăng nhập"
+                )}
+              </Button>
+            )}
           </form>
 
           {/* Divider */}
-          <div className="relative my-8">
+          <div className={`relative my-8 ${pending2FAUser ? 'hidden' : ''}`}>
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-border" />
             </div>
@@ -302,7 +449,7 @@ export function LoginForm() {
           </div>
 
           {/* Social Login */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className={`grid grid-cols-2 gap-4 ${pending2FAUser ? 'hidden' : ''}`}>
             <Button
               type="button"
               variant="outline"
@@ -341,7 +488,7 @@ export function LoginForm() {
           </div>
 
           {/* Footer */}
-          <p className="mt-8 text-center text-sm text-muted-foreground">
+          <p className={`mt-8 text-center text-sm text-muted-foreground ${pending2FAUser ? 'hidden' : ''}`}>
             Chưa có tài khoản?{" "}
             <button 
               type="button"
@@ -352,7 +499,7 @@ export function LoginForm() {
             </button>
           </p>
 
-          <p className="mt-6 text-center text-xs text-muted-foreground">
+          <p className={`mt-6 text-center text-xs text-muted-foreground ${pending2FAUser ? 'hidden' : ''}`}>
             © 2025 Ecommerce Shop Admin. All rights reserved.
           </p>
         </div>

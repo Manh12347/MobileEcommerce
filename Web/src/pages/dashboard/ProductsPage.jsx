@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from "react"
-import { Search, Plus, MoreVertical, Eye, Edit, Trash2 } from "lucide-react"
+import { Search, Plus, MoreVertical, Eye, Edit, Trash2, Package, AlertTriangle } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Badge } from "../../components/ui/badge"
@@ -46,6 +46,7 @@ export function ProductsPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [isViewMode, setIsViewMode] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [discontinueDialogOpen, setDiscontinueDialogOpen] = useState(false)
 
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [addForm, setAddForm] = useState(initialForm)
@@ -225,6 +226,21 @@ export function ProductsPage() {
     }
   }
 
+  const handleDiscontinueProduct = async () => {
+    if (!selectedProduct) return
+
+    try {
+      await catalogAPI.discontinueProduct(selectedProduct.productId)
+      setDiscontinueDialogOpen(false)
+      setSelectedProduct(null)
+      await loadData()
+      toast({ title: "Thành công", description: "Sản phẩm và các biến thể đã được ngừng bán" })
+    } catch (error) {
+      console.error("Discontinue product error", error)
+      toast({ title: "Lỗi", description: error?.response?.data?.message || "Ngừng bán thất bại", variant: "destructive" })
+    }
+  }
+
   const openViewDialog = (product) => {
     setSelectedProduct(product)
     setEditForm({
@@ -301,6 +317,7 @@ export function ProductsPage() {
             <option value="all">Tất cả trạng thái</option>
             <option value="active">Hoạt động</option>
             <option value="disable">Đã vô hiệu</option>
+            <option value="discontinued">Ngừng bán</option>
           </select>
         </div>
       </div>
@@ -348,8 +365,8 @@ export function ProductsPage() {
                 )}
                 {visibleColumns.includes("status") && (
                   <TableCell className="text-left">
-                    <Badge variant={product.status === "active" ? "success" : "destructive"}>
-                      {product.status === "active" ? "Hoạt động" : "Đã vô hiệu"}
+                    <Badge variant={product.status === "active" ? "success" : product.status === "discontinued" ? "warning" : "destructive"}>
+                      {product.status === "active" ? "Hoạt động" : product.status === "discontinued" ? "Ngừng bán" : "Đã vô hiệu"}
                     </Badge>
                   </TableCell>
                 )}
@@ -386,6 +403,18 @@ export function ProductsPage() {
                           <Trash2 className="w-5 h-5 mr-3" />
                           {product.status === "active" ? "Vô hiệu" : "Kích hoạt"}
                         </DropdownMenuItem>
+                        {product.status === "active" && (
+                          <DropdownMenuItem
+                            className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer text-amber-500 hover:bg-amber-50"
+                            onSelect={() => {
+                              setSelectedProduct(product)
+                              setDiscontinueDialogOpen(true)
+                            }}
+                          >
+                            <AlertTriangle className="w-5 h-5 mr-3" />
+                            Ngừng bán
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -591,6 +620,26 @@ export function ProductsPage() {
             </Button>
             <Button variant="destructive" onClick={handleToggleProductStatus} className="h-11 px-6 text-base font-medium">
               Xác nhận
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Discontinue Dialog */}
+      <Dialog open={discontinueDialogOpen} onOpenChange={setDiscontinueDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader className="text-left mb-4">
+            <DialogTitle className="text-xl">Xác nhận ngừng bán sản phẩm</DialogTitle>
+            <DialogDescription>
+              Sản phẩm <span className="font-medium text-foreground">{selectedProduct?.name}</span> và tất cả biến thể của sản phẩm này sẽ được ngừng bán. Hành động này có thể hoàn tác.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-3 pt-4">
+            <Button variant="outline" onClick={() => setDiscontinueDialogOpen(false)} className="h-11 px-6 text-base font-medium">
+              Hủy
+            </Button>
+            <Button variant="destructive" onClick={handleDiscontinueProduct} className="h-11 px-6 text-base font-medium">
+              Ngừng bán
             </Button>
           </DialogFooter>
         </DialogContent>
