@@ -3,6 +3,7 @@ package com.example.ecommerce.controller;
 import com.example.ecommerce.dto.ApiResponse;
 import com.example.ecommerce.dto.CreateProductItemRequest;
 import com.example.ecommerce.dto.ProductItemDTO;
+import com.example.ecommerce.dto.ProductItemListDTO;
 import com.example.ecommerce.dto.UpdateProductItemRequest;
 import com.example.ecommerce.service.ProductItemService;
 import jakarta.validation.Valid;
@@ -11,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.domain.Page;
 
 import java.util.List;
 
@@ -24,9 +26,29 @@ public class ProductItemController {
     private ProductItemService productItemService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<ProductItemDTO>>> getAllProductItems() {
+    public ResponseEntity<ApiResponse<Page<ProductItemDTO>>> getAllProductItems(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
         try {
-            List<ProductItemDTO> items = productItemService.getAllProductItems();
+            Page<ProductItemDTO> items = productItemService.getAllProductItems(page, size);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Lấy danh sách product items thành công", items));
+        } catch (Exception e) {
+            log.error("Lỗi khi lấy danh sách product items:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
+        }
+    }
+    
+    /**
+     * Lấy danh sách product items cho dashboard - KHÔNG có serials
+     * Performance tốt hơn nhiều
+     */
+    @GetMapping("/list")
+    public ResponseEntity<ApiResponse<Page<ProductItemListDTO>>> getAllProductItemsList(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        try {
+            Page<ProductItemListDTO> items = productItemService.getAllProductItemsForList(page, size);
             return ResponseEntity.ok(new ApiResponse<>(true, "Lấy danh sách product items thành công", items));
         } catch (Exception e) {
             log.error("Lỗi khi lấy danh sách product items:", e);
@@ -96,6 +118,22 @@ public class ProductItemController {
                     .body(new ApiResponse<>(false, e.getMessage(), null));
         } catch (Exception e) {
             log.error("Lỗi khi cập nhật product item:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
+        }
+    }
+
+    @PutMapping("/{id}/toggle-status")
+    public ResponseEntity<ApiResponse<String>> toggleProductItemStatus(@PathVariable Integer id) {
+        try {
+            productItemService.toggleProductItemStatus(id);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Cập nhật trạng thái thành công", null));
+        } catch (RuntimeException e) {
+            log.warn("Không thể cập nhật trạng thái: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (Exception e) {
+            log.error("Lỗi khi cập nhật trạng thái:", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
         }

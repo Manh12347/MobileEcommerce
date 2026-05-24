@@ -9,16 +9,20 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE TABLE brands (
     brand_id SERIAL PRIMARY KEY,
     name VARCHAR(100) UNIQUE NOT NULL,
-    country VARCHAR(100)
+    country VARCHAR(100),
+    status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active','disable'))
 );
+CREATE INDEX idx_brands_status ON brands(status);
 
 -- ========================
 -- 2. CATEGORIES
 -- ========================
 CREATE TABLE categories (
     category_id SERIAL PRIMARY KEY,
-    name VARCHAR(100) UNIQUE NOT NULL
+    name VARCHAR(100) UNIQUE NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active','disable'))
 );
+CREATE INDEX idx_categories_status ON categories(status);
 
 -- ========================
 -- 3. ACCOUNTS

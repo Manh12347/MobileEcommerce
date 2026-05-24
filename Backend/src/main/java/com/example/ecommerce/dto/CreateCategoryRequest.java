@@ -11,4 +11,6 @@ import lombok.NoArgsConstructor;
 public class CreateCategoryRequest {
     @NotBlank(message = "Tên category không được để trống")
     private String name;
+
+    private String status;
 }

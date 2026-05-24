@@ -8,6 +8,9 @@ import com.example.ecommerce.repository.BrandRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,12 +37,12 @@ public class ProductService {
         product.setStatus(status != null ? status : "active");
 
         if (brandId != null) {
-            Optional<Brand> brand = brandRepository.findById(brandId);
+            Optional<Brand> brand = brandRepository.findByBrandIdAndStatus(brandId, "active");
             brand.ifPresent(product::setBrand);
         }
 
         if (categoryId != null) {
-            Optional<Category> category = categoryRepository.findById(categoryId);
+            Optional<Category> category = categoryRepository.findByCategoryIdAndStatus(categoryId, "active");
             category.ifPresent(product::setCategory);
         }
 
@@ -52,6 +55,10 @@ public class ProductService {
 
     public List<Product> getAllProducts() {
         return productRepository.findAll();
+    }
+
+    public Page<Product> getAllProducts(int page, int size) {
+        return productRepository.findAll(PageRequest.of(Math.max(page - 1, 0), size, Sort.by(Sort.Direction.DESC, "productId")));
     }
 
     public List<Product> getProductsByCategory(Integer categoryId) {
@@ -71,16 +78,35 @@ public class ProductService {
         if (status != null) product.setStatus(status);
 
         if (brandId != null) {
-            Optional<Brand> brand = brandRepository.findById(brandId);
+            Optional<Brand> brand = brandRepository.findByBrandIdAndStatus(brandId, "active");
             brand.ifPresent(product::setBrand);
         }
 
         if (categoryId != null) {
-            Optional<Category> category = categoryRepository.findById(categoryId);
+            Optional<Category> category = categoryRepository.findByCategoryIdAndStatus(categoryId, "active");
             category.ifPresent(product::setCategory);
         }
 
         return productRepository.save(product);
+    }
+
+    public void toggleProductStatus(Integer productId) {
+        Optional<Product> productOpt = productRepository.findById(productId);
+        if (!productOpt.isPresent()) {
+            throw new RuntimeException("Không tìm thấy sản phẩm");
+        }
+
+        Product product = productOpt.get();
+        String newStatus = "disable".equals(product.getStatus()) ? "active" : "disable";
+        product.setStatus(newStatus);
+        productRepository.save(product);
+
+        // Toggle all product items status
+        List<ProductItem> items = productItemRepository.findByProductProductId(productId);
+        for (ProductItem item : items) {
+            item.setStatus(newStatus);
+        }
+        productItemRepository.saveAll(items);
     }
 
     public void deleteProduct(Integer productId) {

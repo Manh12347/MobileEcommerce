@@ -1,6 +1,8 @@
 package com.example.ecommerce.repository;
 
 import com.example.ecommerce.entity.ProductItem;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -31,4 +33,22 @@ public interface ProductItemRepository extends JpaRepository<ProductItem, Intege
            "LEFT JOIN FETCH pi.product " +
            "WHERE pi.product.productId = :productId")
     List<ProductItem> findByProductProductIdWithSerialsAndProduct(@Param("productId") Integer productId);
+    
+    // Query cho list view - KHÔNG load serials để tăng performance
+    @Query("SELECT pi FROM ProductItem pi " +
+           "LEFT JOIN FETCH pi.product " +
+           "WHERE pi.productItemId = :id")
+    Optional<ProductItem> findByIdWithProductOnly(@Param("id") Integer id);
+
+    // Lấy product items cho list view với sold count (1 query thay vì N+1)
+    @Query(value = "SELECT pi.product_item_id, pi.sku, pi.stock_quantity, pi.status, pi.price, pi.sale_price, " +
+           "pi.created_on, pi.product_id, p.name as product_name, " +
+           "(SELECT COUNT(*) FROM serial_numbers sn WHERE sn.product_item_id = pi.product_item_id AND sn.status = 'sold') as sold_count, " +
+           "pi.description, pi.specifications " +
+           "FROM product_items pi " +
+           "LEFT JOIN products p ON pi.product_id = p.product_id " +
+           "ORDER BY pi.product_item_id DESC",
+           countQuery = "SELECT COUNT(*) FROM product_items",
+           nativeQuery = true)
+    Page<Object[]> findAllForListWithSoldCount(Pageable pageable);
 }
