@@ -33,7 +33,7 @@ public class FileController {
 
     private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
-    @Value("${app.base-url:http://localhost:5000}")
+    @Value("${app.base-url:https://doantrang.online}")
     private String baseUrl;
 
     private String getUploadDir(String type) {

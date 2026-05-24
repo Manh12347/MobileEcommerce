@@ -37,7 +37,7 @@ public class TwoFactorService {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
-    @Value("${app.base-url:http://localhost:8080}")
+    @Value("${app.base-url:https://doantrang.online}")
     private String baseUrl;
 
     private static final String PENDING_TOKEN_PREFIX = "2fa_pending:";
