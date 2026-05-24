@@ -12,6 +12,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -24,6 +27,8 @@ public class OtpService {
     private final AccountRepository accountRepository;
     private final ObjectMapper objectMapper;
     private final CaptchaService captchaService;
+
+    private final Map<String, LocalValue> localOtpStore = new ConcurrentHashMap<>();
 
     @Value("${recaptcha.site-key:}")
     private String recaptchaSiteKey;
@@ -91,11 +96,11 @@ public class OtpService {
         String redisKey = OTP_KEY_PREFIX + email;
         
         // Save OTP to Redis with 1 minute active expiration
-        redisTemplate.opsForValue().set(redisKey, otp, OTP_EXPIRY_SECONDS, TimeUnit.SECONDS);
+        setValue(redisKey, otp, OTP_EXPIRY_SECONDS, TimeUnit.SECONDS);
         
         // Also save to expired OTP set (to prevent reuse after expiration)
         String expiredOtpKey = OTP_EXPIRED_KEY_PREFIX + email;
-        redisTemplate.opsForValue().set(expiredOtpKey, otp, EXPIRED_OTP_STORAGE_MINUTES, TimeUnit.MINUTES);
+        setValue(expiredOtpKey, otp, EXPIRED_OTP_STORAGE_MINUTES, TimeUnit.MINUTES);
         
         // Send OTP via email
         mailService.sendOtpEmail(email, otp);
@@ -127,7 +132,7 @@ public class OtpService {
      */
     private boolean isEmailLocked(String email) {
         String redisKey = OTP_LOCKED_KEY_PREFIX + email;
-        return redisTemplate.hasKey(redisKey);
+        return hasKey(redisKey);
     }
 
     /**
@@ -135,7 +140,7 @@ public class OtpService {
      */
     private void lockEmail(String email) {
         String redisKey = OTP_LOCKED_KEY_PREFIX + email;
-        redisTemplate.opsForValue().set(redisKey, "locked", LOCK_DURATION_MINUTES, TimeUnit.MINUTES);
+        setValue(redisKey, "locked", LOCK_DURATION_MINUTES, TimeUnit.MINUTES);
         log.warn("Email locked due to too many OTP attempts: {}", email);
     }
 
@@ -144,7 +149,7 @@ public class OtpService {
      */
     private int getCurrentAttempts(String email) {
         String attemptsKey = OTP_ATTEMPTS_KEY_PREFIX + email;
-        String attemptsStr = redisTemplate.opsForValue().get(attemptsKey);
+        String attemptsStr = getValue(attemptsKey);
         return attemptsStr != null ? Integer.parseInt(attemptsStr) : 0;
     }
 
@@ -158,7 +163,7 @@ public class OtpService {
         attempts++;
         
         // Set expiry to 10 minutes (attempt window)
-        redisTemplate.opsForValue().set(attemptsKey, String.valueOf(attempts), PENDING_REGISTER_EXPIRY_MINUTES, TimeUnit.MINUTES);
+        setValue(attemptsKey, String.valueOf(attempts), PENDING_REGISTER_EXPIRY_MINUTES, TimeUnit.MINUTES);
     }
 
     /**
@@ -166,7 +171,7 @@ public class OtpService {
      */
     private void resetOtpAttempts(String email) {
         String attemptsKey = OTP_ATTEMPTS_KEY_PREFIX + email;
-        redisTemplate.delete(attemptsKey);
+        deleteKey(attemptsKey);
         log.info("OTP attempts reset for email: {}", email);
     }
 
@@ -180,10 +185,10 @@ public class OtpService {
         String expiredOtpKey = OTP_EXPIRED_KEY_PREFIX + email;
         String attemptsKey = OTP_ATTEMPTS_KEY_PREFIX + email;
         
-        redisTemplate.delete(otpKey);
-        redisTemplate.delete(pendingKey);
-        redisTemplate.delete(expiredOtpKey);
-        redisTemplate.delete(attemptsKey);
+        deleteKey(otpKey);
+        deleteKey(pendingKey);
+        deleteKey(expiredOtpKey);
+        deleteKey(attemptsKey);
         
         log.info("Expired OTP and registration data cleaned up for email: {}", email);
     }
@@ -199,7 +204,7 @@ public class OtpService {
         try {
             String jsonData = objectMapper.writeValueAsString(pending);
             // Store with pending registration expiry (1 minute)
-            redisTemplate.opsForValue().set(redisKey, jsonData, PENDING_REGISTER_EXPIRY_MINUTES, TimeUnit.MINUTES);
+            setValue(redisKey, jsonData, PENDING_REGISTER_EXPIRY_MINUTES, TimeUnit.MINUTES);
             log.info("Pending registration saved to Redis for email: {}", email);
         } catch (Exception e) {
             log.error("Error saving pending registration", e);
@@ -212,7 +217,7 @@ public class OtpService {
      */
     public PendingRegistration getPendingRegistration(String email) {
         String redisKey = PENDING_REGISTER_KEY_PREFIX + email;
-        String jsonData = redisTemplate.opsForValue().get(redisKey);
+        String jsonData = getValue(redisKey);
         
         if (jsonData == null) {
             log.warn("No pending registration found for email: {}", email);
@@ -232,7 +237,7 @@ public class OtpService {
      */
     public void removePendingRegistration(String email) {
         String redisKey = PENDING_REGISTER_KEY_PREFIX + email;
-        redisTemplate.delete(redisKey);
+        deleteKey(redisKey);
         log.info("Pending registration removed for email: {}", email);
     }
 
@@ -246,11 +251,11 @@ public class OtpService {
     public boolean verifyOtp(String email, String otp) {
         String redisKey = OTP_KEY_PREFIX + email;
         String expiredOtpKey = OTP_EXPIRED_KEY_PREFIX + email;
-        String activeOtp = redisTemplate.opsForValue().get(redisKey);
+        String activeOtp = getValue(redisKey);
         
         if (activeOtp == null) {
             // OTP has expired, check if it's in the expired OTP set
-            String expiredOtp = redisTemplate.opsForValue().get(expiredOtpKey);
+            String expiredOtp = getValue(expiredOtpKey);
             if (expiredOtp != null) {
                 log.warn("Attempt to reuse expired OTP for email: {}", email);
                 throw new IllegalArgumentException("OTP đã hết hạn. Vui lòng gửi lại OTP");
@@ -267,8 +272,8 @@ public class OtpService {
         }
 
         // OTP correct - finalize registration and cleanup
-        redisTemplate.delete(redisKey);
-        redisTemplate.delete(expiredOtpKey);
+        deleteKey(redisKey);
+        deleteKey(expiredOtpKey);
         
         // Try to finalize pending registration
         finalizePendingRegistration(email);
@@ -291,7 +296,7 @@ public class OtpService {
                 account.setEmailConfirm(true);
                 accountRepository.save(account);
                 resetOtpAttempts(email);
-                captchaService.clearCaptchaVerification(email);
+                clearCaptchaVerification(email);
                 log.info("Email confirmed for existing account: {}", email);
             }
             return;
@@ -310,7 +315,7 @@ public class OtpService {
         accountRepository.save(account);
         removePendingRegistration(email);
         resetOtpAttempts(email);
-        captchaService.clearCaptchaVerification(email);
+        clearCaptchaVerification(email);
         
         log.info("Account created successfully after OTP verification: {}", email);
     }
@@ -320,7 +325,7 @@ public class OtpService {
      */
     public void removeOtp(String email) {
         String redisKey = OTP_KEY_PREFIX + email;
-        redisTemplate.delete(redisKey);
+        deleteKey(redisKey);
         log.info("OTP removed for email: {}", email);
     }
 
@@ -385,5 +390,65 @@ public class OtpService {
         OtpSendResponse response = resendOtp(email);
         
         return response;
+    }
+
+    private boolean hasKey(String key) {
+        try {
+            Boolean hasKey = redisTemplate.hasKey(key);
+            return Boolean.TRUE.equals(hasKey);
+        } catch (RuntimeException e) {
+            log.warn("Redis unavailable for key lookup. Using local OTP store for this run.");
+            return getLocalValue(key) != null;
+        }
+    }
+
+    private String getValue(String key) {
+        try {
+            return redisTemplate.opsForValue().get(key);
+        } catch (RuntimeException e) {
+            log.warn("Redis unavailable for value lookup. Using local OTP store for this run.");
+            return getLocalValue(key);
+        }
+    }
+
+    private void setValue(String key, String value, long timeout, TimeUnit unit) {
+        try {
+            redisTemplate.opsForValue().set(key, value, timeout, unit);
+        } catch (RuntimeException e) {
+            log.warn("Redis unavailable for value write. Using local OTP store for this run.");
+            localOtpStore.put(key, new LocalValue(value, Instant.now().plusMillis(unit.toMillis(timeout))));
+        }
+    }
+
+    private void deleteKey(String key) {
+        try {
+            redisTemplate.delete(key);
+        } catch (RuntimeException e) {
+            log.warn("Redis unavailable for key delete. Removing from local OTP store only.");
+        }
+        localOtpStore.remove(key);
+    }
+
+    private String getLocalValue(String key) {
+        LocalValue localValue = localOtpStore.get(key);
+        if (localValue == null) {
+            return null;
+        }
+        if (localValue.expiresAt().isBefore(Instant.now())) {
+            localOtpStore.remove(key);
+            return null;
+        }
+        return localValue.value();
+    }
+
+    private void clearCaptchaVerification(String email) {
+        try {
+            captchaService.clearCaptchaVerification(email);
+        } catch (RuntimeException e) {
+            log.warn("Redis unavailable while clearing CAPTCHA verification. Continuing local OTP flow.");
+        }
+    }
+
+    private record LocalValue(String value, Instant expiresAt) {
     }
 }

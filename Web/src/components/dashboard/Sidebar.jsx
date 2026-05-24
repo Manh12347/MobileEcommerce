@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react"
+import { clearAdminSession } from "../../api/authSession"
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Tổng quan", href: "/dashboard" },
@@ -88,9 +89,7 @@ export function Sidebar({ collapsed, onCollapsedChange }) {
       <div className="p-3 border-t border-sidebar-border">
         <button
           onClick={() => {
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            localStorage.removeItem('userRole');
+            clearAdminSession();
             window.location.href = '/';
           }}
           className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors w-full text-muted-foreground hover:bg-sidebar-accent hover:text-destructive ${
