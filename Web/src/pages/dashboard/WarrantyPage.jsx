@@ -50,6 +50,18 @@ const uiText = {
   title: "B\u1ea3o h\u00e0nh",
   subtitle: "Qu\u1ea3n l\u00fd phi\u1ebfu b\u1ea3o h\u00e0nh, tr\u1ea1ng th\u00e1i v\u00e0 ti\u1ebfn tr\u00ecnh x\u1eed l\u00fd",
   createTicket: "T\u1ea1o phi\u1ebfu b\u1ea3o h\u00e0nh",
+  createTitle: "Tạo phiếu bảo hành",
+  createDescription: "Nhập số serial và mô tả tình trạng cần bảo hành.",
+  serialNumber: "Số serial",
+  serialPlaceholder: "Ví dụ: ABCD-1234-EFGH",
+  issueDescription: "Mô tả lỗi",
+  issuePlaceholder: "Mô tả tình trạng lỗi hoặc yêu cầu hỗ trợ...",
+  createSuccess: "Tạo phiếu bảo hành thành công",
+  createError: "Không thể tạo phiếu bảo hành",
+  serialRequired: "Vui lòng nhập số serial",
+  descriptionRequired: "Vui lòng nhập mô tả lỗi",
+  creating: "Đang tạo...",
+  create: "Tạo phiếu",
   totalTickets: "T\u1ed5ng phi\u1ebfu",
   completedTickets: "\u0110\u00e3 ho\u00e0n t\u1ea5t",
   searchPlaceholder: "T\u00ecm theo m\u00e3 phi\u1ebfu, kh\u00e1ch h\u00e0ng, s\u1ea3n ph\u1ea9m, serial...",
@@ -175,6 +187,12 @@ export function WarrantyPage() {
   const [errorMessage, setErrorMessage] = useState("")
   const [selectedWarranty, setSelectedWarranty] = useState(null)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [serialNumber, setSerialNumber] = useState("")
+  const [issueDescription, setIssueDescription] = useState("")
+  const [createErrors, setCreateErrors] = useState({})
+  const [isCreating, setIsCreating] = useState(false)
+  const [successMessage, setSuccessMessage] = useState("")
 
   const fetchWarrantyGroups = async () => {
     setIsLoading(true)
@@ -242,6 +260,39 @@ export function WarrantyPage() {
     setDetailDialogOpen(true)
   }
 
+  const resetCreateForm = () => {
+    setSerialNumber("")
+    setIssueDescription("")
+    setCreateErrors({})
+  }
+
+  const createWarrantyClaim = async (event) => {
+    event.preventDefault()
+    setErrorMessage("")
+    setSuccessMessage("")
+
+    const nextErrors = {}
+    if (!serialNumber.trim()) nextErrors.serialNumber = uiText.serialRequired
+    if (!issueDescription.trim()) nextErrors.issueDescription = uiText.descriptionRequired
+    setCreateErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) return
+
+    setIsCreating(true)
+    try {
+      await warrantyAPI.createClaimBySerial(serialNumber.trim(), issueDescription.trim())
+      setSuccessMessage(uiText.createSuccess)
+      setCreateDialogOpen(false)
+      resetCreateForm()
+      await fetchWarrantyGroups()
+    } catch (error) {
+      setCreateErrors({
+        general: error.response?.data?.message || error.message || uiText.createError,
+      })
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
   const updateClaimStatus = async (claim, nextStatus) => {
     if (claim.status === "completed") {
       setErrorMessage(uiText.lockWarning)
@@ -299,11 +350,24 @@ export function WarrantyPage() {
           <h1 className="text-2xl font-bold text-foreground">{uiText.title}</h1>
           <p className="text-muted-foreground">{uiText.subtitle}</p>
         </div>
-        <Button className="h-11 px-6 text-base font-semibold shadow-lg shadow-primary/20">
+        <Button
+          className="h-11 px-6 text-base font-semibold shadow-lg shadow-primary/20"
+          onClick={() => {
+            resetCreateForm()
+            setSuccessMessage("")
+            setCreateDialogOpen(true)
+          }}
+        >
           <Plus className="mr-2 h-5 w-5" />
           {uiText.createTicket}
         </Button>
       </div>
+
+      {successMessage && (
+        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-500">
+          {successMessage}
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-lg border border-border bg-card p-4">
@@ -480,6 +544,82 @@ export function WarrantyPage() {
           setCurrentPage(1)
         }}
       />
+
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-xl p-7 text-left">
+          <DialogHeader className="text-left">
+            <DialogTitle className="text-2xl">{uiText.createTitle}</DialogTitle>
+            <DialogDescription>{uiText.createDescription}</DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={createWarrantyClaim} className="space-y-5">
+            {createErrors.general && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {createErrors.general}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label htmlFor="serialNumber" className="text-sm font-semibold text-foreground">
+                {uiText.serialNumber}
+              </label>
+              <Input
+                id="serialNumber"
+                value={serialNumber}
+                onChange={(event) => {
+                  setSerialNumber(event.target.value)
+                  if (createErrors.serialNumber) {
+                    setCreateErrors((current) => ({ ...current, serialNumber: "" }))
+                  }
+                }}
+                placeholder={uiText.serialPlaceholder}
+                disabled={isCreating}
+              />
+              {createErrors.serialNumber && (
+                <p className="text-sm text-destructive">{createErrors.serialNumber}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="issueDescription" className="text-sm font-semibold text-foreground">
+                {uiText.issueDescription}
+              </label>
+              <textarea
+                id="issueDescription"
+                value={issueDescription}
+                onChange={(event) => {
+                  setIssueDescription(event.target.value)
+                  if (createErrors.issueDescription) {
+                    setCreateErrors((current) => ({ ...current, issueDescription: "" }))
+                  }
+                }}
+                placeholder={uiText.issuePlaceholder}
+                disabled={isCreating}
+                rows={5}
+                className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              {createErrors.issueDescription && (
+                <p className="text-sm text-destructive">{createErrors.issueDescription}</p>
+              )}
+            </div>
+
+            <DialogFooter className="gap-3 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCreateDialogOpen(false)}
+                disabled={isCreating}
+                className="h-11 px-6 text-base font-medium"
+              >
+                {uiText.close}
+              </Button>
+              <Button type="submit" disabled={isCreating} className="h-11 px-6 text-base font-semibold">
+                {isCreating ? uiText.creating : uiText.create}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
         <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto p-7 text-left">
