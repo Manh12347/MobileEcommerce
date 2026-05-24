@@ -195,6 +195,7 @@ public class ProductItemService {
             dto.setSoldQuantity(row[9] != null ? ((Number) row[9]).intValue() : 0);
             dto.setDescription((String) row[10]);
             dto.setSpecifications(row[11] != null ? row[11].toString() : null);
+            dto.setMainImageUrl((String) row[12]);
             
             return dto;
         });
@@ -211,7 +212,10 @@ public class ProductItemService {
         if (request.getSalePrice() != null) item.setSalePrice(request.getSalePrice());
         if (request.getSpecifications() != null) item.setSpecifications(formatJsonbValue(request.getSpecifications()));
         if (request.getImages() != null) item.setImages(formatJsonbValue(request.getImages()));
-        if (request.getMainImageUrl() != null) item.setMainImageUrl(request.getMainImageUrl());
+        if (request.getMainImageUrl() != null) {
+            String url = request.getMainImageUrl().trim();
+            item.setMainImageUrl(url.isEmpty() ? null : url);
+        }
 
         if (request.getStockQuantity() != null) {
             int currentStock = item.getStockQuantity();
@@ -272,6 +276,14 @@ public class ProductItemService {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy product item với id: " + productItemId));
 
         item.setStatus("disable".equals(item.getStatus()) ? "active" : "disable");
+        productItemRepository.save(item);
+    }
+
+    public void discontinueProductItem(Integer productItemId) {
+        ProductItem item = productItemRepository.findById(productItemId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy product item với id: " + productItemId));
+
+        item.setStatus("discontinued");
         productItemRepository.save(item);
     }
 

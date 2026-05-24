@@ -12,9 +12,11 @@ import lombok.Setter;
 public class ProfileDTO {
     private Integer accountId;
     private String email;
+    private String role;
     private String fullName;
     private String phone;
     private String address;
     private String avatarUrl;
     private String createdOn;
+    private Boolean is2faEnabled;
 }

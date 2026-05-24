@@ -106,6 +106,13 @@ public class UserService {
         if (request.getStatus() != null) {
             account.setStatus(request.getStatus());
         }
+        if (request.getPassword() != null && !request.getPassword().isBlank()) {
+            ValidationUtil.ValidationResult validation = ValidationUtil.validatePassword(request.getPassword());
+            if (!validation.isValid()) {
+                throw new RuntimeException(validation.getMessage());
+            }
+            account.setPasswordHash(hashPassword(request.getPassword()));
+        }
 
         accountRepository.save(account);
 
@@ -176,5 +183,21 @@ public class UserService {
     private String hashPassword(String password) {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
         return encoder.encode(password);
+    }
+
+    public void changeUserPassword(Integer accountId, String newPassword) {
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
+        ValidationUtil.validatePassword(newPassword);
+        account.setPasswordHash(hashPassword(newPassword));
+        accountRepository.save(account);
+    }
+
+    public void updateUserStatus(Integer accountId, String status) {
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+        account.setStatus(status);
+        accountRepository.save(account);
     }
 }

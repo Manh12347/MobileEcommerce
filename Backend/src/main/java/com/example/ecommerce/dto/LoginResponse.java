@@ -15,5 +15,6 @@ public class LoginResponse {
     private String accessToken;
     private String refreshToken;
     private Boolean require2FA;
+    private String pendingToken;
     private String message;
 }

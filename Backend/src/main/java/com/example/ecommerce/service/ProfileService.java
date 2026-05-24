@@ -2,11 +2,13 @@ package com.example.ecommerce.service;
 
 import com.example.ecommerce.dto.ProfileDTO;
 import com.example.ecommerce.dto.UpdateProfileRequest;
+import com.example.ecommerce.dto.ChangePasswordRequest;
 import com.example.ecommerce.entity.Account;
 import com.example.ecommerce.entity.Profile;
 import com.example.ecommerce.repository.AccountRepository;
 import com.example.ecommerce.repository.ProfileRepository;
 import lombok.RequiredArgsConstructor;
+import org.mindrot.jbcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,6 +49,22 @@ public class ProfileService {
         return toDTO(profile);
     }
 
+    public void changePassword(Integer accountId, ChangePasswordRequest request) {
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản"));
+
+        if (!BCrypt.checkpw(request.getCurrentPassword(), account.getPasswordHash())) {
+            throw new RuntimeException("Mật khẩu hiện tại không đúng");
+        }
+
+        if (request.getNewPassword() == null || request.getNewPassword().length() < 6) {
+            throw new RuntimeException("Mật khẩu mới phải có ít nhất 6 ký tự");
+        }
+
+        account.setPasswordHash(BCrypt.hashpw(request.getNewPassword(), BCrypt.gensalt(12)));
+        accountRepository.save(account);
+    }
+
     private Profile getOrCreateProfile(Integer accountId) {
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản"));
@@ -64,11 +82,13 @@ public class ProfileService {
         ProfileDTO dto = new ProfileDTO();
         dto.setAccountId(account != null ? account.getAccountId() : null);
         dto.setEmail(account != null ? account.getEmail() : null);
+        dto.setRole(account != null ? account.getRole() : null);
         dto.setFullName(profile.getFullName());
         dto.setPhone(profile.getPhone());
         dto.setAddress(profile.getAddress());
         dto.setAvatarUrl(profile.getAvatarUrl());
         dto.setCreatedOn(profile.getCreatedOn() != null ? profile.getCreatedOn().format(DATE_FORMATTER) : null);
+        dto.setIs2faEnabled(account != null ? account.getIs2faEnabled() : false);
         return dto;
     }
 }

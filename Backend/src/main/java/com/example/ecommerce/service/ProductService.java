@@ -109,6 +109,24 @@ public class ProductService {
         productItemRepository.saveAll(items);
     }
 
+    public void discontinueProduct(Integer productId) {
+        Optional<Product> productOpt = productRepository.findById(productId);
+        if (!productOpt.isPresent()) {
+            throw new RuntimeException("Không tìm thấy sản phẩm");
+        }
+
+        Product product = productOpt.get();
+        product.setStatus("discontinued");
+        productRepository.save(product);
+
+        // Cascade to all product items
+        List<ProductItem> items = productItemRepository.findByProductProductId(productId);
+        for (ProductItem item : items) {
+            item.setStatus("discontinued");
+        }
+        productItemRepository.saveAll(items);
+    }
+
     public void deleteProduct(Integer productId) {
         List<ProductItem> items = productItemRepository.findByProductProductId(productId);
         if (!items.isEmpty()) {
