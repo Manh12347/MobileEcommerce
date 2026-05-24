@@ -9,4 +9,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class UpdateCategoryRequest {
     private String name;
+    private String status;
 }

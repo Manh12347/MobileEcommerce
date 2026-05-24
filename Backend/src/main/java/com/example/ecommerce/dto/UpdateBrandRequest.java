@@ -10,4 +10,5 @@ import lombok.NoArgsConstructor;
 public class UpdateBrandRequest {
     private String name;
     private String country;
+    private String status;
 }

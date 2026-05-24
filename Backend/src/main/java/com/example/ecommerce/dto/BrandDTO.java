@@ -11,4 +11,5 @@ public class BrandDTO {
     private Integer brandId;
     private String name;
     private String country;
+    private String status;
 }

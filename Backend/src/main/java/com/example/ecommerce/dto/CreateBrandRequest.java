@@ -13,4 +13,6 @@ public class CreateBrandRequest {
     private String name;
     
     private String country;
+
+    private String status;
 }

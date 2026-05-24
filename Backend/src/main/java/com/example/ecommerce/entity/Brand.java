@@ -16,4 +16,7 @@ public class Brand {
 
     private String name;
     private String country;
+
+    @Column(nullable = false)
+    private String status = "active";
 }

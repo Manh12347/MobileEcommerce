@@ -2,6 +2,7 @@ package com.example.ecommerce.service;
 
 import com.example.ecommerce.dto.CreateProductItemRequest;
 import com.example.ecommerce.dto.ProductItemDTO;
+import com.example.ecommerce.dto.ProductItemListDTO;
 import com.example.ecommerce.dto.UpdateProductItemRequest;
 import com.example.ecommerce.entity.ProductItem;
 import com.example.ecommerce.entity.Product;
@@ -15,6 +16,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -159,6 +164,42 @@ public class ProductItemService {
                 .collect(Collectors.toList());
     }
 
+    public Page<ProductItemDTO> getAllProductItems(int page, int size) {
+        Page<ProductItem> items = productItemRepository.findAll(PageRequest.of(Math.max(page - 1, 0), size, Sort.by(Sort.Direction.DESC, "productItemId")));
+        return items.map(this::toDTO);
+    }
+    
+    /**
+     * Lấy danh sách product items cho list view - KHÔNG load serials
+     * Performance tốt hơn nhiều so với getAllProductItems
+     * Sử dụng native query để đếm sold_count trong 1 query thay vì N+1
+     */
+    public Page<ProductItemListDTO> getAllProductItemsForList(int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(page - 1, 0), size);
+        Page<Object[]> results = productItemRepository.findAllForListWithSoldCount(pageable);
+        
+        return results.map(row -> {
+            ProductItemListDTO dto = new ProductItemListDTO();
+            dto.setProductItemId(((Number) row[0]).intValue());
+            dto.setSku((String) row[1]);
+            dto.setStockQuantity(row[2] != null ? ((Number) row[2]).intValue() : 0);
+            dto.setStatus((String) row[3]);
+            dto.setPrice(row[4] != null ? new java.math.BigDecimal(row[4].toString()) : null);
+            dto.setSalePrice(row[5] != null ? new java.math.BigDecimal(row[5].toString()) : null);
+            dto.setCreatedAt(row[6] != null ? row[6].toString() : null);
+            
+            if (row[7] != null) {
+                dto.setProductId(((Number) row[7]).intValue());
+            }
+            dto.setProductName((String) row[8]);
+            dto.setSoldQuantity(row[9] != null ? ((Number) row[9]).intValue() : 0);
+            dto.setDescription((String) row[10]);
+            dto.setSpecifications(row[11] != null ? row[11].toString() : null);
+            
+            return dto;
+        });
+    }
+
     public ProductItemDTO updateProductItem(Integer productItemId, UpdateProductItemRequest request) {
         ProductItem item = productItemRepository.findById(productItemId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy product item với id: " + productItemId));
@@ -224,6 +265,14 @@ public class ProductItemService {
         }
         
         productItemRepository.delete(item);
+    }
+
+    public void toggleProductItemStatus(Integer productItemId) {
+        ProductItem item = productItemRepository.findById(productItemId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy product item với id: " + productItemId));
+
+        item.setStatus("disable".equals(item.getStatus()) ? "active" : "disable");
+        productItemRepository.save(item);
     }
 
     public ProductItemDTO addStock(Integer productItemId, int quantity) {

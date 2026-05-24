@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.domain.Page;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -69,7 +70,7 @@ public class CatalogController {
     @PostMapping("/brands")
     public ResponseEntity<ApiResponse<BrandDTO>> createBrand(@Valid @RequestBody CreateBrandRequest request) {
         try {
-            Brand brand = brandService.createBrand(request.getName(), request.getCountry());
+            Brand brand = brandService.createBrand(request.getName(), request.getCountry(), request.getStatus());
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(new ApiResponse<>(true, "Tạo brand thành công", toBrandDTO(brand)));
         } catch (Exception e) {
@@ -84,7 +85,7 @@ public class CatalogController {
             @PathVariable Integer id,
             @RequestBody UpdateBrandRequest request) {
         try {
-            Brand brand = brandService.updateBrand(id, request.getName(), request.getCountry());
+            Brand brand = brandService.updateBrand(id, request.getName(), request.getCountry(), request.getStatus());
             if (brand == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(new ApiResponse<>(false, "Không tìm thấy brand", null));
@@ -97,17 +98,17 @@ public class CatalogController {
         }
     }
 
-    @DeleteMapping("/brands/{id}")
-    public ResponseEntity<ApiResponse<String>> deleteBrand(@PathVariable Integer id) {
+    @PutMapping("/brands/{id}/toggle-status")
+    public ResponseEntity<ApiResponse<String>> toggleBrandStatus(@PathVariable Integer id) {
         try {
-            brandService.deleteBrand(id);
-            return ResponseEntity.ok(new ApiResponse<>(true, "Xóa brand thành công", null));
+            brandService.toggleBrandStatus(id);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Cập nhật trạng thái thành công", null));
         } catch (RuntimeException e) {
-            log.warn("Không thể xóa brand: {}", e.getMessage());
+            log.warn("Không thể cập nhật trạng thái brand: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(new ApiResponse<>(false, e.getMessage(), null));
         } catch (Exception e) {
-            log.error("Lỗi khi xóa brand:", e);
+            log.error("Lỗi khi cập nhật trạng thái brand:", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
         }
@@ -150,7 +151,7 @@ public class CatalogController {
     @PostMapping("/categories")
     public ResponseEntity<ApiResponse<CategoryDTO>> createCategory(@Valid @RequestBody CreateCategoryRequest request) {
         try {
-            Category category = categoryService.createCategory(request.getName());
+            Category category = categoryService.createCategory(request.getName(), request.getStatus());
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(new ApiResponse<>(true, "Tạo category thành công", toCategoryDTO(category)));
         } catch (Exception e) {
@@ -165,7 +166,7 @@ public class CatalogController {
             @PathVariable Integer id,
             @RequestBody UpdateCategoryRequest request) {
         try {
-            Category category = categoryService.updateCategory(id, request.getName());
+            Category category = categoryService.updateCategory(id, request.getName(), request.getStatus());
             if (category == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(new ApiResponse<>(false, "Không tìm thấy category", null));
@@ -178,17 +179,17 @@ public class CatalogController {
         }
     }
 
-    @DeleteMapping("/categories/{id}")
-    public ResponseEntity<ApiResponse<String>> deleteCategory(@PathVariable Integer id) {
+    @PutMapping("/categories/{id}/toggle-status")
+    public ResponseEntity<ApiResponse<String>> toggleCategoryStatus(@PathVariable Integer id) {
         try {
-            categoryService.deleteCategory(id);
-            return ResponseEntity.ok(new ApiResponse<>(true, "Xóa category thành công", null));
+            categoryService.toggleCategoryStatus(id);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Cập nhật trạng thái thành công", null));
         } catch (RuntimeException e) {
-            log.warn("Không thể xóa category: {}", e.getMessage());
+            log.warn("Không thể cập nhật trạng thái category: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(new ApiResponse<>(false, e.getMessage(), null));
         } catch (Exception e) {
-            log.error("Lỗi khi xóa category:", e);
+            log.error("Lỗi khi cập nhật trạng thái category:", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
         }
@@ -199,14 +200,30 @@ public class CatalogController {
     // ========================
 
     @GetMapping("/products")
-    public ResponseEntity<ApiResponse<List<ProductDTO>>> getAllProducts() {
+    public ResponseEntity<ApiResponse<Page<ProductDTO>>> getAllProducts(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
         try {
-            List<ProductDTO> products = productService.getAllProducts().stream()
-                    .map(this::toProductDTO)
-                    .collect(Collectors.toList());
+            Page<ProductDTO> products = productService.getAllProducts(page, size)
+                    .map(this::toProductDTO);
             return ResponseEntity.ok(new ApiResponse<>(true, "Lấy danh sách sản phẩm thành công", products));
         } catch (Exception e) {
             log.error("Lỗi khi lấy danh sách sản phẩm:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
+        }
+    }
+
+    @GetMapping("/products/all")
+    public ResponseEntity<ApiResponse<List<ProductDTO>>> getAllProductsNoPage() {
+        try {
+            List<ProductDTO> products = productService.getAllProducts()
+                    .stream()
+                    .map(this::toProductDTO)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(new ApiResponse<>(true, "Lấy tất cả sản phẩm thành công", products));
+        } catch (Exception e) {
+            log.error("Lỗi khi lấy tất cả sản phẩm:", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
         }
@@ -270,6 +287,22 @@ public class CatalogController {
         }
     }
 
+    @PutMapping("/products/{id}/toggle-status")
+    public ResponseEntity<ApiResponse<String>> toggleProductStatus(@PathVariable Integer id) {
+        try {
+            productService.toggleProductStatus(id);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Cập nhật trạng thái thành công", null));
+        } catch (RuntimeException e) {
+            log.warn("Không thể cập nhật trạng thái sản phẩm: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (Exception e) {
+            log.error("Lỗi khi cập nhật trạng thái sản phẩm:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
+        }
+    }
+
     @DeleteMapping("/products/{id}")
     public ResponseEntity<ApiResponse<String>> deleteProduct(@PathVariable Integer id) {
         try {
@@ -319,11 +352,11 @@ public class CatalogController {
     // ========================
 
     private BrandDTO toBrandDTO(Brand brand) {
-        return new BrandDTO(brand.getBrandId(), brand.getName(), brand.getCountry());
+        return new BrandDTO(brand.getBrandId(), brand.getName(), brand.getCountry(), brand.getStatus());
     }
 
     private CategoryDTO toCategoryDTO(Category category) {
-        return new CategoryDTO(category.getCategoryId(), category.getName());
+        return new CategoryDTO(category.getCategoryId(), category.getName(), category.getStatus());
     }
 
     private ProductDTO toProductDTO(Product product) {

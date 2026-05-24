@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Detect environment and set base URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://doantrang.online/v1/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/v1/api';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -64,6 +64,39 @@ export const warrantyAPI = {
 
   updateClaimStatus: (claimId, status) =>
     apiClient.put(`/warranty-claims/${claimId}`, { status }),
+};
+
+export const catalogAPI = {
+  getBrands: () => apiClient.get('/catalogs/brands'),
+  createBrand: (payload) => apiClient.post('/catalogs/brands', payload),
+  updateBrand: (id, payload) => apiClient.put(`/catalogs/brands/${id}`, payload),
+  toggleBrandStatus: (id) => apiClient.put(`/catalogs/brands/${id}/toggle-status`),
+  deleteBrand: (id) => apiClient.delete(`/catalogs/brands/${id}`),
+
+  getCategories: () => apiClient.get('/catalogs/categories'),
+  createCategory: (payload) => apiClient.post('/catalogs/categories', payload),
+  updateCategory: (id, payload) => apiClient.put(`/catalogs/categories/${id}`, payload),
+  toggleCategoryStatus: (id) => apiClient.put(`/catalogs/categories/${id}/toggle-status`),
+  deleteCategory: (id) => apiClient.delete(`/catalogs/categories/${id}`),
+
+  getProducts: (params = {}) => apiClient.get('/catalogs/products', { params }),
+  getAllProducts: () => apiClient.get('/catalogs/products/all'),
+  createProduct: (payload) => apiClient.post('/catalogs/products', payload),
+  updateProduct: (id, payload) => apiClient.put(`/catalogs/products/${id}`, payload),
+  toggleProductStatus: (id) => apiClient.put(`/catalogs/products/${id}/toggle-status`),
+  deleteProduct: (id) => apiClient.delete(`/catalogs/products/${id}`),
+};
+
+export const productItemAPI = {
+  getAll: (params = {}) => apiClient.get('/product-items/list', { params }),
+  getAllFull: (params = {}) => apiClient.get('/product-items', { params }),
+  getByProduct: (productId) => apiClient.get(`/product-items/product/${productId}`),
+  create: (payload) => apiClient.post('/product-items', payload),
+  update: (id, payload) => apiClient.put(`/product-items/${id}`, payload),
+  toggleStatus: (id) => apiClient.put(`/product-items/${id}/toggle-status`),
+  delete: (id) => apiClient.delete(`/product-items/${id}`),
+  addStock: (id, quantity) => apiClient.post(`/product-items/${id}/add-stock`, null, { params: { quantity } }),
+  reduceStock: (id, quantity) => apiClient.post(`/product-items/${id}/reduce-stock`, null, { params: { quantity } }),
 };
 
 export default apiClient;
