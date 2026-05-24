@@ -4,9 +4,7 @@ import com.example.ecommerce.dto.*;
 import com.example.ecommerce.exception.AuthenticationException;
 import com.example.ecommerce.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +26,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse<LoginResponse>> oauthLogin(@RequestBody OAuthLoginRequest request) {
         try {
             LoginResponse response = authService.oauthLogin(request);
-            return withAccessTokenCookie(response);
+            return ResponseEntity.ok(new ApiResponse<>(true, response.getMessage(), response));
         } catch (AuthenticationException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new ApiResponse<>(false, e.getMessage(), null));
@@ -55,7 +53,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse<LoginResponse>> login(@RequestBody LoginRequest loginRequest) {
         try {
             LoginResponse response = authService.login(loginRequest);
-            return withAccessTokenCookie(response);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Đăng nhập thành công", response));
         } catch (AuthenticationException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new ApiResponse<>(false, e.getMessage(), null));
@@ -111,16 +109,4 @@ public class AuthController {
                     .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
         }
     }
-
-            private ResponseEntity<ApiResponse<LoginResponse>> withAccessTokenCookie(LoginResponse response) {
-            ResponseCookie accessTokenCookie = ResponseCookie.from("accessToken", response.getAccessToken())
-                .httpOnly(true)
-                .path("/")
-                .sameSite("Lax")
-                .build();
-
-            return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, accessTokenCookie.toString())
-                .body(new ApiResponse<>(true, response.getMessage(), response));
-            }
 }

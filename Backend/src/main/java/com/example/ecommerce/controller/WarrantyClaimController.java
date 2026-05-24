@@ -1,6 +1,7 @@
 package com.example.ecommerce.controller;
 
 import com.example.ecommerce.dto.ApiResponse;
+import com.example.ecommerce.dto.CreateWarrantyClaimBySerialRequest;
 import com.example.ecommerce.dto.CreateWarrantyClaimRequest;
 import com.example.ecommerce.dto.UpdateWarrantyClaimRequest;
 import com.example.ecommerce.dto.WarrantyClaimDTO;
@@ -13,6 +14,7 @@ import com.example.ecommerce.entity.SerialNumber;
 import com.example.ecommerce.entity.Warranty;
 import com.example.ecommerce.entity.WarrantyClaim;
 import com.example.ecommerce.service.WarrantyClaimService;
+import com.example.ecommerce.util.SecurityUtil;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -146,6 +148,34 @@ public class WarrantyClaimController {
             log.error("Error creating warranty claim:", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>(false, "Server error: " + e.getMessage(), null));
+        }
+    }
+
+    @PostMapping("/by-serial")
+    public ResponseEntity<ApiResponse<WarrantyClaimDTO>> createClaimBySerial(
+            @Valid @RequestBody CreateWarrantyClaimBySerialRequest request) {
+        try {
+            Integer accountId = SecurityUtil.getCurrentAccountId();
+            if (accountId == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(new ApiResponse<>(false, "Bạn cần đăng nhập để tạo phiếu bảo hành", null));
+            }
+
+            WarrantyClaim claim = warrantyClaimService.createClaimBySerialCode(
+                    request.getSerialNumber(),
+                    accountId,
+                    request.getDescription()
+            );
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(new ApiResponse<>(true, "Tạo phiếu bảo hành thành công", toDTO(claim)));
+        } catch (RuntimeException e) {
+            log.warn("Error creating warranty claim by serial: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (Exception e) {
+            log.error("Error creating warranty claim by serial:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Lỗi máy chủ: " + e.getMessage(), null));
         }
     }
 

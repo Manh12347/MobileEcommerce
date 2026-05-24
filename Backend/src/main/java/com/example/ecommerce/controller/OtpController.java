@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/v1/api/auth/otp")
+@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 @Slf4j
 public class OtpController {

@@ -6,23 +6,21 @@ import com.example.ecommerce.entity.Account;
 import com.example.ecommerce.entity.Profile;
 import com.example.ecommerce.repository.AccountRepository;
 import com.example.ecommerce.repository.ProfileRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.format.DateTimeFormatter;
 
 @Service
+@RequiredArgsConstructor
 @Transactional
 public class ProfileService {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    @Autowired
-    private AccountRepository accountRepository;
-
-    @Autowired
-    private ProfileRepository profileRepository;
+    private final AccountRepository accountRepository;
+    private final ProfileRepository profileRepository;
 
     public ProfileDTO getMyProfile(Integer accountId) {
         Profile profile = getOrCreateProfile(accountId);
