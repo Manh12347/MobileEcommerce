@@ -53,6 +53,9 @@ export const authAPI = {
 
   verifyLoginOtp: (email, otp) =>
     apiClient.post('/auth/otp/verify', { email, otp }, publicRequest),
+
+  verify2FA: (pendingToken, code) =>
+    apiClient.post('/auth/2fa/verify', { pendingToken, code }, publicRequest),
   
   login: (email, password) =>
     apiClient.post('/auth/login', { email, password }, publicRequest),
@@ -96,6 +99,7 @@ export const catalogAPI = {
   createProduct: (payload) => apiClient.post('/catalogs/products', payload),
   updateProduct: (id, payload) => apiClient.put(`/catalogs/products/${id}`, payload),
   toggleProductStatus: (id) => apiClient.put(`/catalogs/products/${id}/toggle-status`),
+  discontinueProduct: (id) => apiClient.put(`/catalogs/products/${id}/discontinue`),
   deleteProduct: (id) => apiClient.delete(`/catalogs/products/${id}`),
 };
 
@@ -106,6 +110,7 @@ export const productItemAPI = {
   create: (payload) => apiClient.post('/product-items', payload),
   update: (id, payload) => apiClient.put(`/product-items/${id}`, payload),
   toggleStatus: (id) => apiClient.put(`/product-items/${id}/toggle-status`),
+  discontinue: (id) => apiClient.put(`/product-items/${id}/discontinue`),
   delete: (id) => apiClient.delete(`/product-items/${id}`),
   addStock: (id, quantity) => apiClient.post(`/product-items/${id}/add-stock`, null, { params: { quantity } }),
   reduceStock: (id, quantity) => apiClient.post(`/product-items/${id}/reduce-stock`, null, { params: { quantity } }),
@@ -118,6 +123,41 @@ export const usersAPI = {
   update: (id, payload) => apiClient.put(`/users/${id}`, payload),
   delete: (id) => apiClient.delete(`/users/${id}`),
   search: (keyword) => apiClient.get('/users/search', { params: { keyword } }),
+  changePassword: (id, newPassword) => apiClient.post(`/users/${id}/change-password`, { newPassword }),
+  ban: (id) => apiClient.put(`/users/${id}/ban`),
+  unban: (id) => apiClient.put(`/users/${id}/unban`),
+};
+
+export const profileAPI = {
+  getProfile: () => apiClient.get('/profile'),
+  updateProfile: (payload) => apiClient.put('/profile', payload),
+  changePassword: (payload) => apiClient.post('/profile/change-password', payload),
+};
+
+export const twoFactorAPI = {
+  setup: () => apiClient.post('/auth/2fa/setup'),
+  enable: (code) => apiClient.post('/auth/2fa/enable', { code }),
+  disable: (code) => apiClient.post('/auth/2fa/disable', { code }),
+  verify: (pendingToken, code) => apiClient.post('/auth/2fa/verify', { pendingToken, code }),
+};
+
+export const uploadAPI = {
+  uploadUserAvatar: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post('/uploads/users', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      skipAuth: false,
+    });
+  },
+  uploadProductImage: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post('/uploads/products', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      skipAuth: false,
+    });
+  },
 };
 
 export default apiClient;

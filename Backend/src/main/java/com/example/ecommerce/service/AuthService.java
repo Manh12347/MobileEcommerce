@@ -35,6 +35,9 @@ public class AuthService {
     @Autowired
     private OtpService otpService;
 
+    @Autowired
+    private TwoFactorService twoFactorService;
+
     public LoginResponse oauthLogin(OAuthLoginRequest request) {
         if (request.getProvider() == null || request.getProvider().isBlank()) {
             throw new AuthenticationException("Provider is required");
@@ -189,7 +192,9 @@ public class AuthService {
 
         // 9. Check if 2FA is enabled
         if (account.getIs2faEnabled()) {
+            String pendingToken = twoFactorService.createPending2FAData(account.getAccountId());
             response.setRequire2FA(true);
+            response.setPendingToken(pendingToken);
             response.setMessage("2FA được kích hoạt. Vui lòng verify OTP");
         } else {
             response.setRequire2FA(false);

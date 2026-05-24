@@ -14,6 +14,7 @@ export function LoginForm() {
   const [password, setPassword] = useState("")
   const [otp, setOtp] = useState("")
   const [pending2FAUser, setPending2FAUser] = useState(null)
+  const [pendingToken, setPendingToken] = useState(null)
   const [errors, setErrors] = useState({})
   const [success, setSuccess] = useState("")
 
@@ -76,20 +77,21 @@ export function LoginForm() {
       setIsLoading(true)
 
       try {
-        const response = await authAPI.verifyLoginOtp(email, otp.trim())
+        const response = await authAPI.verify2FA(pendingToken, otp.trim())
 
         if (response.data?.success) {
-          saveAdminSession(pending2FAUser)
-          setSuccess("Xác thực OTP thành công!")
+          const verifiedUserData = response.data.data
+          saveAdminSession(verifiedUserData)
+          setSuccess("Xác thực 2FA thành công!")
 
           setTimeout(() => {
             window.location.href = '/dashboard'
           }, 700)
         } else {
-          setErrors({ otp: response.data?.message || "Mã OTP không chính xác" })
+          setErrors({ otp: response.data?.message || "Mã xác thực không chính xác" })
         }
       } catch (err) {
-        const errorMsg = err.response?.data?.message || err.message || "Lỗi xác thực OTP"
+        const errorMsg = err.response?.data?.message || err.message || "Lỗi xác thực 2FA"
         setErrors({ otp: errorMsg })
       } finally {
         setIsLoading(false)
@@ -126,10 +128,16 @@ export function LoginForm() {
           userData?.requires2fa === true
 
         if (requires2FA) {
-          await authAPI.sendLoginOtp(userData.email || email)
+          const token = userData?.pendingToken
+          if (!token) {
+            setErrors({ general: "Không nhận được mã xác thực. Vui lòng thử lại." })
+            setIsLoading(false)
+            return
+          }
+          setPendingToken(token)
           setPending2FAUser(userData)
           setOtp("")
-          setSuccess("Tài khoản đã bật 2FA. Mã OTP đã được gửi đến email.")
+          setSuccess("Tài khoản đã bật 2FA. Vui lòng nhập mã từ ứng dụng xác thực.")
           setIsLoading(false)
           return
         }
@@ -176,6 +184,7 @@ export function LoginForm() {
 
   const handleBackToPassword = () => {
     setPending2FAUser(null)
+    setPendingToken(null)
     setOtp("")
     setSuccess("")
     setErrors({})

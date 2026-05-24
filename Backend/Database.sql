@@ -321,3 +321,79 @@ DROP INDEX IF EXISTS idx_bank_account;
 
 -- ✅ Xác nhận lại structure
 \d bank_transactions
+
+
+-- =====================================================
+-- MIGRATION: PRODUCTS & PRODUCT_ITEMS STATUS
+-- thêm trạng thái 'discontinued'
+-- =====================================================
+
+BEGIN;
+
+-- =====================================================
+-- PRODUCTS
+-- =====================================================
+
+ALTER TABLE products
+ADD COLUMN IF NOT EXISTS status VARCHAR(20);
+
+UPDATE products
+SET status = 'active'
+WHERE status IS NULL;
+
+ALTER TABLE products
+ALTER COLUMN status SET DEFAULT 'active';
+
+ALTER TABLE products
+ALTER COLUMN status SET NOT NULL;
+
+ALTER TABLE products
+DROP CONSTRAINT IF EXISTS products_status_check;
+
+ALTER TABLE products
+ADD CONSTRAINT products_status_check
+CHECK (
+    status IN (
+        'active',
+        'disable',
+        'discontinued'
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_products_status
+ON products(status);
+
+-- =====================================================
+-- PRODUCT ITEMS
+-- =====================================================
+
+ALTER TABLE product_items
+ADD COLUMN IF NOT EXISTS status VARCHAR(20);
+
+UPDATE product_items
+SET status = 'active'
+WHERE status IS NULL;
+
+ALTER TABLE product_items
+ALTER COLUMN status SET DEFAULT 'active';
+
+ALTER TABLE product_items
+ALTER COLUMN status SET NOT NULL;
+
+ALTER TABLE product_items
+DROP CONSTRAINT IF EXISTS product_items_status_check;
+
+ALTER TABLE product_items
+ADD CONSTRAINT product_items_status_check
+CHECK (
+    status IN (
+        'active',
+        'disable',
+        'discontinued'
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_product_items_status
+ON product_items(status);
+
+COMMIT;

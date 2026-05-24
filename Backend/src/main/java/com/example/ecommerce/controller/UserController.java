@@ -133,4 +133,66 @@ public class UserController {
                     .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
         }
     }
+
+    /**
+     * Change user password (admin)
+     * POST /v1/api/users/{id}/change-password
+     */
+    @PostMapping("/{id}/change-password")
+    public ResponseEntity<ApiResponse<Void>> changeUserPassword(
+            @PathVariable Integer id,
+            @RequestBody ChangePasswordRequest request) {
+        try {
+            userService.changeUserPassword(id, request.getNewPassword());
+            return ResponseEntity.ok(new ApiResponse<>(true, "Đổi mật khẩu thành công", null));
+        } catch (RuntimeException e) {
+            log.warn("Lỗi đổi mật khẩu: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (Exception e) {
+            log.error("Lỗi khi đổi mật khẩu:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
+        }
+    }
+
+    /**
+     * Ban user (set status to disabled)
+     * PUT /v1/api/users/{id}/ban
+     */
+    @PutMapping("/{id}/ban")
+    public ResponseEntity<ApiResponse<Void>> banUser(@PathVariable Integer id) {
+        try {
+            userService.updateUserStatus(id, "disabled");
+            return ResponseEntity.ok(new ApiResponse<>(true, "Đã vô hiệu hóa người dùng", null));
+        } catch (RuntimeException e) {
+            log.warn("Lỗi vô hiệu hóa: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (Exception e) {
+            log.error("Lỗi khi vô hiệu hóa người dùng:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
+        }
+    }
+
+    /**
+     * Unban user (set status to active)
+     * PUT /v1/api/users/{id}/unban
+     */
+    @PutMapping("/{id}/unban")
+    public ResponseEntity<ApiResponse<Void>> unbanUser(@PathVariable Integer id) {
+        try {
+            userService.updateUserStatus(id, "active");
+            return ResponseEntity.ok(new ApiResponse<>(true, "Đã kích hoạt lại người dùng", null));
+        } catch (RuntimeException e) {
+            log.warn("Lỗi kích hoạt: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (Exception e) {
+            log.error("Lỗi khi kích hoạt người dùng:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
+        }
+    }
 }

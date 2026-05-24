@@ -24,4 +24,5 @@ public class ProductItemListDTO {
     private String productName;
     private String createdAt;
     private String specifications;
+    private String mainImageUrl;
 }

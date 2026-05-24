@@ -303,6 +303,22 @@ public class CatalogController {
         }
     }
 
+    @PutMapping("/products/{id}/discontinue")
+    public ResponseEntity<ApiResponse<String>> discontinueProduct(@PathVariable Integer id) {
+        try {
+            productService.discontinueProduct(id);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Sản phẩm đã được ngừng bán. Các biến thể cũng đã được ngừng bán.", null));
+        } catch (RuntimeException e) {
+            log.warn("Không thể ngừng bán sản phẩm: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (Exception e) {
+            log.error("Lỗi khi ngừng bán sản phẩm:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
+        }
+    }
+
     @DeleteMapping("/products/{id}")
     public ResponseEntity<ApiResponse<String>> deleteProduct(@PathVariable Integer id) {
         try {

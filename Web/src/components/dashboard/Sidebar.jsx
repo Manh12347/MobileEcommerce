@@ -14,6 +14,7 @@ import {
   ClipboardList,
   ShieldCheck,
   Users,
+  Settings,
 } from "lucide-react"
 import { clearAdminSession } from "../../api/authSession"
 
@@ -23,6 +24,7 @@ const menuItems = [
   { icon: ClipboardList, label: "Đơn hàng", href: "/dashboard/orders" },
   { icon: ShieldCheck, label: "Bảo hành", href: "/dashboard/warranty" },
   { icon: Users, label: "Người dùng", href: "/dashboard/users" },
+  { icon: Settings, label: "Cài đặt", href: "/dashboard/settings" },
   { icon: Building2, label: "Thương hiệu", href: "/dashboard/brands" },
   { icon: FolderTree, label: "Danh mục", href: "/dashboard/categories" },
   { icon: Package, label: "Sản phẩm", href: "/dashboard/products" },

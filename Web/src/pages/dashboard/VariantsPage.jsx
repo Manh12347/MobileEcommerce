@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from "react"
-import { Search, Plus, MoreVertical, Eye, Edit, Trash2, Package } from "lucide-react"
+import { Search, Plus, MoreVertical, Eye, Edit, Trash2, Package, Image, Upload, Loader2 } from "lucide-react"
+import { AlertTriangle } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Badge } from "../../components/ui/badge"
@@ -9,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { PaginationControls } from "../../components/dashboard/PaginationControls"
 import { ClampText } from "../../components/dashboard/ClampText"
 import { ColumnVisibilitySelect } from "../../components/dashboard/ColumnVisibilitySelect"
-import { catalogAPI, productItemAPI } from "../../api/client"
+import { catalogAPI, productItemAPI, uploadAPI } from "../../api/client"
 import { useToast } from "../../hooks/use-toast"
 
 const initialForm = {
@@ -20,6 +21,7 @@ const initialForm = {
   stockQuantity: "",
   status: "active",
   specifications: "",
+  mainImageUrl: "",
 }
 
 const renderSpecificationsView = (specJson) => {
@@ -163,6 +165,7 @@ const SpecificationsInput = ({ value, onChange }) => {
 }
 
 const columnOptions = [
+  { value: "image", label: "Ảnh" },
   { value: "product", label: "Sản phẩm" },
   { value: "sku", label: "SKU" },
   { value: "price", label: "Giá" },
@@ -260,11 +263,14 @@ export function VariantsPage() {
   const [stockDialogOpen, setStockDialogOpen] = useState(false)
   const [stockChange, setStockChange] = useState(0)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [discontinueDialogOpen, setDiscontinueDialogOpen] = useState(false)
+  const [imagePreview, setImagePreview] = useState("")
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
 
   const [selectedItem, setSelectedItem] = useState(null)
   const [addForm, setAddForm] = useState(initialForm)
   const [editForm, setEditForm] = useState(initialForm)
-  const [visibleColumns, setVisibleColumns] = useState(["product", "sku", "price", "stock", "sold", "status"])
+  const [visibleColumns, setVisibleColumns] = useState(["image", "product", "sku", "price", "stock", "sold", "status"])
   const isLoadingRef = useRef(false)
 
   const productMap = useMemo(() => new Map(products.map((product) => [product.productId, product.name])), [products])
@@ -344,6 +350,109 @@ export function VariantsPage() {
 
   const pagedItems = filteredItems.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
+  const handleImageUploadAdd = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Lỗi", description: "Vui lòng chọn file ảnh", variant: "destructive" })
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Lỗi", description: "Kích thước file không được vượt quá 5MB", variant: "destructive" })
+      return
+    }
+
+    const preview = URL.createObjectURL(file)
+    setImagePreview(preview)
+    setIsUploadingImage(true)
+
+    try {
+      const res = await uploadAPI.uploadProductImage(file)
+      if (res?.data?.success) {
+        setAddForm((prev) => ({ ...prev, mainImageUrl: res.data.url }))
+        setImagePreview("")
+        toast({ title: "Thành công", description: "Upload ảnh thành công" })
+      } else {
+        toast({ title: "Lỗi", description: res.data?.message || "Upload thất bại", variant: "destructive" })
+      }
+    } catch (err) {
+      toast({ title: "Lỗi", description: err.response?.data?.message || "Upload ảnh thất bại", variant: "destructive" })
+    } finally {
+      setIsUploadingImage(false)
+    }
+  }
+
+  const handleImageUpload = async (e, itemId) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Lỗi", description: "Vui lòng chọn file ảnh", variant: "destructive" })
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Lỗi", description: "Kích thước file không được vượt quá 5MB", variant: "destructive" })
+      return
+    }
+
+    const preview = URL.createObjectURL(file)
+    setImagePreview(preview)
+    setIsUploadingImage(true)
+
+    try {
+      const res = await uploadAPI.uploadProductImage(file)
+      if (res?.data?.success) {
+        const newUrl = res.data.url
+        await productItemAPI.update(itemId, { mainImageUrl: newUrl })
+        setSelectedItem((prev) => ({ ...prev, mainImageUrl: newUrl }))
+        setImagePreview("")
+        loadData(currentPage, pageSize)
+        toast({ title: "Thành công", description: "Upload ảnh thành công" })
+      } else {
+        toast({ title: "Lỗi", description: res.data?.message || "Upload thất bại", variant: "destructive" })
+      }
+    } catch (err) {
+      toast({ title: "Lỗi", description: err.response?.data?.message || "Upload ảnh thất bại", variant: "destructive" })
+    } finally {
+      setIsUploadingImage(false)
+    }
+  }
+
+  const handleImageUploadEdit = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Lỗi", description: "Vui lòng chọn file ảnh", variant: "destructive" })
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Lỗi", description: "Kích thước file không được vượt quá 5MB", variant: "destructive" })
+      return
+    }
+
+    const preview = URL.createObjectURL(file)
+    setImagePreview(preview)
+    setIsUploadingImage(true)
+
+    try {
+      const res = await uploadAPI.uploadProductImage(file)
+      if (res?.data?.success) {
+        const newUrl = res.data.url
+        setEditForm((prev) => ({ ...prev, mainImageUrl: newUrl }))
+        setImagePreview("")
+        toast({ title: "Thành công", description: "Upload ảnh thành công" })
+      } else {
+        toast({ title: "Lỗi", description: res.data?.message || "Upload thất bại", variant: "destructive" })
+      }
+    } catch (err) {
+      toast({ title: "Lỗi", description: err.response?.data?.message || "Upload ảnh thất bại", variant: "destructive" })
+    } finally {
+      setIsUploadingImage(false)
+    }
+  }
+
   const handleCreateItem = async () => {
     if (!addForm.productId) {
       toast({ title: "Lỗi", description: "Vui lòng chọn sản phẩm", variant: "destructive" })
@@ -359,9 +468,11 @@ export function VariantsPage() {
         stockQuantity: addForm.stockQuantity ? Number(addForm.stockQuantity) : 0,
         status: addForm.status,
         specifications: addForm.specifications || null,
+        mainImageUrl: addForm.mainImageUrl || null,
       })
       setAddDialogOpen(false)
       setAddForm(initialForm)
+      setImagePreview("")
       await loadData()
       toast({ title: "Thành công", description: "Đã thêm biến thể mới" })
     } catch (error) {
@@ -379,15 +490,16 @@ export function VariantsPage() {
 
     try {
       await productItemAPI.update(selectedItem.productItemId, {
-        productId: Number(editForm.productId),
         sku: editForm.sku.trim(),
         description: editForm.description,
         price: editForm.price ? Number(editForm.price) : null,
         status: editForm.status,
         specifications: editForm.specifications || null,
+        mainImageUrl: editForm.mainImageUrl || null,
       })
       setEditDialogOpen(false)
       setSelectedItem(null)
+      setImagePreview("")
       await loadData()
       toast({ title: "Thành công", description: "Đã cập nhật biến thể" })
     } catch (error) {
@@ -408,6 +520,21 @@ export function VariantsPage() {
     } catch (error) {
       console.error("Toggle item status error", error)
       toast({ title: "Lỗi", description: error?.response?.data?.message || "Cập nhật trạng thái thất bại", variant: "destructive" })
+    }
+  }
+
+  const handleDiscontinueItem = async () => {
+    if (!selectedItem) return
+
+    try {
+      await productItemAPI.discontinue(selectedItem.productItemId)
+      setDiscontinueDialogOpen(false)
+      setSelectedItem(null)
+      await loadData()
+      toast({ title: "Thành công", description: "Biến thể đã được ngừng bán" })
+    } catch (error) {
+      console.error("Discontinue item error", error)
+      toast({ title: "Lỗi", description: error?.response?.data?.message || "Ngừng bán thất bại", variant: "destructive" })
     }
   }
 
@@ -468,6 +595,7 @@ export function VariantsPage() {
             <option value="all">Tất cả trạng thái</option>
             <option value="active">Hoạt động</option>
             <option value="disable">Đã vô hiệu</option>
+            <option value="discontinued">Ngừng bán</option>
           </select>
         </div>
       </div>
@@ -476,6 +604,7 @@ export function VariantsPage() {
         <Table>
           <TableHeader>
             <TableRow>
+              {visibleColumns.includes("image") && <TableHead className="text-left w-16">Ảnh</TableHead>}
               {visibleColumns.includes("product") && <TableHead className="text-left">Sản phẩm</TableHead>}
               {visibleColumns.includes("sku") && <TableHead className="text-left">SKU</TableHead>}
               {visibleColumns.includes("price") && <TableHead className="text-left">Giá</TableHead>}
@@ -488,6 +617,21 @@ export function VariantsPage() {
           <TableBody>
             {pagedItems.map((item) => (
               <TableRow key={item.productItemId}>
+                {visibleColumns.includes("image") && (
+                  <TableCell className="text-left">
+                    {item.mainImageUrl ? (
+                      <img
+                        src={item.mainImageUrl}
+                        alt={item.sku}
+                        className="w-10 h-10 rounded-md object-cover border border-border"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center border border-border">
+                        <Image className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    )}
+                  </TableCell>
+                )}
                 {visibleColumns.includes("product") && (
                   <TableCell className="text-left font-medium text-foreground">
                     <ClampText title={productMap.get(item.productId) || item.productName || "Chưa gán"}>
@@ -520,8 +664,8 @@ export function VariantsPage() {
                 )}
                 {visibleColumns.includes("status") && (
                   <TableCell className="text-left">
-                    <Badge variant={item.status === "active" ? "success" : "destructive"}>
-                      {item.status === "active" ? "Hoạt động" : "Đã vô hiệu"}
+                    <Badge variant={item.status === "active" ? "success" : item.status === "discontinued" ? "warning" : "destructive"}>
+                      {item.status === "active" ? "Hoạt động" : item.status === "discontinued" ? "Ngừng bán" : "Đã vô hiệu"}
                     </Badge>
                   </TableCell>
                 )}
@@ -537,17 +681,19 @@ export function VariantsPage() {
                         <DropdownMenuItem
                           className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer"
                           onSelect={() => {
-                            setSelectedItem(item)
-                            setViewDialogOpen(true)
-                          }}
-                        >
-                          <Eye className="w-5 h-5 mr-3 text-gray-500" />
-                          Xem thông tin
+                          setSelectedItem(item)
+                          setImagePreview("")
+                          setViewDialogOpen(true)
+                        }}
+                      >
+                        <Eye className="w-5 h-5 mr-3 text-gray-500" />
+                        Xem thông tin
                         </DropdownMenuItem>
                       <DropdownMenuItem
                         className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer"
                         onSelect={() => {
                           setSelectedItem(item)
+                          setImagePreview("")
                           setEditForm({
                             productId: item.productId ? String(item.productId) : "",
                             sku: item.sku || "",
@@ -555,6 +701,7 @@ export function VariantsPage() {
                             price: item.price != null ? String(item.price) : "",
                             status: item.status || "active",
                             specifications: item.specifications || "",
+                            mainImageUrl: item.mainImageUrl || "",
                           })
                           setEditDialogOpen(true)
                         }}
@@ -583,6 +730,18 @@ export function VariantsPage() {
                         <Trash2 className="w-5 h-5 mr-3" />
                         {item.status === "active" ? "Vô hiệu" : "Kích hoạt"}
                       </DropdownMenuItem>
+                      {item.status === "active" && (
+                        <DropdownMenuItem
+                          className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer text-amber-500 hover:bg-amber-50"
+                          onSelect={() => {
+                            setSelectedItem(item)
+                            setDiscontinueDialogOpen(true)
+                          }}
+                        >
+                          <AlertTriangle className="w-5 h-5 mr-3" />
+                          Ngừng bán
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
@@ -611,13 +770,57 @@ export function VariantsPage() {
         }}
       />
 
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+      <Dialog open={addDialogOpen} onOpenChange={(open) => { if (!open) { setImagePreview(""); setAddForm(initialForm); } setAddDialogOpen(open); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader className="text-left mb-4">
             <DialogTitle className="text-xl">Thêm biến thể mới</DialogTitle>
             <DialogDescription>Nhập thông tin biến thể sản phẩm.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Ảnh biến thể */}
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0">
+                {addForm.mainImageUrl ? (
+                  <img
+                    src={imagePreview || addForm.mainImageUrl}
+                    alt="preview"
+                    className="w-20 h-20 rounded-lg object-cover border border-border"
+                  />
+                ) : imagePreview ? (
+                  <img
+                    src={imagePreview}
+                    alt="preview"
+                    className="w-20 h-20 rounded-lg object-cover border border-border"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-lg bg-muted flex items-center justify-center border border-border">
+                    <Image className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1">
+                <label
+                  htmlFor="add-variant-image-upload"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md border border-border bg-background hover:bg-secondary cursor-pointer transition-colors"
+                >
+                  {isUploadingImage ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4" />
+                  )}
+                  {isUploadingImage ? "Đang upload..." : "Chọn ảnh"}
+                </label>
+                <input
+                  id="add-variant-image-upload"
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  disabled={isUploadingImage}
+                  onChange={handleImageUploadAdd}
+                />
+                <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, WEBP, tối đa 5MB</p>
+              </div>
+            </div>
             <div>
               <label className="text-sm font-medium mb-1 block text-left">Sản phẩm</label>
               <select
@@ -697,6 +900,50 @@ export function VariantsPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Ảnh biến thể */}
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0">
+                {editForm.mainImageUrl ? (
+                  <img
+                    src={imagePreview || editForm.mainImageUrl}
+                    alt={editForm.sku}
+                    className="w-20 h-20 rounded-lg object-cover border border-border"
+                  />
+                ) : imagePreview ? (
+                  <img
+                    src={imagePreview}
+                    alt={editForm.sku}
+                    className="w-20 h-20 rounded-lg object-cover border border-border"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-lg bg-muted flex items-center justify-center border border-border">
+                    <Image className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1">
+                <label
+                  htmlFor="variant-image-upload"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md border border-border bg-background hover:bg-secondary cursor-pointer transition-colors"
+                >
+                  {isUploadingImage ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4" />
+                  )}
+                  {isUploadingImage ? "Đang upload..." : "Đổi ảnh"}
+                </label>
+                <input
+                  id="variant-image-upload"
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  disabled={isUploadingImage}
+                  onChange={(e) => handleImageUploadEdit(e)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, WEBP, tối đa 5MB</p>
+              </div>
+            </div>
             <div>
               <label className="text-sm font-medium mb-1 block text-left">Sản phẩm</label>
               <select
@@ -736,6 +983,7 @@ export function VariantsPage() {
               >
                 <option value="active">Hoạt động</option>
                 <option value="disable">Vô hiệu</option>
+                <option value="discontinued">Ngừng bán</option>
               </select>
             </div>
             <div>
@@ -765,13 +1013,27 @@ export function VariantsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={viewDialogOpen} onOpenChange={(open) => { setViewDialogOpen(open); if (!open) setSelectedItem(null); }}>
+      <Dialog open={viewDialogOpen} onOpenChange={(open) => { setViewDialogOpen(open); if (!open) { setSelectedItem(null); setImagePreview(""); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader className="text-left mb-4">
             <DialogTitle className="text-xl">Thông tin biến thể</DialogTitle>
             <DialogDescription>SKU: <span className="font-medium text-foreground">{selectedItem?.sku}</span></DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Ảnh biến thể */}
+            <div className="flex items-center gap-4">
+              {selectedItem?.mainImageUrl ? (
+                <img
+                  src={selectedItem.mainImageUrl}
+                  alt={selectedItem?.sku}
+                  className="w-20 h-20 rounded-lg object-cover border border-border"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-lg bg-muted flex items-center justify-center border border-border">
+                  <Image className="w-8 h-8 text-muted-foreground" />
+                </div>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-1 block text-left text-muted-foreground">Sản phẩm</label>
@@ -782,8 +1044,8 @@ export function VariantsPage() {
               <div>
                 <label className="text-sm font-medium mb-1 block text-left text-muted-foreground">Trạng thái</label>
                 <div className="px-3 py-2 border border-input rounded-md bg-muted text-sm">
-                  <Badge variant={selectedItem?.status === "active" ? "success" : "destructive"}>
-                    {selectedItem?.status === "active" ? "Hoạt động" : "Đã vô hiệu"}
+                  <Badge variant={selectedItem?.status === "active" ? "success" : selectedItem?.status === "discontinued" ? "warning" : "destructive"}>
+                    {selectedItem?.status === "active" ? "Hoạt động" : selectedItem?.status === "discontinued" ? "Ngừng bán" : "Đã vô hiệu"}
                   </Badge>
                 </div>
               </div>
@@ -925,6 +1187,25 @@ export function VariantsPage() {
             </Button>
             <Button variant="destructive" onClick={handleToggleItemStatus} className="h-11 px-6 text-base font-medium">
               Xác nhận
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={discontinueDialogOpen} onOpenChange={setDiscontinueDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader className="text-left mb-4">
+            <DialogTitle className="text-xl">Xác nhận ngừng bán biến thể</DialogTitle>
+            <DialogDescription>
+              Biến thể SKU <span className="font-medium text-foreground">{selectedItem?.sku}</span> sẽ được ngừng bán. Hành động này có thể hoàn tác.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-3 pt-4">
+            <Button variant="outline" onClick={() => setDiscontinueDialogOpen(false)} className="h-11 px-6 text-base font-medium">
+              Hủy
+            </Button>
+            <Button variant="destructive" onClick={handleDiscontinueItem} className="h-11 px-6 text-base font-medium">
+              Ngừng bán
             </Button>
           </DialogFooter>
         </DialogContent>

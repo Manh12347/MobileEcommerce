@@ -44,7 +44,7 @@ public interface ProductItemRepository extends JpaRepository<ProductItem, Intege
     @Query(value = "SELECT pi.product_item_id, pi.sku, pi.stock_quantity, pi.status, pi.price, pi.sale_price, " +
            "pi.created_on, pi.product_id, p.name as product_name, " +
            "(SELECT COUNT(*) FROM serial_numbers sn WHERE sn.product_item_id = pi.product_item_id AND sn.status = 'sold') as sold_count, " +
-           "pi.description, pi.specifications " +
+           "pi.description, pi.specifications, pi.main_image_url " +
            "FROM product_items pi " +
            "LEFT JOIN products p ON pi.product_id = p.product_id " +
            "ORDER BY pi.product_item_id DESC",

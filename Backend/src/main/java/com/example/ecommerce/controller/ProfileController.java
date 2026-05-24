@@ -3,6 +3,7 @@ package com.example.ecommerce.controller;
 import com.example.ecommerce.dto.ApiResponse;
 import com.example.ecommerce.dto.ProfileDTO;
 import com.example.ecommerce.dto.UpdateProfileRequest;
+import com.example.ecommerce.dto.ChangePasswordRequest;
 import com.example.ecommerce.service.ProfileService;
 import com.example.ecommerce.util.SecurityUtil;
 import jakarta.validation.Valid;
@@ -48,6 +49,22 @@ public class ProfileController {
                     .body(new ApiResponse<>(false, e.getMessage(), null));
         } catch (Exception e) {
             log.error("Lỗi khi cập nhật hồ sơ cá nhân:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
+        }
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponse<String>> changePassword(@RequestBody ChangePasswordRequest request) {
+        try {
+            Integer accountId = requireAccountId();
+            profileService.changePassword(accountId, request);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Đổi mật khẩu thành công", null));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (Exception e) {
+            log.error("Lỗi khi đổi mật khẩu:", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
         }
