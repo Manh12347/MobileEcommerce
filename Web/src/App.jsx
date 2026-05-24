@@ -9,6 +9,7 @@ import { OrdersPage } from './pages/dashboard/OrdersPage'
 import { WarrantyPage } from './pages/dashboard/WarrantyPage'
 import { ProductsPage } from './pages/dashboard/ProductsPage'
 import { VariantsPage } from './pages/dashboard/VariantsPage'
+import { Toaster } from './components/ui/toast'
 import './index.css'
 
 function ProtectedRoute({ children }) {
@@ -24,6 +25,7 @@ function ProtectedRoute({ children }) {
 function App() {
   return (
     <BrowserRouter>
+      <Toaster />
       <Routes>
         <Route path="/" element={<LoginForm />} />
         <Route

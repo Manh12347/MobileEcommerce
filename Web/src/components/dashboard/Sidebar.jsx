@@ -18,10 +18,10 @@ import {
 const menuItems = [
   { icon: LayoutDashboard, label: "Tổng quan", href: "/dashboard" },
   { icon: Percent, label: "Giảm giá", href: "/dashboard/discounts" },
-  { icon: Building2, label: "Thương hiệu", href: "/dashboard/brands" },
-  { icon: FolderTree, label: "Danh mục", href: "/dashboard/categories" },
   { icon: ClipboardList, label: "Đơn hàng", href: "/dashboard/orders" },
   { icon: ShieldCheck, label: "Bảo hành", href: "/dashboard/warranty" },
+  { icon: Building2, label: "Thương hiệu", href: "/dashboard/brands" },
+  { icon: FolderTree, label: "Danh mục", href: "/dashboard/categories" },
   { icon: Package, label: "Sản phẩm", href: "/dashboard/products" },
   { icon: Layers3, label: "Biến thể", href: "/dashboard/variants" },
 ]
