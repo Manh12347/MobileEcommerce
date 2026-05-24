@@ -11,12 +11,11 @@ import { ProductsPage } from './pages/dashboard/ProductsPage'
 import { VariantsPage } from './pages/dashboard/VariantsPage'
 import { UsersPage } from './pages/dashboard/UsersPage'
 import { Toaster } from './components/ui/toast'
+import { isAdminSessionActive } from './api/authSession'
 import './index.css'
 
 function ProtectedRoute({ children }) {
-  const token = localStorage.getItem('accessToken')
-
-  if (!token) {
+  if (!isAdminSessionActive()) {
     return <Navigate to="/" replace />
   }
 

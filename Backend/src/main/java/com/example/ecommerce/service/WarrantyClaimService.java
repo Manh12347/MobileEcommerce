@@ -43,6 +43,27 @@ public class WarrantyClaimService {
         return warrantyClaimRepository.save(claim);
     }
 
+    public WarrantyClaim createClaimBySerialCode(String serialCode, Integer accountId, String issueDescription) {
+        if (serialCode == null || serialCode.isBlank()) {
+            throw new RuntimeException("Số serial không được để trống");
+        }
+
+        SerialNumber serialNumber = serialNumberRepository.findBySerialCode(serialCode.trim())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy serial: " + serialCode));
+
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản với id: " + accountId));
+
+        WarrantyClaim claim = new WarrantyClaim();
+        claim.setSerialNumber(serialNumber);
+        claim.setAccount(account);
+        claim.setIssueDescription(issueDescription);
+        claim.setStatus("processing");
+        claim.setCreatedAt(LocalDateTime.now());
+
+        return warrantyClaimRepository.save(claim);
+    }
+
     public WarrantyClaim getClaim(Integer claimId) {
         return warrantyClaimRepository.findById(claimId).orElse(null);
     }
