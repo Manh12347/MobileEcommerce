@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/login_provider.dart';
+import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -292,8 +293,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                           backgroundColor: Colors.green,
                                         ),
                                       );
-                                      // TODO: Navigate to home
-                                      // Navigator.pushReplacementNamed(context, '/home');
+                                      Navigator.pushReplacement(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => HomeScreen(
+                                            accessToken: loginProvider
+                                                .loginResponse?.accessToken,
+                                          ),
+                                        ),
+                                      );
                                     }
                                   } else {
                                     setState(() {});
