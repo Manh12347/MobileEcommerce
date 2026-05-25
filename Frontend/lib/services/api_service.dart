@@ -6,6 +6,7 @@ import '../config/api_config.dart';
 import '../models/api_response.dart';
 import '../models/login_request.dart';
 import '../models/login_response.dart';
+import '../models/product.dart';
 import '../models/register_request.dart';
 import '../models/register_response.dart';
 import '../models/verify_otp_request.dart';
@@ -124,6 +125,46 @@ class ApiService {
           fallback: 'Lỗi xác thực OTP. Vui lòng thử lại',
         ));
       }
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<List<Product>> getProducts({String? accessToken}) async {
+    try {
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+      };
+
+      if (accessToken != null && accessToken.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $accessToken';
+      }
+
+      final response = await http.get(
+        Uri.parse('$baseUrl$PRODUCTS_ENDPOINT'),
+        headers: headers,
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw Exception('Request timeout'),
+      );
+
+      final body = _decodeJsonBody(response.body);
+
+      if (response.statusCode == 200) {
+        final rawData = body['data'];
+        if (rawData is List) {
+          return rawData
+              .whereType<Map<String, dynamic>>()
+              .map(Product.fromJson)
+              .toList();
+        }
+        return const <Product>[];
+      }
+
+      throw Exception(_extractMessage(
+        response,
+        fallback: 'Không thể tải danh sách sản phẩm',
+      ));
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
