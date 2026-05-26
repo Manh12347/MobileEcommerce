@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../models/product_item.dart';
-import '../providers/cart_provider.dart';
 import '../services/api_service.dart';
-import 'cart_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   const ProductDetailScreen({
@@ -22,77 +19,11 @@ class ProductDetailScreen extends StatefulWidget {
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   late Future<ProductItemDetail?> _detailFuture;
-  int _quantity = 1;
-  bool _isAdding = false;
 
   @override
   void initState() {
     super.initState();
     _detailFuture = _loadDetail();
-  }
-
-  int _maxStock(ProductItemDetail? detail) {
-    return detail?.stockQuantity ?? widget.summary.stockQuantity ?? 0;
-  }
-
-  bool _canPurchase(ProductItemDetail? detail) {
-    final status = detail?.status ?? widget.summary.status;
-    return status?.toLowerCase() == 'active' && _maxStock(detail) > 0;
-  }
-
-  Future<void> _addToCart(ProductItemDetail? detail) async {
-    final productItemId = detail?.id ?? widget.summary.id;
-    if (productItemId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Không xác định được sản phẩm')),
-      );
-      return;
-    }
-
-    final stock = _maxStock(detail);
-    if (stock <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sản phẩm đã hết hàng')),
-      );
-      return;
-    }
-
-    if (_quantity > stock) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Chỉ còn $stock sản phẩm trong kho')),
-      );
-      return;
-    }
-
-    setState(() => _isAdding = true);
-    final ok = await context.read<CartProvider>().addToCart(
-          productItemId: productItemId,
-          quantity: _quantity,
-        );
-    if (!mounted) return;
-    setState(() => _isAdding = false);
-
-    if (ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Đã thêm $_quantity sản phẩm vào giỏ'),
-          action: SnackBarAction(
-            label: 'Xem giỏ',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const CartScreen()),
-              );
-            },
-          ),
-        ),
-      );
-    } else {
-      final msg = context.read<CartProvider>().errorMessage;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg.isNotEmpty ? msg : 'Không thêm được vào giỏ')),
-      );
-    }
   }
 
   Future<ProductItemDetail?> _loadDetail() async {
@@ -152,25 +83,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             }
 
             final detail = snapshot.data;
-            final stock = _maxStock(detail);
             return ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
               children: [
                 _ProductHeroCard(
                   summary: widget.summary,
                   detail: detail,
-                ),
-                const SizedBox(height: 16),
-                _SectionCard(
-                  title: 'Phiên bản (SKU)',
-                  child: _VariantSelector(
-                    summary: widget.summary,
-                    detail: detail,
-                    quantity: _quantity,
-                    maxStock: stock,
-                    onQuantityChanged: (q) => setState(() => _quantity = q),
-                  ),
                 ),
                 const SizedBox(height: 16),
                 _SectionCard(
@@ -258,205 +177,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ],
             );
           },
-        ),
-      ),
-      bottomNavigationBar: FutureBuilder<ProductItemDetail?>(
-        future: _detailFuture,
-        builder: (context, snapshot) {
-          final detail = snapshot.data;
-          final canBuy = _canPurchase(detail);
-          return Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 12,
-                  offset: const Offset(0, -4),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              top: false,
-              child: FilledButton.icon(
-                onPressed: !canBuy || _isAdding ? null : () => _addToCart(detail),
-                icon: _isAdding
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.shopping_cart_outlined),
-                label: Text(
-                  canBuy ? 'Thêm vào giỏ ($_quantity)' : 'Hết hàng / Ngừng bán',
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF1F67E2),
-                  minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _VariantSelector extends StatelessWidget {
-  const _VariantSelector({
-    required this.summary,
-    required this.detail,
-    required this.quantity,
-    required this.maxStock,
-    required this.onQuantityChanged,
-  });
-
-  final ProductItemSummary summary;
-  final ProductItemDetail? detail;
-  final int quantity;
-  final int maxStock;
-  final ValueChanged<int> onQuantityChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final specs = detail?.specifications ?? const {};
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE8F4FF),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFB9D9FF)),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.inventory_2_outlined,
-                  size: 18, color: Color(0xFF1F67E2)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'SKU: ${detail?.sku ?? summary.sku ?? '-'}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1F67E2),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (specs.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          const Text(
-            'Thông số phiên bản',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF42506A),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: specs.entries
-                .map(
-                  (e) => Chip(
-                    label: Text('${e.key}: ${e.value}',
-                        style: const TextStyle(fontSize: 12)),
-                    backgroundColor: const Color(0xFFF0F5FC),
-                    side: const BorderSide(color: Color(0xFFE3EAF5)),
-                  ),
-                )
-                .toList(),
-          ),
-        ],
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            const Text(
-              'Số lượng',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF14213D),
-              ),
-            ),
-            const Spacer(),
-            _QtyBtn(
-              icon: Icons.remove,
-              enabled: quantity > 1,
-              onTap: () => onQuantityChanged(quantity - 1),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Text(
-                '$quantity',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-            _QtyBtn(
-              icon: Icons.add,
-              enabled: maxStock > 0 && quantity < maxStock,
-              onTap: () => onQuantityChanged(quantity + 1),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          maxStock > 0 ? 'Còn $maxStock sản phẩm trong kho' : 'Hết hàng',
-          style: TextStyle(
-            fontSize: 12,
-            color: maxStock > 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _QtyBtn extends StatelessWidget {
-  const _QtyBtn({
-    required this.icon,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: enabled ? const Color(0xFFF0F5FC) : const Color(0xFFF5F5F5),
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(10),
-        child: SizedBox(
-          width: 40,
-          height: 40,
-          child: Icon(
-            icon,
-            size: 18,
-            color: enabled ? const Color(0xFF1F67E2) : const Color(0xFFB8C4DA),
-          ),
         ),
       ),
     );
