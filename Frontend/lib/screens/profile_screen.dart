@@ -6,7 +6,6 @@ import '../providers/login_provider.dart';
 import 'login_screen.dart';
 import 'main_shell_screen.dart';
 import 'staff_orders_screen.dart';
-import 'warranty_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -102,16 +101,6 @@ class ProfileScreen extends StatelessWidget {
             icon: Icons.receipt_long_outlined,
             title: 'Đơn hàng của tôi',
             onTap: () => _switchTab(context, 3),
-          ),
-          _MenuTile(
-            icon: Icons.verified_user_outlined,
-            title: 'Bảo hành',
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const WarrantyScreen()),
-              );
-            },
           ),
           if (login.isStaff) ...[
             const SizedBox(height: 8),

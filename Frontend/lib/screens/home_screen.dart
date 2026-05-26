@@ -387,9 +387,10 @@ class _TopBar extends StatelessWidget {
             ],
           ),
         ),
-        _IconActionButton(icon: Icons.notifications_none_rounded, onTap: () {}),
-        const SizedBox(width: 8),
-        _IconActionButton(icon: Icons.person_outline_rounded, onTap: () {}),
+        _IconActionButton(
+          icon: Icons.notifications_none_rounded,
+          onTap: () {},
+        ),
       ],
     );
   }
