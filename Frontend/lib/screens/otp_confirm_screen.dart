@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/login_provider.dart';
-import 'home_screen.dart';
+import 'main_shell_screen.dart';
 
 class OtpConfirmScreen extends StatefulWidget {
   const OtpConfirmScreen({
@@ -65,7 +65,7 @@ class _OtpConfirmScreenState extends State<OtpConfirmScreen> {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(
-            builder: (_) => const HomeScreen(),
+            builder: (_) => const MainShellScreen(),
           ),
           (route) => false,
         );

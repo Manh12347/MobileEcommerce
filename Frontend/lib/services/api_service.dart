@@ -4,9 +4,11 @@ import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
 import '../models/api_response.dart';
+import '../models/cart.dart';
 import '../models/login_request.dart';
 import '../models/login_response.dart';
 import '../models/oauth_login_request.dart';
+import '../models/order.dart';
 import '../models/product_item.dart';
 import '../models/register_request.dart';
 import '../models/register_response.dart';
@@ -14,6 +16,355 @@ import '../models/verify_otp_request.dart';
 
 class ApiService {
   static const String baseUrl = API_BASE_URL;
+  static String? accessToken;
+
+  static void setAccessToken(String? token) {
+    accessToken = token;
+  }
+
+  static Map<String, String> _headers({bool auth = false, bool json = false}) {
+    final headers = <String, String>{};
+    if (json) {
+      headers['Content-Type'] = 'application/json';
+    }
+    if (auth) {
+      final token = accessToken;
+      if (token == null || token.isEmpty) {
+        throw Exception('Vui lòng đăng nhập để tiếp tục');
+      }
+      headers['Authorization'] = 'Bearer $token';
+    }
+    return headers;
+  }
+
+  static ApiResponse<T> _parseObjectResponse<T>(
+    Map<String, dynamic> body,
+    T Function(Map<String, dynamic>) fromJson,
+  ) {
+    final rawData = body['data'];
+    return ApiResponse<T>(
+      success: body['success'] == true,
+      message: body['message']?.toString() ?? '',
+      data: rawData is Map<String, dynamic> ? fromJson(rawData) : null,
+      statusCode: body['statusCode'] is int
+          ? body['statusCode'] as int
+          : int.tryParse('${body['statusCode'] ?? ''}'),
+    );
+  }
+
+  static ApiResponse<List<T>> _parseListResponse<T>(
+    Map<String, dynamic> body,
+    T Function(Map<String, dynamic>) fromJson,
+  ) {
+    final rawData = body['data'];
+    final list = rawData is List
+        ? rawData
+            .whereType<Map<String, dynamic>>()
+            .map(fromJson)
+            .toList()
+        : <T>[];
+    return ApiResponse<List<T>>(
+      success: body['success'] == true,
+      message: body['message']?.toString() ?? '',
+      data: list,
+      statusCode: body['statusCode'] is int
+          ? body['statusCode'] as int
+          : int.tryParse('${body['statusCode'] ?? ''}'),
+    );
+  }
+
+  static Future<ApiResponse<Cart>> getCart() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl$CART_ENDPOINT'),
+            headers: _headers(auth: true),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final body = _decodeJsonBody(response.body);
+      if (response.statusCode == 200) {
+        return _parseObjectResponse(body, Cart.fromJson);
+      }
+      throw Exception(_extractMessage(response, fallback: 'Không thể tải giỏ hàng'));
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<Cart>> addCartItem({
+    required int productItemId,
+    required int quantity,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl$CART_ENDPOINT/items'),
+            headers: _headers(auth: true, json: true),
+            body: jsonEncode({
+              'productItemId': productItemId,
+              'quantity': quantity,
+            }),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final body = _decodeJsonBody(response.body);
+      if (response.statusCode == 200) {
+        return _parseObjectResponse(body, Cart.fromJson);
+      }
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể thêm vào giỏ hàng'),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<Cart>> updateCartItem({
+    required int cartItemId,
+    required int quantity,
+  }) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl$CART_ENDPOINT/items/$cartItemId'),
+            headers: _headers(auth: true, json: true),
+            body: jsonEncode({'quantity': quantity}),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final body = _decodeJsonBody(response.body);
+      if (response.statusCode == 200) {
+        return _parseObjectResponse(body, Cart.fromJson);
+      }
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể cập nhật giỏ hàng'),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<Cart>> removeCartItem(int cartItemId) async {
+    try {
+      final response = await http
+          .delete(
+            Uri.parse('$baseUrl$CART_ENDPOINT/items/$cartItemId'),
+            headers: _headers(auth: true),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final body = _decodeJsonBody(response.body);
+      if (response.statusCode == 200) {
+        return _parseObjectResponse(body, Cart.fromJson);
+      }
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể xóa sản phẩm'),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<OrderDetail>> checkout(
+    CreateOrderRequest request,
+  ) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl$ORDERS_ENDPOINT/checkout'),
+            headers: _headers(auth: true, json: true),
+            body: jsonEncode(request.toJson()),
+          )
+          .timeout(
+            const Duration(seconds: 20),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final body = _decodeJsonBody(response.body);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return _parseObjectResponse(body, OrderDetail.fromJson);
+      }
+      throw Exception(_extractMessage(response, fallback: 'Không thể đặt hàng'));
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<List<OrderSummary>>> getMyOrders() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl$ORDERS_ENDPOINT'),
+            headers: _headers(auth: true),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final body = _decodeJsonBody(response.body);
+      if (response.statusCode == 200) {
+        return _parseListResponse(body, OrderSummary.fromJson);
+      }
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể tải đơn hàng'),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<OrderDetail>> getOrderDetail(int orderId) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl$ORDERS_ENDPOINT/$orderId'),
+            headers: _headers(auth: true),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final body = _decodeJsonBody(response.body);
+      if (response.statusCode == 200) {
+        return _parseObjectResponse(body, OrderDetail.fromJson);
+      }
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể tải chi tiết đơn'),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<OrderTrack>> trackOrder(String orderCode) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl$ORDERS_ENDPOINT/track/$orderCode'),
+            headers: _headers(auth: true),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final body = _decodeJsonBody(response.body);
+      if (response.statusCode == 200) {
+        return _parseObjectResponse(body, OrderTrack.fromJson);
+      }
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể theo dõi đơn hàng'),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<OrderDetail>> cancelOrder(int orderId) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl$ORDERS_ENDPOINT/$orderId/cancel'),
+            headers: _headers(auth: true),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final body = _decodeJsonBody(response.body);
+      if (response.statusCode == 200) {
+        return _parseObjectResponse(body, OrderDetail.fromJson);
+      }
+      throw Exception(_extractMessage(response, fallback: 'Không thể hủy đơn'));
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<List<OrderSummary>>> getStaffOrders({
+    String? status,
+  }) async {
+    try {
+      final query = status != null && status.isNotEmpty ? '?status=$status' : '';
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl$ORDERS_ENDPOINT/staff$query'),
+            headers: _headers(auth: true),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final body = _decodeJsonBody(response.body);
+      if (response.statusCode == 200) {
+        return _parseListResponse(body, OrderSummary.fromJson);
+      }
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể tải đơn hàng staff'),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<OrderDetail>> getStaffOrderDetail(
+    int orderId,
+  ) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl$ORDERS_ENDPOINT/staff/$orderId'),
+            headers: _headers(auth: true),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final body = _decodeJsonBody(response.body);
+      if (response.statusCode == 200) {
+        return _parseObjectResponse(body, OrderDetail.fromJson);
+      }
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể tải chi tiết đơn'),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<OrderDetail>> updateStaffOrderStatus({
+    required int orderId,
+    required String status,
+  }) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl$ORDERS_ENDPOINT/staff/$orderId/status'),
+            headers: _headers(auth: true, json: true),
+            body: jsonEncode({'status': status}),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final body = _decodeJsonBody(response.body);
+      if (response.statusCode == 200) {
+        return _parseObjectResponse(body, OrderDetail.fromJson);
+      }
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể cập nhật trạng thái'),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
 
   static Future<ApiResponse<List<ProductItemSummary>>> getProductItems({
     int page = 1,

@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/login_provider.dart';
 import 'forgot_password_screen.dart';
-import 'home_screen.dart';
+import 'main_shell_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -57,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => const HomeScreen(),
+        builder: (_) => const MainShellScreen(),
       ),
     );
   }
