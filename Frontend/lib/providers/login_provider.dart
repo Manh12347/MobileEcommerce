@@ -8,11 +8,9 @@ import '../models/register_request.dart';
 import '../models/register_response.dart';
 import '../models/verify_otp_request.dart';
 import '../services/api_service.dart';
-import '../services/auth_storage.dart';
 
 class LoginProvider extends ChangeNotifier {
   bool _isLoading = false;
-  bool _isRestoringSession = true;
   String _errorMessage = '';
   LoginResponse? _loginResponse;
   RegisterResponse? _registerResponse;
@@ -20,48 +18,8 @@ class LoginProvider extends ChangeNotifier {
   Future<void>? _googleInitFuture;
 
   bool get isLoading => _isLoading;
-  bool get isRestoringSession => _isRestoringSession;
   String get errorMessage => _errorMessage;
   LoginResponse? get loginResponse => _loginResponse;
-
-  bool get isStaff {
-    final role = _loginResponse?.role?.toLowerCase();
-    return role == 'staff' || role == 'admin';
-  }
-
-  LoginProvider() {
-    restoreSession();
-  }
-
-  Future<void> restoreSession() async {
-    _isRestoringSession = true;
-    notifyListeners();
-    final session = await AuthStorage.loadSession();
-    if (session?.accessToken != null && session!.accessToken!.isNotEmpty) {
-      _loginResponse = session;
-      ApiService.setAccessToken(session.accessToken);
-    }
-    _isRestoringSession = false;
-    notifyListeners();
-  }
-
-  Future<void> _persistSession(LoginResponse? response) async {
-    _loginResponse = response;
-    if (response?.accessToken != null && response!.accessToken!.isNotEmpty) {
-      ApiService.setAccessToken(response.accessToken);
-      await AuthStorage.saveSession(response);
-    } else {
-      ApiService.setAccessToken(null);
-      await AuthStorage.clearSession();
-    }
-  }
-
-  Future<void> logout() async {
-    _loginResponse = null;
-    ApiService.setAccessToken(null);
-    await AuthStorage.clearSession();
-    notifyListeners();
-  }
   RegisterResponse? get registerResponse => _registerResponse;
   String? get otpMessage => _otpMessage;
 
@@ -77,9 +35,9 @@ class LoginProvider extends ChangeNotifier {
       );
       
       final response = await ApiService.login(request);
+      _loginResponse = response.data;
 
       if (response.success) {
-        await _persistSession(response.data);
         _isLoading = false;
         notifyListeners();
         return true;
@@ -128,8 +86,9 @@ class LoginProvider extends ChangeNotifier {
         ),
       );
 
+      _loginResponse = response.data;
+
       if (response.success) {
-        await _persistSession(response.data);
         _isLoading = false;
         notifyListeners();
         return true;
