@@ -82,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF576CA8).withOpacity(0.08),
+                          color: const Color(0xFF576CA8).withValues(alpha: 0.08),
                           blurRadius: 34,
                           offset: const Offset(0, 18),
                         ),
@@ -387,8 +387,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           },
                         ),
                         const SizedBox(height: 38),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 4,
+                          runSpacing: 2,
                           children: [
                             const Text(
                               'Chưa có tài khoản?',

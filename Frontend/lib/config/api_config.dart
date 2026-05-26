@@ -3,6 +3,8 @@
 
 const String API_BASE_URL = 'https://doantrang.online/v1/api';
 const String PRODUCTS_ENDPOINT = '/catalogs/products';
+const String PRODUCT_ITEMS_ENDPOINT = '/product-items';
+
 
 const String GOOGLE_OAUTH_SERVER_CLIENT_ID = String.fromEnvironment(
   'GOOGLE_OAUTH_SERVER_CLIENT_ID',
