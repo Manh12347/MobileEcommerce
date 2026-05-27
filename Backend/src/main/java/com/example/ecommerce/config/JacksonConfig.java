@@ -6,6 +6,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import java.time.format.DateTimeFormatter;
 
 @Configuration
 public class JacksonConfig {
@@ -15,6 +16,7 @@ public class JacksonConfig {
         return builder -> {
             builder.featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
             builder.modulesToInstall(new JavaTimeModule());
+            builder.dateFormat(new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss"));
         };
     }
 }

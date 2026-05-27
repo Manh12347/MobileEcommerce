@@ -1,8 +1,9 @@
-import { useEffect, useState, useRef } from "react"
-import { Search, Plus, Tag, Calendar, MoreVertical, Trash2, Edit, Percent, DollarSign, X, ChevronDown, SlidersHorizontal } from "lucide-react"
+import { useEffect, useState, useRef, Fragment } from "react"
+import { Search, Plus, Tag, Calendar, MoreVertical, Trash2, Edit, Percent, DollarSign, X, ChevronDown } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Badge } from "../../components/ui/badge"
+import { Checkbox } from "../../components/ui/checkbox"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../../components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../../components/ui/dialog"
@@ -53,6 +54,45 @@ const emptyForm = {
   endDate: "",
 }
 
+/**
+ * Parse date từ Spring (ISO string hoặc array [year, month, day, hour, min, sec])
+ */
+const parseDate = (val) => {
+  if (!val) return null
+  if (typeof val === "string") {
+    const d = new Date(val)
+    return isNaN(d.getTime()) ? null : d
+  }
+  if (Array.isArray(val) && val.length >= 6) {
+    return new Date(val[0], val[1] - 1, val[2], val[3] || 0, val[4] || 0, val[5] || 0)
+  }
+  return null
+}
+
+const fmtDateTimeDisplay = (val) => {
+  const d = parseDate(val)
+  if (!d) return "--"
+  return d.toLocaleString("vi-VN", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  })
+}
+
+const fmtDateTimeLocal = (val) => {
+  // Backend trả LocalDateTime.toString() format: 2026-05-27T10:45
+  // Input datetime-local format: yyyy-MM-ddTHH:mm
+  if (!val) return ""
+  if (typeof val === "string") {
+    // Nếu đã đúng format datetime-local, cắt giây
+    if (val.length === 19) return val.substring(0, 16)
+    if (val.length === 16) return val
+  }
+  const d = parseDate(val)
+  if (!d) return ""
+  const pad = (n) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 export function DiscountsPage() {
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
@@ -72,16 +112,26 @@ export function DiscountsPage() {
   const [products, setProducts] = useState([])
   const [addForm, setAddForm] = useState(emptyForm)
   const [editForm, setEditForm] = useState(emptyForm)
-  const [applyForm, setApplyForm] = useState({ productId: "" })
-  const [removeForm, setRemoveForm] = useState({ productId: "" })
+
+  // Apply dialog
+  const [applyProductId, setApplyProductId] = useState("")
+  const [applyVariants, setApplyVariants] = useState([])
+  const [applySelected, setApplySelected] = useState([])
+  const [loadingVariants, setLoadingVariants] = useState(false)
+
+  // Remove dialog
+  const [removeItems, setRemoveItems] = useState([])
+  const [removeSelected, setRemoveSelected] = useState([])
+  const [loadingRemoveItems, setLoadingRemoveItems] = useState(false)
 
   // Column visibility
   const [visibleColumns, setVisibleColumns] = useState(["promotionName", "discountType", "discountValue", "startDate", "endDate", "status"])
 
-  // Products dropdown per promotion
-  const [promotionProducts, setPromotionProducts] = useState({}) // { [promotionId]: [...] }
-  const [loadingProducts, setLoadingProducts] = useState(null) // promotionId đang load
-  const openDropdownRef = useRef(null) // promotionId đang mở dropdown
+  // Dropdown items per promotion
+  const [promotionItems, setPromotionItems] = useState({})
+  const [loadingItems, setLoadingItems] = useState(null)
+  const openDropdownRef = useRef(null)
+  const [openDropdown, setOpenDropdown] = useState(null)
 
   const loadPromotions = async () => {
     try {
@@ -116,8 +166,7 @@ export function DiscountsPage() {
   const filteredPromotions = promotions
     .filter((p) => {
       const kw = searchTerm.trim().toLowerCase()
-      const matchesSearch =
-        !kw || (p.promotionName || "").toLowerCase().includes(kw)
+      const matchesSearch = !kw || (p.promotionName || "").toLowerCase().includes(kw)
       const status = getPromotionStatus(p)
       const matchesStatus = statusFilter === "all" || status === statusFilter
       return matchesSearch && matchesStatus
@@ -130,33 +179,162 @@ export function DiscountsPage() {
 
   const pagedPromotions = filteredPromotions.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
-  const loadPromotionProducts = async (promotionId) => {
-    if (promotionProducts[promotionId]) return
+  const loadPromotionItems = async (promotionId) => {
+    if (promotionItems[promotionId]) return
     try {
-      setLoadingProducts(promotionId)
-      const res = await promotionsAPI.getProductsByPromotion(promotionId)
-      setPromotionProducts(prev => ({ ...prev, [promotionId]: res.data?.data || [] }))
+      setLoadingItems(promotionId)
+      const res = await promotionsAPI.getItemsByPromotion(promotionId)
+      setPromotionItems(prev => ({ ...prev, [promotionId]: res.data?.data || [] }))
     } catch (error) {
-      console.error("Load promotion products error", error)
+      console.error("Load promotion items error", error)
     } finally {
-      setLoadingProducts(null)
+      setLoadingItems(null)
     }
   }
 
-  const toggleProductsDropdown = (promotionId) => {
+  const toggleItemsDropdown = (promotionId) => {
     if (openDropdownRef.current === promotionId) {
       openDropdownRef.current = null
       setOpenDropdown(null)
     } else {
       openDropdownRef.current = promotionId
       setOpenDropdown(promotionId)
-      loadPromotionProducts(promotionId)
+      loadPromotionItems(promotionId)
     }
   }
 
-  const [openDropdown, setOpenDropdown] = useState(null)
+  // ==================== APPLY DIALOG ====================
 
-  // Create
+  const openApplyDialog = (promotion) => {
+    setSelectedPromotion(promotion)
+    setApplyProductId("")
+    setApplyVariants([])
+    setApplySelected([])
+    loadProducts()
+    setApplyDialogOpen(true)
+  }
+
+  const loadVariantsForApply = async (productId) => {
+    setApplySelected([])
+    setApplyVariants([])
+    if (!productId) return
+    try {
+      setLoadingVariants(true)
+      // Dùng endpoint nhẹ, không load serials
+      const res = await promotionsAPI.getVariantsByProduct(productId)
+      const items = res.data?.data || []
+      setApplyVariants(items)
+    } catch (error) {
+      console.error("Load variants error", error)
+      toast({ title: "Lỗi", description: "Không tải được biến thể", variant: "destructive" })
+    } finally {
+      setLoadingVariants(false)
+    }
+  }
+
+  const toggleApplyVariant = (itemId) => {
+    setApplySelected(prev =>
+      prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
+    )
+  }
+
+  const toggleApplyAll = () => {
+    if (applySelected.length === applyVariants.length) {
+      setApplySelected([])
+    } else {
+      setApplySelected(applyVariants.map(v => v.productItemId))
+    }
+  }
+
+  const handleApply = async () => {
+    if (applySelected.length === 0) {
+      toast({ title: "Lỗi", description: "Vui lòng chọn ít nhất một biến thể", variant: "destructive" })
+      return
+    }
+    try {
+      setSaving(true)
+      await promotionsAPI.applyToItems({
+        productItemIds: applySelected,
+        promotionId: selectedPromotion.promotionId,
+      })
+      setApplyDialogOpen(false)
+      setApplySelected([])
+      setApplyVariants([])
+      setApplyProductId("")
+      setSelectedPromotion(null)
+      setPromotionItems({})
+      toast({ title: "Thành công", description: `Đã áp dụng cho ${applySelected.length} biến thể` })
+    } catch (error) {
+      toast({ title: "Lỗi", description: error?.response?.data?.message || "Áp dụng thất bại", variant: "destructive" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // ==================== REMOVE DIALOG ====================
+
+  const openRemoveDialog = (promotion) => {
+    setSelectedPromotion(promotion)
+    setRemoveSelected([])
+    loadPromotionItemsForRemove(promotion.promotionId)
+    setRemoveDialogOpen(true)
+  }
+
+  const loadPromotionItemsForRemove = async (promotionId) => {
+    try {
+      setLoadingRemoveItems(true)
+      const res = await promotionsAPI.getItemsByPromotion(promotionId)
+      setRemoveItems(res.data?.data || [])
+    } catch (error) {
+      console.error("Load remove items error", error)
+    } finally {
+      setLoadingRemoveItems(false)
+    }
+  }
+
+  const toggleRemoveItem = (itemId) => {
+    setRemoveSelected(prev =>
+      prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
+    )
+  }
+
+  const toggleRemoveAll = () => {
+    if (removeSelected.length === removeItems.length) {
+      setRemoveSelected([])
+    } else {
+      setRemoveSelected(removeItems.map(i => i.productItemId))
+    }
+  }
+
+  const handleRemoveItems = async () => {
+    if (removeSelected.length === 0) {
+      toast({ title: "Lỗi", description: "Vui lòng chọn ít nhất một biến thể", variant: "destructive" })
+      return
+    }
+    try {
+      setSaving(true)
+      await promotionsAPI.removeFromItems(removeSelected)
+      setRemoveDialogOpen(false)
+      setRemoveSelected([])
+      setSelectedPromotion(null)
+      setPromotionItems({})
+      toast({ title: "Thành công", description: `Đã gỡ khuyến mãi khỏi ${removeSelected.length} biến thể` })
+    } catch (error) {
+      toast({ title: "Lỗi", description: error?.response?.data?.message || "Gỡ thất bại", variant: "destructive" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const toLocalDateTimeString = (val) => {
+    // datetime-local format yyyy-MM-ddTHH:mm đã đúng với LocalDateTime.parse()
+    // Chỉ thêm :00 giây nếu cần, không dùng new Date() để tránh timezone shift
+    if (!val || val.trim() === "") return null
+    return val.length === 16 ? val + ":00" : val
+  }
+
+  // ==================== CREATE ====================
+
   const handleCreate = async () => {
     if (!addForm.promotionName.trim()) {
       toast({ title: "Lỗi", description: "Tên khuyến mãi không được để trống", variant: "destructive" })
@@ -172,8 +350,8 @@ export function DiscountsPage() {
         promotionName: addForm.promotionName.trim(),
         discountPercent: addForm.discountPercent ? parseFloat(addForm.discountPercent) : null,
         discountCost: addForm.discountCost ? parseFloat(addForm.discountCost) : null,
-        startDate: addForm.startDate || null,
-        endDate: addForm.endDate || null,
+        startDate: toLocalDateTimeString(addForm.startDate),
+        endDate: toLocalDateTimeString(addForm.endDate),
       })
       setAddDialogOpen(false)
       setAddForm(emptyForm)
@@ -186,7 +364,8 @@ export function DiscountsPage() {
     }
   }
 
-  // Update
+  // ==================== UPDATE ====================
+
   const handleUpdate = async () => {
     if (!selectedPromotion) return
     if (!editForm.promotionName.trim()) {
@@ -199,8 +378,8 @@ export function DiscountsPage() {
         promotionName: editForm.promotionName.trim(),
         discountPercent: editForm.discountPercent ? parseFloat(editForm.discountPercent) : null,
         discountCost: editForm.discountCost ? parseFloat(editForm.discountCost) : null,
-        startDate: editForm.startDate || null,
-        endDate: editForm.endDate || null,
+        startDate: toLocalDateTimeString(editForm.startDate),
+        endDate: toLocalDateTimeString(editForm.endDate),
         isActive: selectedPromotion.isActive,
       })
       setEditDialogOpen(false)
@@ -214,7 +393,8 @@ export function DiscountsPage() {
     }
   }
 
-  // Toggle active/inactive
+  // ==================== TOGGLE ACTIVE ====================
+
   const handleToggleActive = async (promotion) => {
     try {
       const newActive = !promotion.isActive
@@ -229,7 +409,8 @@ export function DiscountsPage() {
     }
   }
 
-  // Delete
+  // ==================== DELETE ====================
+
   const handleDelete = async () => {
     if (!selectedPromotion) return
     try {
@@ -243,98 +424,46 @@ export function DiscountsPage() {
     }
   }
 
-  // Apply promotion to product
-  const handleApply = async () => {
-    if (!applyForm.productId) {
-      toast({ title: "Lỗi", description: "Vui lòng chọn sản phẩm", variant: "destructive" })
-      return
-    }
-    try {
-      await promotionsAPI.apply({
-        productId: parseInt(applyForm.productId),
-        promotionId: selectedPromotion.promotionId,
-      })
-      setApplyDialogOpen(false)
-      setApplyForm({ productId: "" })
-      setSelectedPromotion(null)
-      // Refresh products dropdown if open
-      if (openDropdownRef.current === selectedPromotion?.promotionId) {
-        setPromotionProducts(prev => ({ ...prev, [selectedPromotion.promotionId]: undefined }))
-      }
-      toast({ title: "Thành công", description: "Đã áp dụng khuyến mãi cho sản phẩm" })
-    } catch (error) {
-      toast({ title: "Lỗi", description: error?.response?.data?.message || "Áp dụng thất bại", variant: "destructive" })
-    }
-  }
-
-  // Remove promotion from product
-  const handleRemove = async () => {
-    if (!removeForm.productId) {
-      toast({ title: "Lỗi", description: "Vui lòng chọn sản phẩm", variant: "destructive" })
-      return
-    }
-    try {
-      await promotionsAPI.remove({
-        productId: parseInt(removeForm.productId),
-        promotionId: selectedPromotion.promotionId,
-      })
-      setRemoveDialogOpen(false)
-      setRemoveForm({ productId: "" })
-      setSelectedPromotion(null)
-      // Refresh products dropdown
-      if (openDropdownRef.current === selectedPromotion?.promotionId) {
-        setPromotionProducts(prev => ({ ...prev, [selectedPromotion.promotionId]: undefined }))
-        loadPromotionProducts(selectedPromotion.promotionId)
-      }
-      toast({ title: "Thành công", description: "Đã gỡ khuyến mãi khỏi sản phẩm" })
-    } catch (error) {
-      toast({ title: "Lỗi", description: error?.response?.data?.message || "Gỡ thất bại", variant: "destructive" })
-    }
-  }
-
   const openEdit = (promotion) => {
     setSelectedPromotion(promotion)
-    const fmtDate = (d) => {
-      if (!d) return ""
-      const date = new Date(d)
-      return date.toISOString().slice(0, 16)
-    }
     setEditForm({
       promotionName: promotion.promotionName || "",
       discountPercent: promotion.discountPercent != null ? String(promotion.discountPercent) : "",
       discountCost: promotion.discountCost != null ? String(promotion.discountCost) : "",
-      startDate: fmtDate(promotion.startDate),
-      endDate: fmtDate(promotion.endDate),
+      startDate: fmtDateTimeLocal(promotion.startDate),
+      endDate: fmtDateTimeLocal(promotion.endDate),
     })
     setEditDialogOpen(true)
   }
 
-  const openApply = (promotion) => {
-    setSelectedPromotion(promotion)
-    setApplyForm({ productId: "" })
-    loadProducts()
-    setApplyDialogOpen(true)
+  // Mutual disable helpers for discount fields
+  const handleAddPercentChange = (val) => {
+    setAddForm(prev => ({
+      ...prev,
+      discountPercent: val,
+      discountCost: val ? "" : prev.discountCost,
+    }))
   }
-
-  const openRemove = (promotion) => {
-    setSelectedPromotion(promotion)
-    setRemoveForm({ productId: "" })
-    setApplyForm({ productId: "" })
-    loadPromotionProducts(promotion.promotionId)
-    setRemoveDialogOpen(true)
+  const handleAddCostChange = (val) => {
+    setAddForm(prev => ({
+      ...prev,
+      discountCost: val,
+      discountPercent: val ? "" : prev.discountPercent,
+    }))
   }
-
-  const fmtDateDisplay = (d) => {
-    if (!d) return "--"
-    return new Date(d).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })
+  const handleEditPercentChange = (val) => {
+    setEditForm(prev => ({
+      ...prev,
+      discountPercent: val,
+      discountCost: val ? "" : prev.discountCost,
+    }))
   }
-
-  const fmtDateTimeDisplay = (d) => {
-    if (!d) return "--"
-    return new Date(d).toLocaleString("vi-VN", {
-      day: "2-digit", month: "2-digit", year: "numeric",
-      hour: "2-digit", minute: "2-digit",
-    })
+  const handleEditCostChange = (val) => {
+    setEditForm(prev => ({
+      ...prev,
+      discountCost: val,
+      discountPercent: val ? "" : prev.discountPercent,
+    }))
   }
 
   return (
@@ -388,185 +517,166 @@ export function DiscountsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              {visibleColumns.includes("promotionName") && (
-                <TableHead className="text-left">Tên khuyến mãi</TableHead>
-              )}
-              {visibleColumns.includes("discountType") && (
-                <TableHead className="text-center">Loại giảm</TableHead>
-              )}
-              {visibleColumns.includes("discountValue") && (
-                <TableHead className="text-left">Mức giảm</TableHead>
-              )}
-              {visibleColumns.includes("startDate") && (
-                <TableHead className="text-left">Ngày bắt đầu</TableHead>
-              )}
-              {visibleColumns.includes("endDate") && (
-                <TableHead className="text-left">Ngày kết thúc</TableHead>
-              )}
-              {visibleColumns.includes("status") && (
-                <TableHead className="text-center">Trạng thái</TableHead>
-              )}
+              {visibleColumns.includes("promotionName") && <TableHead className="text-left">Tên khuyến mãi</TableHead>}
+              {visibleColumns.includes("discountType") && <TableHead className="text-center">Loại giảm</TableHead>}
+              {visibleColumns.includes("discountValue") && <TableHead className="text-left">Mức giảm</TableHead>}
+              {visibleColumns.includes("startDate") && <TableHead className="text-left">Ngày bắt đầu</TableHead>}
+              {visibleColumns.includes("endDate") && <TableHead className="text-left">Ngày kết thúc</TableHead>}
+              {visibleColumns.includes("status") && <TableHead className="text-center">Trạng thái</TableHead>}
               <TableHead className="w-12 text-center"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
-                  Đang tải...
-                </TableCell>
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-12">Đang tải...</TableCell>
               </TableRow>
             ) : pagedPromotions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
-                  Chưa có khuyến mãi nào
-                </TableCell>
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-12">Chưa có khuyến mãi nào</TableCell>
               </TableRow>
             ) : (
               pagedPromotions.map((promotion) => {
                 const status = getPromotionStatus(promotion)
                 const hasDiscount = promotion.discountPercent != null || promotion.discountCost != null
-                const productsList = promotionProducts[promotion.promotionId] || []
-                const isDropdownOpen = openDropdown === promotion.promotionId
+                const itemsList = promotionItems[promotion.promotionId] || []
+                const isExpanded = openDropdown === promotion.promotionId
+                const colCount = visibleColumns.length + 1 // +1 for actions column
                 return (
-                  <TableRow key={promotion.promotionId}>
-                    {visibleColumns.includes("promotionName") && (
-                      <TableCell className="text-left">
-                        <div className="flex items-center gap-2">
-                          <Tag className="w-4 h-4 text-primary flex-shrink-0" />
-                          <span className="font-medium text-foreground">{promotion.promotionName}</span>
-                        </div>
-                      </TableCell>
-                    )}
-                    {visibleColumns.includes("discountType") && (
-                      <TableCell className="text-center">
-                        {promotion.discountPercent != null ? (
-                          <Badge variant="info"><Percent className="w-3 h-3 mr-1" />Phần trăm</Badge>
-                        ) : promotion.discountCost != null ? (
-                          <Badge variant="warning"><DollarSign className="w-3 h-3 mr-1" />Cố định</Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">--</span>
-                        )}
-                      </TableCell>
-                    )}
-                    {visibleColumns.includes("discountValue") && (
-                      <TableCell className="text-left">
-                        <div className="relative">
-                          <button
-                            className={`font-medium text-foreground hover:text-primary transition-colors ${
-                              hasDiscount ? "cursor-pointer" : "cursor-default"
-                            }`}
-                            onClick={() => hasDiscount && toggleProductsDropdown(promotion.promotionId)}
-                            disabled={!hasDiscount}
-                          >
+                  <Fragment key={promotion.promotionId}>
+                    {/* Main row */}
+                    <TableRow>
+                      {visibleColumns.includes("promotionName") && (
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Tag className="w-4 h-4 text-primary flex-shrink-0" />
+                            <span className="font-medium text-foreground">{promotion.promotionName}</span>
+                          </div>
+                        </TableCell>
+                      )}
+                      {visibleColumns.includes("discountType") && (
+                        <TableCell className="text-center">
+                          {promotion.discountPercent != null ? (
+                            <Badge variant="info"><Percent className="w-3 h-3 mr-1" />Phần trăm</Badge>
+                          ) : promotion.discountCost != null ? (
+                            <Badge variant="warning"><DollarSign className="w-3 h-3 mr-1" />Cố định</Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">--</span>
+                          )}
+                        </TableCell>
+                      )}
+                      {visibleColumns.includes("discountValue") && (
+                        <TableCell
+                          className={`font-medium text-foreground ${hasDiscount ? "cursor-pointer hover:text-primary" : "cursor-default"}`}
+                          onClick={() => hasDiscount && toggleItemsDropdown(promotion.promotionId)}
+                        >
+                          <div className="flex items-center gap-1">
                             {promotion.discountPercent != null ? `${promotion.discountPercent}%` : ""}
                             {promotion.discountCost != null ? formatCurrency(promotion.discountCost) : ""}
                             {hasDiscount && (
-                              <ChevronDown className={`w-3 h-3 ml-1 inline transition-transform ${isDropdownOpen ? "rotate-180" : ""}`} />
+                              <ChevronDown className={`w-3 h-3 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                             )}
-                          </button>
-
-                          {/* Dropdown sản phẩm */}
-                          {isDropdownOpen && (
-                            <div className="absolute left-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-xl w-72 max-h-64 overflow-y-auto">
-                              <div className="px-3 py-2 border-b border-border">
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                  Sản phẩm đang áp dụng
-                                </p>
-                              </div>
-                              {loadingProducts === promotion.promotionId ? (
-                                <div className="px-3 py-4 text-sm text-muted-foreground text-center">
-                                  Đang tải...
-                                </div>
-                              ) : productsList.length === 0 ? (
-                                <div className="px-3 py-4 text-sm text-muted-foreground text-center">
-                                  Chưa có sản phẩm nào
-                                </div>
-                              ) : (
-                                productsList.map((p) => (
-                                  <div key={p.productId} className="px-3 py-2.5 hover:bg-accent transition-colors flex items-center justify-between group">
-                                    <span className="text-sm text-foreground">{p.productName}</span>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        setSelectedPromotion(promotion)
-                                        setRemoveForm({ productId: String(p.productId) })
-                                        setRemoveDialogOpen(true)
-                                      }}
-                                      className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 text-red-400 hover:text-red-600"
-                                      title="Gỡ khỏi sản phẩm"
-                                    >
-                                      <X className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                    )}
-                    {visibleColumns.includes("startDate") && (
-                      <TableCell className="text-left">
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Calendar className="w-3 h-3 flex-shrink-0" />
-                          {fmtDateTimeDisplay(promotion.startDate)}
-                        </div>
-                      </TableCell>
-                    )}
-                    {visibleColumns.includes("endDate") && (
-                      <TableCell className="text-left">
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Calendar className="w-3 h-3 flex-shrink-0" />
-                          {fmtDateTimeDisplay(promotion.endDate)}
-                        </div>
-                      </TableCell>
-                    )}
-                    {visibleColumns.includes("status") && (
+                          </div>
+                        </TableCell>
+                      )}
+                      {visibleColumns.includes("startDate") && (
+                        <TableCell>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Calendar className="w-3 h-3 flex-shrink-0" />
+                            {fmtDateTimeDisplay(promotion.startDate)}
+                          </div>
+                        </TableCell>
+                      )}
+                      {visibleColumns.includes("endDate") && (
+                        <TableCell>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Calendar className="w-3 h-3 flex-shrink-0" />
+                            {fmtDateTimeDisplay(promotion.endDate)}
+                          </div>
+                        </TableCell>
+                      )}
+                      {visibleColumns.includes("status") && (
+                        <TableCell className="text-center">
+                          <Badge variant={getStatusVariant(status)}>{getStatusLabel(status)}</Badge>
+                        </TableCell>
+                      )}
                       <TableCell className="text-center">
-                        <Badge variant={getStatusVariant(status)}>{getStatusLabel(status)}</Badge>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-primary/10 hover:text-primary transition-colors">
+                              <MoreVertical className="w-5 h-5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer" onSelect={() => openEdit(promotion)}>
+                              <Edit className="w-5 h-5 mr-3 text-blue-500" />Chỉnh sửa
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer" onSelect={() => openApplyDialog(promotion)}>
+                              <Percent className="w-5 h-5 mr-3 text-emerald-500" />Áp dụng biến thể
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer" onSelect={() => openRemoveDialog(promotion)}>
+                              <X className="w-5 h-5 mr-3 text-amber-500" />Gỡ biến thể
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className={`flex items-center py-3 px-4 text-base rounded-md cursor-pointer ${promotion.isActive ? "text-amber-500 hover:bg-amber-50" : "text-green-500 hover:bg-green-50"}`}
+                              onSelect={() => handleToggleActive(promotion)}
+                            >
+                              {promotion.isActive ? <X className="w-5 h-5 mr-3" /> : <Percent className="w-5 h-5 mr-3" />}
+                              {promotion.isActive ? "Tắt khuyến mãi" : "Kích hoạt"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer text-red-500 hover:bg-red-50" onSelect={() => { setSelectedPromotion(promotion); setDeleteDialogOpen(true); }}>
+                              <Trash2 className="w-5 h-5 mr-3" />Xóa
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
+                    </TableRow>
+
+                    {/* Expanded row */}
+                    {isExpanded && (
+                      <TableRow className="bg-accent/30 hover:bg-accent/40">
+                        <TableCell colSpan={colCount} className="p-0">
+                          <div className="px-6 py-3">
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Biến thể đang áp dụng</p>
+                            {loadingItems === promotion.promotionId ? (
+                              <p className="text-sm text-muted-foreground">Đang tải...</p>
+                            ) : itemsList.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">Chưa có biến thể nào</p>
+                            ) : (
+                              <div className="space-y-1">
+                                {itemsList.map((item) => (
+                                  <div key={item.productItemId} className="flex items-center justify-between py-2 px-3 bg-card rounded-md border border-border hover:bg-accent transition-colors group">
+                                    <div>
+                                      <p className="text-sm font-medium text-foreground">{item.sku || "Mặc định"}</p>
+                                      <p className="text-xs text-muted-foreground">{item.productName}</p>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                      <div className="text-right">
+                                        <p className="text-xs text-muted-foreground line-through">{formatCurrency(item.originalPrice)}</p>
+                                        <p className="text-sm font-semibold text-red-500">{formatCurrency(item.salePrice)}</p>
+                                      </div>
+                                      <button
+                                        onClick={() => {
+                                          setSelectedPromotion(promotion)
+                                          setRemoveItems([item])
+                                          setRemoveSelected([item.productItemId])
+                                          setRemoveDialogOpen(true)
+                                        }}
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-600 p-1"
+                                        title="Gỡ khuyến mãi"
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     )}
-                    <TableCell className="text-center">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-primary/10 hover:text-primary transition-colors">
-                            <MoreVertical className="w-5 h-5" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem
-                            className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer"
-                            onSelect={() => openEdit(promotion)}
-                          >
-                            <Edit className="w-5 h-5 mr-3 text-blue-500" />
-                            Chỉnh sửa
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer"
-                            onSelect={() => openApply(promotion)}
-                          >
-                            <Percent className="w-5 h-5 mr-3 text-emerald-500" />
-                            Áp dụng cho sản phẩm
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className={`flex items-center py-3 px-4 text-base rounded-md cursor-pointer ${promotion.isActive ? "text-amber-500 hover:bg-amber-50" : "text-green-500 hover:bg-green-50"}`}
-                            onSelect={() => handleToggleActive(promotion)}
-                          >
-                            {promotion.isActive ? <X className="w-5 h-5 mr-3" /> : <Percent className="w-5 h-5 mr-3" />}
-                            {promotion.isActive ? "Tắt khuyến mãi" : "Kích hoạt"}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer text-red-500 hover:bg-red-50"
-                            onSelect={() => { setSelectedPromotion(promotion); setDeleteDialogOpen(true); }}
-                          >
-                            <Trash2 className="w-5 h-5 mr-3" />
-                            Xóa
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
+                  </Fragment>
                 )
               })
             )}
@@ -582,15 +692,12 @@ export function DiscountsPage() {
         onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
       />
 
-      {/* Backdrop to close dropdown when clicking outside */}
+      {/* Backdrop */}
       {openDropdown && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => { setOpenDropdown(null); openDropdownRef.current = null; }}
-        />
+        <div className="fixed inset-0 z-40" onClick={() => { setOpenDropdown(null); openDropdownRef.current = null; }} />
       )}
 
-      {/* Create Dialog */}
+      {/* ===================== CREATE DIALOG ===================== */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader className="text-left mb-4">
@@ -611,34 +718,28 @@ export function DiscountsPage() {
               <div>
                 <label className="text-sm font-medium mb-1 block text-left">Giảm theo %</label>
                 <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  placeholder="VD: 10"
+                  type="number" min="0" max="100" placeholder="VD: 10"
                   className="h-11"
                   value={addForm.discountPercent}
-                  onChange={(e) => setAddForm({ ...addForm, discountPercent: e.target.value })}
+                  onChange={(e) => handleAddPercentChange(e.target.value)}
                 />
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block text-left">Giảm số tiền cố định</label>
                 <Input
-                  type="number"
-                  min="0"
-                  placeholder="VD: 50000"
+                  type="number" min="0" placeholder="VD: 50000"
                   className="h-11"
                   value={addForm.discountCost}
-                  onChange={(e) => setAddForm({ ...addForm, discountCost: e.target.value })}
+                  onChange={(e) => handleAddCostChange(e.target.value)}
                 />
               </div>
             </div>
-            <p className="text-xs text-muted-foreground -mt-2">Nhập ít nhất một trong hai. Nếu cả hai đều nhập, ưu tiên số tiền cố định.</p>
+            <p className="text-xs text-muted-foreground -mt-2">Nhập % hoặc số tiền cố định. Nhập một trong hai — khi nhập % thì số tiền sẽ bị xóa và ngược lại.</p>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-1 block text-left">Ngày bắt đầu</label>
                 <Input
-                  type="datetime-local"
-                  className="h-11"
+                  type="datetime-local" className="h-11"
                   value={addForm.startDate}
                   onChange={(e) => setAddForm({ ...addForm, startDate: e.target.value })}
                 />
@@ -646,8 +747,7 @@ export function DiscountsPage() {
               <div>
                 <label className="text-sm font-medium mb-1 block text-left">Ngày kết thúc</label>
                 <Input
-                  type="datetime-local"
-                  className="h-11"
+                  type="datetime-local" className="h-11"
                   value={addForm.endDate}
                   onChange={(e) => setAddForm({ ...addForm, endDate: e.target.value })}
                 />
@@ -655,9 +755,7 @@ export function DiscountsPage() {
             </div>
           </div>
           <DialogFooter className="gap-3 pt-4">
-            <Button variant="outline" onClick={() => setAddDialogOpen(false)} className="h-11 px-6 text-base font-medium">
-              Hủy
-            </Button>
+            <Button variant="outline" onClick={() => setAddDialogOpen(false)} className="h-11 px-6 text-base font-medium">Hủy</Button>
             <Button onClick={handleCreate} disabled={saving} className="h-11 px-6 text-base font-semibold shadow-lg shadow-primary/20">
               {saving ? "Đang lưu..." : "Tạo khuyến mãi"}
             </Button>
@@ -665,13 +763,13 @@ export function DiscountsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog */}
+      {/* ===================== EDIT DIALOG ===================== */}
       <Dialog open={editDialogOpen} onOpenChange={(open) => { setEditDialogOpen(open); if (!open) setSelectedPromotion(null); }}>
         <DialogContent className="max-w-xl">
           <DialogHeader className="text-left mb-4">
             <DialogTitle className="text-xl">Chỉnh sửa khuyến mãi</DialogTitle>
             <DialogDescription>
-              Cập nhật thông tin khuyến mãi: <span className="font-medium text-foreground">{selectedPromotion?.promotionName}</span>
+              Cập nhật thông tin: <span className="font-medium text-foreground">{selectedPromotion?.promotionName}</span>
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -688,24 +786,19 @@ export function DiscountsPage() {
               <div>
                 <label className="text-sm font-medium mb-1 block text-left">Giảm theo %</label>
                 <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  placeholder="VD: 10"
+                  type="number" min="0" max="100" placeholder="VD: 10"
                   className="h-11"
                   value={editForm.discountPercent}
-                  onChange={(e) => setEditForm({ ...editForm, discountPercent: e.target.value })}
+                  onChange={(e) => handleEditPercentChange(e.target.value)}
                 />
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block text-left">Giảm số tiền cố định</label>
                 <Input
-                  type="number"
-                  min="0"
-                  placeholder="VD: 50000"
+                  type="number" min="0" placeholder="VD: 50000"
                   className="h-11"
                   value={editForm.discountCost}
-                  onChange={(e) => setEditForm({ ...editForm, discountCost: e.target.value })}
+                  onChange={(e) => handleEditCostChange(e.target.value)}
                 />
               </div>
             </div>
@@ -713,8 +806,7 @@ export function DiscountsPage() {
               <div>
                 <label className="text-sm font-medium mb-1 block text-left">Ngày bắt đầu</label>
                 <Input
-                  type="datetime-local"
-                  className="h-11"
+                  type="datetime-local" className="h-11"
                   value={editForm.startDate}
                   onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })}
                 />
@@ -722,8 +814,7 @@ export function DiscountsPage() {
               <div>
                 <label className="text-sm font-medium mb-1 block text-left">Ngày kết thúc</label>
                 <Input
-                  type="datetime-local"
-                  className="h-11"
+                  type="datetime-local" className="h-11"
                   value={editForm.endDate}
                   onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })}
                 />
@@ -731,9 +822,7 @@ export function DiscountsPage() {
             </div>
           </div>
           <DialogFooter className="gap-3 pt-4">
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)} className="h-11 px-6 text-base font-medium">
-              Hủy
-            </Button>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)} className="h-11 px-6 text-base font-medium">Hủy</Button>
             <Button onClick={handleUpdate} disabled={saving} className="h-11 px-6 text-base font-semibold shadow-lg shadow-primary/20">
               {saving ? "Đang lưu..." : "Lưu thay đổi"}
             </Button>
@@ -741,34 +830,94 @@ export function DiscountsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Apply Dialog */}
-      <Dialog open={applyDialogOpen} onOpenChange={(open) => { setApplyDialogOpen(open); if (!open) { setSelectedPromotion(null); setApplyForm({ productId: "" }); } }}>
-        <DialogContent className="max-w-md">
+      {/* ===================== APPLY DIALOG ===================== */}
+      <Dialog open={applyDialogOpen} onOpenChange={(open) => {
+        setApplyDialogOpen(open)
+        if (!open) {
+          setSelectedPromotion(null)
+          setApplyProductId("")
+          setApplyVariants([])
+          setApplySelected([])
+        }
+      }}>
+        <DialogContent className="max-w-lg">
           <DialogHeader className="text-left mb-4">
-            <DialogTitle className="text-xl">Áp dụng khuyến mãi</DialogTitle>
+            <DialogTitle className="text-xl">Áp dụng biến thể</DialogTitle>
             <DialogDescription>
-              Áp dụng khuyến mãi <span className="font-medium text-foreground">{selectedPromotion?.promotionName}</span> cho sản phẩm. Sale price sẽ được tự động tính và cập nhật.
+              Chọn biến thể để áp dụng khuyến mãi <span className="font-medium text-foreground">{selectedPromotion?.promotionName}</span>. Sale price được tự động tính.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Step 1 */}
             <div>
-              <label className="text-sm font-medium mb-1 block text-left">Chọn sản phẩm</label>
+              <label className="text-sm font-medium mb-1 block text-left">Bước 1 — Chọn sản phẩm</label>
               <select
                 className="w-full h-11 px-3 rounded-md border border-input bg-background text-sm"
-                value={applyForm.productId}
-                onChange={(e) => setApplyForm({ ...applyForm, productId: e.target.value })}
+                value={applyProductId}
+                onChange={(e) => { setApplyProductId(e.target.value); loadVariantsForApply(e.target.value); }}
               >
                 <option value="">-- Chọn sản phẩm --</option>
                 {products.map((p) => (
-                  <option key={p.productId} value={p.productId}>
-                    {p.name}
-                  </option>
+                  <option key={p.productId} value={p.productId}>{p.name}</option>
                 ))}
               </select>
             </div>
+
+            {/* Step 2 */}
+            {applyProductId && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium">Bước 2 — Chọn biến thể</label>
+                  {applyVariants.length > 0 && (
+                    <button onClick={toggleApplyAll} className="text-xs text-primary hover:underline" type="button">
+                      {applySelected.length === applyVariants.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                    </button>
+                  )}
+                </div>
+
+                {loadingVariants ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">Đang tải biến thể...</p>
+                ) : applyVariants.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">Sản phẩm này chưa có biến thể nào</p>
+                ) : (
+                  <div className="border border-border rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="text-left px-3 py-2 font-medium text-muted-foreground w-8"></th>
+                          <th className="text-left px-3 py-2 font-medium text-muted-foreground">SKU</th>
+                          <th className="text-right px-3 py-2 font-medium text-muted-foreground">Giá gốc</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {applyVariants.map((v) => (
+                          <tr key={v.productItemId} className="border-t border-border/50 hover:bg-accent/50 transition-colors">
+                            <td className="px-3 py-2">
+                              <Checkbox
+                                checked={applySelected.includes(v.productItemId)}
+                                onChange={() => toggleApplyVariant(v.productItemId)}
+                              />
+                            </td>
+                            <td className="px-3 py-2 font-medium text-foreground">{v.sku || "Mặc định"}</td>
+                            <td className="px-3 py-2 text-right text-muted-foreground">{formatCurrency(v.price)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {applyVariants.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Đã chọn {applySelected.length} / {applyVariants.length} biến thể
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Promotion info */}
             {selectedPromotion && (
-              <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
-                <p className="text-sm font-medium text-foreground mb-2">Thông tin khuyến mãi:</p>
+              <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
+                <p className="text-sm font-medium text-foreground">Khuyến mãi:</p>
                 <p className="text-sm text-muted-foreground">
                   {selectedPromotion.discountCost != null
                     ? `Giảm ${formatCurrency(selectedPromotion.discountCost)}`
@@ -780,65 +929,100 @@ export function DiscountsPage() {
             )}
           </div>
           <DialogFooter className="gap-3 pt-4">
-            <Button variant="outline" onClick={() => setApplyDialogOpen(false)} className="h-11 px-6 text-base font-medium">
-              Hủy
-            </Button>
-            <Button onClick={handleApply} className="h-11 px-6 text-base font-semibold shadow-lg shadow-primary/20">
-              Áp dụng
+            <Button variant="outline" onClick={() => setApplyDialogOpen(false)} className="h-11 px-6 text-base font-medium">Hủy</Button>
+            <Button
+              onClick={handleApply}
+              disabled={saving || applySelected.length === 0}
+              className="h-11 px-6 text-base font-semibold shadow-lg shadow-primary/20"
+            >
+              {saving ? "Đang áp dụng..." : `Áp dụng (${applySelected.length})`}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Remove Promotion from Product Dialog */}
-      <Dialog open={removeDialogOpen} onOpenChange={(open) => { setRemoveDialogOpen(open); if (!open) { setSelectedPromotion(null); setRemoveForm({ productId: "" }); } }}>
-        <DialogContent className="max-w-md">
+      {/* ===================== REMOVE DIALOG ===================== */}
+      <Dialog open={removeDialogOpen} onOpenChange={(open) => {
+        setRemoveDialogOpen(open)
+        if (!open) { setSelectedPromotion(null); setRemoveItems([]); setRemoveSelected([]); }
+      }}>
+        <DialogContent className="max-w-xl">
           <DialogHeader className="text-left mb-4">
-            <DialogTitle className="text-xl">Gỡ khuyến mãi khỏi sản phẩm</DialogTitle>
+            <DialogTitle className="text-xl">Gỡ biến thể khỏi khuyến mãi</DialogTitle>
             <DialogDescription>
-              Gỡ khuyến mãi <span className="font-medium text-foreground">{selectedPromotion?.promotionName}</span> khỏi sản phẩm. Sale price sẽ bị xóa.
+              Chọn biến thể cần gỡ khỏi <span className="font-medium text-foreground">{selectedPromotion?.promotionName}</span>. Sale price sẽ bị xóa.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div>
-              <label className="text-sm font-medium mb-1 block text-left">Chọn sản phẩm cần gỡ</label>
-              <select
-                className="w-full h-11 px-3 rounded-md border border-input bg-background text-sm"
-                value={removeForm.productId}
-                onChange={(e) => setRemoveForm({ ...removeForm, productId: e.target.value })}
-              >
-                <option value="">-- Chọn sản phẩm --</option>
-                {(promotionProducts[selectedPromotion?.promotionId] || []).map((p) => (
-                  <option key={p.productId} value={p.productId}>
-                    {p.productName}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {removeForm.productId && (
+            {loadingRemoveItems ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Đang tải...</p>
+            ) : removeItems.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Không có biến thể nào đang được áp dụng</p>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium">Chọn biến thể cần gỡ</label>
+                  <button onClick={toggleRemoveAll} className="text-xs text-primary hover:underline" type="button">
+                    {removeSelected.length === removeItems.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                  </button>
+                </div>
+                <div className="border border-border rounded-lg overflow-hidden max-h-72 overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-medium text-muted-foreground w-8"></th>
+                        <th className="text-left px-3 py-2 font-medium text-muted-foreground">SKU</th>
+                        <th className="text-left px-3 py-2 font-medium text-muted-foreground">Sản phẩm</th>
+                        <th className="text-right px-3 py-2 font-medium text-muted-foreground">Giá sale</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {removeItems.map((item) => (
+                        <tr key={item.productItemId} className="border-t border-border/50 hover:bg-accent/50 transition-colors">
+                          <td className="px-3 py-2">
+                            <Checkbox
+                              checked={removeSelected.includes(item.productItemId)}
+                              onChange={() => toggleRemoveItem(item.productItemId)}
+                            />
+                          </td>
+                          <td className="px-3 py-2 font-medium text-foreground">{item.sku || "Mặc định"}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{item.productName}</td>
+                          <td className="px-3 py-2 text-right text-red-500 font-medium">{formatCurrency(item.salePrice)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-xs text-muted-foreground">Đã chọn {removeSelected.length} / {removeItems.length} biến thể</p>
+              </>
+            )}
+            {removeSelected.length > 0 && (
               <div className="p-3 bg-red-50 rounded-lg border border-red-200 text-sm text-red-600">
-                Sale price của sản phẩm này sẽ bị xóa sau khi gỡ khuyến mãi.
+                Sale price của {removeSelected.length} biến thể sẽ bị xóa.
               </div>
             )}
           </div>
           <DialogFooter className="gap-3 pt-4">
-            <Button variant="outline" onClick={() => setRemoveDialogOpen(false)} className="h-11 px-6 text-base font-medium">
-              Hủy
-            </Button>
-            <Button variant="destructive" onClick={handleRemove} className="h-11 px-6 text-base font-medium">
-              Gỡ khuyến mãi
+            <Button variant="outline" onClick={() => setRemoveDialogOpen(false)} className="h-11 px-6 text-base font-medium">Hủy</Button>
+            <Button
+              variant="destructive"
+              onClick={handleRemoveItems}
+              disabled={saving || removeSelected.length === 0}
+              className="h-11 px-6 text-base font-medium"
+            >
+              {saving ? "Đang gỡ..." : `Gỡ khuyến mãi (${removeSelected.length})`}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
+      {/* ===================== DELETE CONFIRMATION ===================== */}
       <Dialog open={deleteDialogOpen} onOpenChange={(open) => { setDeleteDialogOpen(open); if (!open) setSelectedPromotion(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader className="text-left mb-4">
             <DialogTitle className="text-xl">Xác nhận xóa khuyến mãi</DialogTitle>
             <DialogDescription>
-              Bạn có chắc muốn xóa khuyến mãi <span className="font-medium text-foreground">{selectedPromotion?.promotionName}</span>? Hành động này không thể hoàn tác.
+              Xóa <span className="font-medium text-foreground">{selectedPromotion?.promotionName}</span>? Hành động này không thể hoàn tác.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -848,17 +1032,13 @@ export function DiscountsPage() {
               </div>
               <div>
                 <p className="font-medium text-foreground">{selectedPromotion?.promotionName}</p>
-                <p className="text-sm text-muted-foreground">Mã khuyến mãi sẽ bị xóa vĩnh viễn</p>
+                <p className="text-sm text-muted-foreground">Khuyến mãi sẽ bị xóa vĩnh viễn</p>
               </div>
             </div>
           </div>
           <DialogFooter className="gap-3 pt-4">
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} className="h-11 px-6 text-base font-medium">
-              Hủy
-            </Button>
-            <Button variant="destructive" onClick={handleDelete} className="h-11 px-6 text-base font-medium">
-              Xóa khuyến mãi
-            </Button>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} className="h-11 px-6 text-base font-medium">Hủy</Button>
+            <Button variant="destructive" onClick={handleDelete} className="h-11 px-6 text-base font-medium">Xóa khuyến mãi</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

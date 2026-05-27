@@ -2,7 +2,6 @@ package com.example.ecommerce.dto;
 
 import lombok.Data;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Data
 public class PromotionResponse {
@@ -10,7 +9,7 @@ public class PromotionResponse {
     private String promotionName;
     private Double discountPercent;
     private BigDecimal discountCost;
-    private LocalDateTime startDate;
-    private LocalDateTime endDate;
+    private String startDate;
+    private String endDate;
     private Boolean isActive;
 }

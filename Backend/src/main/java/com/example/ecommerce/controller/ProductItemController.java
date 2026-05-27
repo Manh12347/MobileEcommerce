@@ -4,6 +4,7 @@ import com.example.ecommerce.dto.ApiResponse;
 import com.example.ecommerce.dto.CreateProductItemRequest;
 import com.example.ecommerce.dto.ProductItemDTO;
 import com.example.ecommerce.dto.ProductItemListDTO;
+import com.example.ecommerce.dto.ProductItemVariantDto;
 import com.example.ecommerce.dto.UpdateProductItemRequest;
 import com.example.ecommerce.service.ProductItemService;
 import jakarta.validation.Valid;
@@ -80,6 +81,21 @@ public class ProductItemController {
             return ResponseEntity.ok(new ApiResponse<>(true, "Lấy product items theo sản phẩm thành công", items));
         } catch (Exception e) {
             log.error("Lỗi khi lấy product items theo sản phẩm:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
+        }
+    }
+
+    /**
+     * Lấy biến thể nhẹ (không serials) cho dialog khuyến mãi - nhanh hơn nhiều
+     */
+    @GetMapping("/variants/{productId}")
+    public ResponseEntity<ApiResponse<List<ProductItemVariantDto>>> getVariantsByProduct(@PathVariable Integer productId) {
+        try {
+            List<ProductItemVariantDto> items = productItemService.getVariantsByProduct(productId);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Lấy biến thể thành công", items));
+        } catch (Exception e) {
+            log.error("Lỗi khi lấy biến thể:", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
         }

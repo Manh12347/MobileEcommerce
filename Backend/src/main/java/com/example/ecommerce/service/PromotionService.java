@@ -38,8 +38,12 @@ public class PromotionService {
         if (request.getDiscountCost() != null) {
             promotion.setDiscountCost(request.getDiscountCost().doubleValue());
         }
-        promotion.setStartDate(request.getStartDate());
-        promotion.setEndDate(request.getEndDate());
+        if (request.getStartDate() != null && !request.getStartDate().isBlank()) {
+            promotion.setStartDate(LocalDateTime.parse(request.getStartDate()));
+        }
+        if (request.getEndDate() != null && !request.getEndDate().isBlank()) {
+            promotion.setEndDate(LocalDateTime.parse(request.getEndDate()));
+        }
         promotion.setIsActive(true);
 
         return promotionRepository.save(promotion);
@@ -64,18 +68,33 @@ public class PromotionService {
         if (request.getPromotionName() != null) promotion.setPromotionName(request.getPromotionName());
         if (request.getDiscountPercent() != null) promotion.setDiscountPercent(request.getDiscountPercent());
         if (request.getDiscountCost() != null) promotion.setDiscountCost(request.getDiscountCost().doubleValue());
-        if (request.getStartDate() != null) promotion.setStartDate(request.getStartDate());
-        if (request.getEndDate() != null) promotion.setEndDate(request.getEndDate());
+        if (request.getStartDate() != null && !request.getStartDate().isBlank()) {
+            promotion.setStartDate(LocalDateTime.parse(request.getStartDate()));
+        }
+        if (request.getEndDate() != null && !request.getEndDate().isBlank()) {
+            promotion.setEndDate(LocalDateTime.parse(request.getEndDate()));
+        }
         if (request.getIsActive() != null) promotion.setIsActive(request.getIsActive());
 
         Promotion saved = promotionRepository.save(promotion);
 
-        // Nếu promotion đang active, apply lại cho tất cả product liên quan
-        if (Boolean.TRUE.equals(saved.getIsActive())) {
+        // Nếu promotion bị tắt, xóa sale_price của tất cả biến thể đang áp dụng
+        if (Boolean.FALSE.equals(saved.getIsActive())) {
+            clearSalePricesForPromotion(promotionId);
+        }
+        // Nếu promotion được kích hoạt lại, apply lại
+        else if (Boolean.TRUE.equals(saved.getIsActive())) {
             reapplyPromotionToLinkedProducts(promotionId);
         }
 
         return saved;
+    }
+
+    private void clearSalePricesForPromotion(Integer promotionId) {
+        List<ProductPromotion> links = productPromotionRepository.findByPromotionPromotionId(promotionId);
+        for (ProductPromotion link : links) {
+            clearSalePriceForProduct(link.getProduct().getProductId());
+        }
     }
 
     public void deletePromotion(Integer promotionId) {
@@ -187,26 +206,83 @@ public class PromotionService {
         if (promotion.getDiscountCost() != null) {
             dto.setDiscountCost(BigDecimal.valueOf(promotion.getDiscountCost()));
         }
-        dto.setStartDate(promotion.getStartDate());
-        dto.setEndDate(promotion.getEndDate());
+        if (promotion.getStartDate() != null) {
+            dto.setStartDate(promotion.getStartDate().toString());
+        }
+        if (promotion.getEndDate() != null) {
+            dto.setEndDate(promotion.getEndDate().toString());
+        }
         dto.setIsActive(promotion.getIsActive());
         return dto;
     }
 
-    public List<PromotionProductDto> getProductsByPromotionId(Integer promotionId) {
-        return productPromotionRepository.findByPromotionPromotionId(promotionId).stream()
-                .map(pp -> {
-                    PromotionProductDto dto = new PromotionProductDto();
-                    dto.setProductId(pp.getProduct().getProductId());
-                    dto.setProductName(pp.getProduct().getName());
-                    dto.setPromotionId(promotionId);
-                    dto.setPromotionName(pp.getPromotion().getPromotionName());
-                    dto.setDiscountPercent(pp.getPromotion().getDiscountPercent());
-                    if (pp.getPromotion().getDiscountCost() != null) {
-                        dto.setDiscountCost(BigDecimal.valueOf(pp.getPromotion().getDiscountCost()));
-                    }
-                    return dto;
-                })
-                .toList();
+    public List<PromotionProductItemDto> getProductItemsByPromotionId(Integer promotionId) {
+        List<ProductPromotion> links = productPromotionRepository.findByPromotionPromotionId(promotionId);
+        List<PromotionProductItemDto> result = new java.util.ArrayList<>();
+        for (ProductPromotion pp : links) {
+            List<ProductItem> items = productItemRepository.findByProductIdWithProduct(pp.getProduct().getProductId());
+            for (ProductItem pi : items) {
+                if (pi.getSalePrice() == null) continue;
+                PromotionProductItemDto dto = new PromotionProductItemDto();
+                dto.setProductItemId(pi.getProductItemId());
+                dto.setSku(pi.getSku());
+                dto.setProductName(pi.getProduct() != null ? pi.getProduct().getName() : "");
+                dto.setProductId(pp.getProduct().getProductId());
+                dto.setPromotionId(promotionId);
+                dto.setSalePrice(pi.getSalePrice());
+                dto.setOriginalPrice(pi.getPrice());
+                result.add(dto);
+            }
+        }
+        return result;
+    }
+
+    @Transactional
+    public void applyPromotionToItems(List<Integer> productItemIds, Integer promotionId) {
+        Promotion promotion = promotionRepository.findById(promotionId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy promotion: " + promotionId));
+
+        // Gom theo productId để tạo link ProductPromotion đúng
+        java.util.Map<Integer, java.util.List<Integer>> byProduct = new java.util.LinkedHashMap<>();
+        for (Integer itemId : productItemIds) {
+            ProductItem item = productItemRepository.findById(itemId).orElse(null);
+            if (item == null || item.getPrice() == null) continue;
+            int pid = item.getProduct().getProductId();
+            byProduct.computeIfAbsent(pid, k -> new java.util.ArrayList<>()).add(itemId);
+        }
+
+        for (java.util.Map.Entry<Integer, java.util.List<Integer>> entry : byProduct.entrySet()) {
+            Integer productId = entry.getKey();
+            // Tạo / lấy link ProductPromotion
+            ProductPromotionId ppId = new ProductPromotionId();
+            ppId.setProductId(productId);
+            ppId.setPromotionId(promotionId);
+            if (!productPromotionRepository.existsById(ppId)) {
+                ProductPromotion pp = new ProductPromotion();
+                pp.setId(ppId);
+                pp.setProduct(productRepository.findById(productId).orElseThrow());
+                pp.setPromotion(promotion);
+                productPromotionRepository.save(pp);
+            }
+
+            // Tính sale price
+            for (Integer itemId : entry.getValue()) {
+                ProductItem item = productItemRepository.findById(itemId).orElse(null);
+                if (item == null || item.getPrice() == null) continue;
+                BigDecimal salePrice = calculateSalePrice(item.getPrice(), promotion);
+                item.setSalePrice(salePrice);
+                productItemRepository.save(item);
+            }
+        }
+    }
+
+    @Transactional
+    public void removePromotionFromItems(List<Integer> productItemIds) {
+        for (Integer itemId : productItemIds) {
+            ProductItem item = productItemRepository.findById(itemId).orElse(null);
+            if (item == null) continue;
+            item.setSalePrice(null);
+            productItemRepository.save(item);
+        }
     }
 }
