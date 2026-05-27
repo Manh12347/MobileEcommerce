@@ -21,6 +21,9 @@ public class Promotion {
     @Column(name = "discount_percent")
     private Double discountPercent;
 
+    @Column(name = "discount_cost")
+    private Double discountCost;
+
     @Column(name = "start_date")
     private LocalDateTime startDate;
 

@@ -208,4 +208,39 @@ public class ProductItemController {
                     .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
         }
     }
+
+    /**
+     * Lấy danh sách sản phẩm đang giảm giá
+     */
+    @GetMapping("/discounted")
+    public ResponseEntity<ApiResponse<Page<ProductItemListDTO>>> getDiscountedItems(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        try {
+            Page<ProductItemListDTO> items = productItemService.getDiscountedItems(page, size);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Lấy danh sách sản phẩm giảm giá thành công", items));
+        } catch (Exception e) {
+            log.error("Lỗi khi lấy sản phẩm giảm giá:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
+        }
+    }
+
+    /**
+     * Tắt giảm giá của một sản phẩm (xóa sale_price)
+     */
+    @PutMapping("/{id}/disable-discount")
+    public ResponseEntity<ApiResponse<ProductItemDTO>> disableDiscount(@PathVariable Integer id) {
+        try {
+            ProductItemDTO item = productItemService.disableDiscount(id);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Đã tắt giảm giá cho sản phẩm", item));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (Exception e) {
+            log.error("Lỗi khi tắt giảm giá:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
+        }
+    }
 }

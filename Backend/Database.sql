@@ -140,11 +140,13 @@ CREATE TABLE cart_items (
     cart_id INT NOT NULL,
     product_item_id INT NOT NULL,
     quantity INT DEFAULT 1 CHECK (quantity > 0),
+    price NUMERIC(15, 2) NOT NULL DEFAULT 0,
     FOREIGN KEY (cart_id) REFERENCES carts(cart_id) ON DELETE CASCADE,
     FOREIGN KEY (product_item_id) REFERENCES product_items(product_item_id)
 );
 
--- Giá lấy từ product_items (sale_price / price), không lưu trên cart_items.
+-- Migration for existing databases:
+-- ALTER TABLE cart_items ADD COLUMN IF NOT EXISTS price NUMERIC(15, 2) NOT NULL DEFAULT 0;
 
 -- ========================
 -- 11. ORDERS
@@ -237,6 +239,7 @@ CREATE TABLE promotions (
     promotion_id SERIAL PRIMARY KEY,
     promotion_name VARCHAR(150),
     discount_percent NUMERIC(5,2),
+    discount_cost NUMERIC(12,2),
     start_date TIMESTAMP,
     end_date TIMESTAMP,
     is_active BOOLEAN DEFAULT TRUE
@@ -395,3 +398,5 @@ CREATE INDEX IF NOT EXISTS idx_product_items_status
 ON product_items(status);
 
 COMMIT;
+
+ALTER TABLE promotions ADD COLUMN IF NOT EXISTS discount_cost NUMERIC(12,2);
