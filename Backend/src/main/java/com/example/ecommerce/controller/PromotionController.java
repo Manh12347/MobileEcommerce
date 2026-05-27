@@ -150,9 +150,9 @@ public class PromotionController {
     // ==================== GET PRODUCTS BY PROMOTION ====================
 
     @GetMapping("/{id}/products")
-    public ResponseEntity<ApiResponse<List<PromotionService.PromotionProductDto>>>> getProductsByPromotion(@PathVariable Integer id) {
+    public ResponseEntity<ApiResponse<List<PromotionProductDto>>> getProductsByPromotion(@PathVariable Integer id) {
         try {
-            List<PromotionService.PromotionProductDto> products = promotionService.getProductsByPromotionId(id);
+            List<PromotionProductDto> products = promotionService.getProductsByPromotionId(id);
             return ResponseEntity.ok(new ApiResponse<>(true, "Lấy sản phẩm theo promotion thành công", products));
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)

@@ -19,8 +19,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-import lombok.Data;
-
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -37,7 +35,9 @@ public class PromotionService {
         Promotion promotion = new Promotion();
         promotion.setPromotionName(request.getPromotionName());
         promotion.setDiscountPercent(request.getDiscountPercent());
-        promotion.setDiscountCost(request.getDiscountCost());
+        if (request.getDiscountCost() != null) {
+            promotion.setDiscountCost(request.getDiscountCost().doubleValue());
+        }
         promotion.setStartDate(request.getStartDate());
         promotion.setEndDate(request.getEndDate());
         promotion.setIsActive(true);
@@ -63,7 +63,7 @@ public class PromotionService {
 
         if (request.getPromotionName() != null) promotion.setPromotionName(request.getPromotionName());
         if (request.getDiscountPercent() != null) promotion.setDiscountPercent(request.getDiscountPercent());
-        if (request.getDiscountCost() != null) promotion.setDiscountCost(request.getDiscountCost());
+        if (request.getDiscountCost() != null) promotion.setDiscountCost(request.getDiscountCost().doubleValue());
         if (request.getStartDate() != null) promotion.setStartDate(request.getStartDate());
         if (request.getEndDate() != null) promotion.setEndDate(request.getEndDate());
         if (request.getIsActive() != null) promotion.setIsActive(request.getIsActive());
@@ -100,7 +100,9 @@ public class PromotionService {
         }
 
         // Link promotion -> product
-        ProductPromotionId ppId = new ProductPromotionId(productId, promotionId);
+        ProductPromotionId ppId = new ProductPromotionId();
+        ppId.setProductId(productId);
+        ppId.setPromotionId(promotionId);
         if (!productPromotionRepository.existsById(ppId)) {
             ProductPromotion pp = new ProductPromotion();
             pp.setId(ppId);
@@ -118,7 +120,9 @@ public class PromotionService {
     }
 
     public void removePromotionFromProduct(Integer productId, Integer promotionId) {
-        ProductPromotionId ppId = new ProductPromotionId(productId, promotionId);
+        ProductPromotionId ppId = new ProductPromotionId();
+        ppId.setProductId(productId);
+        ppId.setPromotionId(promotionId);
         if (!productPromotionRepository.existsById(ppId)) {
             throw new RuntimeException("Product này không có promotion này");
         }
@@ -143,7 +147,7 @@ public class PromotionService {
     private BigDecimal calculateSalePrice(BigDecimal price, Promotion promotion) {
         if (promotion.getDiscountCost() != null && promotion.getDiscountCost() > 0) {
             // Giảm số tiền cố định
-            BigDecimal salePrice = price.subtract(promotion.getDiscountCost());
+            BigDecimal salePrice = price.subtract(BigDecimal.valueOf(promotion.getDiscountCost()));
             return salePrice.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : salePrice.setScale(2, RoundingMode.HALF_UP);
         }
 
@@ -180,7 +184,9 @@ public class PromotionService {
         dto.setPromotionId(promotion.getPromotionId());
         dto.setPromotionName(promotion.getPromotionName());
         dto.setDiscountPercent(promotion.getDiscountPercent());
-        dto.setDiscountCost(promotion.getDiscountCost());
+        if (promotion.getDiscountCost() != null) {
+            dto.setDiscountCost(BigDecimal.valueOf(promotion.getDiscountCost()));
+        }
         dto.setStartDate(promotion.getStartDate());
         dto.setEndDate(promotion.getEndDate());
         dto.setIsActive(promotion.getIsActive());
@@ -196,19 +202,11 @@ public class PromotionService {
                     dto.setPromotionId(promotionId);
                     dto.setPromotionName(pp.getPromotion().getPromotionName());
                     dto.setDiscountPercent(pp.getPromotion().getDiscountPercent());
-                    dto.setDiscountCost(pp.getPromotion().getDiscountCost());
+                    if (pp.getPromotion().getDiscountCost() != null) {
+                        dto.setDiscountCost(BigDecimal.valueOf(pp.getPromotion().getDiscountCost()));
+                    }
                     return dto;
                 })
                 .toList();
-    }
-
-    @Data
-    public static class PromotionProductDto {
-        private Integer productId;
-        private String productName;
-        private Integer promotionId;
-        private String promotionName;
-        private Double discountPercent;
-        private BigDecimal discountCost;
     }
 }
