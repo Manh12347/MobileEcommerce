@@ -239,6 +239,7 @@ CREATE TABLE promotions (
     promotion_id SERIAL PRIMARY KEY,
     promotion_name VARCHAR(150),
     discount_percent NUMERIC(5,2),
+    discount_cost NUMERIC(12,2),
     start_date TIMESTAMP,
     end_date TIMESTAMP,
     is_active BOOLEAN DEFAULT TRUE
@@ -397,3 +398,5 @@ CREATE INDEX IF NOT EXISTS idx_product_items_status
 ON product_items(status);
 
 COMMIT;
+
+ALTER TABLE promotions ADD COLUMN IF NOT EXISTS discount_cost NUMERIC(12,2);

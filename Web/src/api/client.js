@@ -114,6 +114,20 @@ export const productItemAPI = {
   delete: (id) => apiClient.delete(`/product-items/${id}`),
   addStock: (id, quantity) => apiClient.post(`/product-items/${id}/add-stock`, null, { params: { quantity } }),
   reduceStock: (id, quantity) => apiClient.post(`/product-items/${id}/reduce-stock`, null, { params: { quantity } }),
+  getDiscounted: (params = {}) => apiClient.get('/product-items/discounted', { params }),
+  disableDiscount: (id) => apiClient.put(`/product-items/${id}/disable-discount`),
+};
+
+export const promotionsAPI = {
+  getAll: () => apiClient.get('/promotions'),
+  getActive: () => apiClient.get('/promotions/active'),
+  getById: (id) => apiClient.get(`/promotions/${id}`),
+  create: (payload) => apiClient.post('/promotions', payload),
+  update: (id, payload) => apiClient.put(`/promotions/${id}`, payload),
+  delete: (id) => apiClient.delete(`/promotions/${id}`),
+  apply: (payload) => apiClient.post('/promotions/apply', payload),
+  remove: (payload) => apiClient.delete('/promotions/apply', { data: payload }),
+  getProductsByPromotion: (promotionId) => apiClient.get(`/promotions/${promotionId}/products`),
 };
 
 export const usersAPI = {

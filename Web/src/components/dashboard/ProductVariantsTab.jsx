@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react"
-import { Search, Plus, MoreVertical, Edit, Trash2, Eye } from "lucide-react"
+import { useEffect, useMemo, useState, useRef } from "react"
+import { Search, Plus, MoreVertical, Edit, Trash2, Eye, X } from "lucide-react"
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
 import { Badge } from "../ui/badge"
@@ -7,6 +7,8 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from ".
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../ui/dialog"
 import { PaginationControls } from "./PaginationControls"
+import { productItemAPI } from "../../api/client"
+import { useToast } from "../../hooks/use-toast"
 
 const formatCurrency = (value) => new Intl.NumberFormat("vi-VN").format(value) + "đ"
 
@@ -24,6 +26,7 @@ const getVariantStatusLabel = (stock) => {
 }
 
 export function ProductVariantsTab({ products, setProducts }) {
+  const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [productFilter, setProductFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -35,6 +38,7 @@ export function ProductVariantsTab({ products, setProducts }) {
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [selectedVariant, setSelectedVariant] = useState(null)
   const [selectedProductId, setSelectedProductId] = useState("")
+  const [loadingDiscount, setLoadingDiscount] = useState(null)
   const [form, setForm] = useState({
     productId: "",
     variant: "",
@@ -171,6 +175,30 @@ export function ProductVariantsTab({ products, setProducts }) {
     setSelectedVariant(null)
   }
 
+  const handleDisableDiscount = async (variant) => {
+    if (!variant?.id) return
+    try {
+      setLoadingDiscount(variant.id)
+      await productItemAPI.disableDiscount(variant.id)
+      setProducts((currentProducts) =>
+        currentProducts.map((product) => {
+          if (product.id !== variant.productId) return product
+          return {
+            ...product,
+            variants: product.variants.map((v) =>
+              v.id === variant.id ? { ...v, originalPrice: null, price: v.originalPrice ?? v.price } : v
+            ),
+          }
+        })
+      )
+      toast({ title: "Thành công", description: "Đã tắt giảm giá cho biến thể" })
+    } catch (error) {
+      toast({ title: "Lỗi", description: error?.response?.data?.message || "Tắt giảm giá thất bại", variant: "destructive" })
+    } finally {
+      setLoadingDiscount(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -302,6 +330,16 @@ export function ProductVariantsTab({ products, setProducts }) {
                         <Edit className="w-5 h-5 mr-3 text-blue-500" />
                         Chỉnh sửa
                       </DropdownMenuItem>
+                      {variant.originalPrice != null && variant.price < variant.originalPrice && (
+                        <DropdownMenuItem
+                          className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer text-amber-500 hover:bg-amber-50"
+                          onSelect={() => handleDisableDiscount(variant)}
+                          disabled={loadingDiscount === variant.id}
+                        >
+                          <X className="w-5 h-5 mr-3" />
+                          {loadingDiscount === variant.id ? "Đang xử lý..." : "Tắt giảm giá"}
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         className="flex items-center py-3 px-4 text-base rounded-md cursor-pointer text-red-500 hover:bg-red-50"
                         onSelect={() => {
