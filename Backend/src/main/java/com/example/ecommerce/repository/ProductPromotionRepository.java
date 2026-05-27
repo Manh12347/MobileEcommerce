@@ -10,4 +10,6 @@ import java.util.List;
 @Repository
 public interface ProductPromotionRepository extends JpaRepository<ProductPromotion, ProductPromotionId> {
     List<ProductPromotion> findByPromotionPromotionId(Integer promotionId);
+    List<ProductPromotion> findByProductProductId(Integer productId);
+    boolean existsByProductProductId(Integer productId);
 }

@@ -63,4 +63,7 @@ public interface ProductItemRepository extends JpaRepository<ProductItem, Intege
            countQuery = "SELECT COUNT(*) FROM product_items",
            nativeQuery = true)
     Page<Object[]> findAllForListWithSoldCount(Pageable pageable);
+
+    @Query("SELECT pi FROM ProductItem pi JOIN FETCH pi.product WHERE pi.product.productId = :productId")
+    List<ProductItem> findByProductIdWithProduct(@Param("productId") Integer productId);
 }

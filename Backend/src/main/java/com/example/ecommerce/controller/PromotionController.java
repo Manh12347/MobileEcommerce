@@ -26,7 +26,12 @@ public class PromotionController {
     @PostMapping
     public ResponseEntity<ApiResponse<PromotionResponse>> create(@RequestBody CreatePromotionRequest request) {
         try {
+            log.info("CREATE request: name={}, percent={}, cost={}, startDate={}, endDate={}",
+                    request.getPromotionName(), request.getDiscountPercent(), request.getDiscountCost(),
+                    request.getStartDate(), request.getEndDate());
             Promotion promotion = promotionService.createPromotion(request);
+            log.info("CREATED: id={}, startDate={}, endDate={}",
+                    promotion.getPromotionId(), promotion.getStartDate(), promotion.getEndDate());
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(new ApiResponse<>(true, "Tạo promotion thành công", promotionService.toResponse(promotion)));
         } catch (RuntimeException e) {
@@ -147,18 +152,47 @@ public class PromotionController {
         }
     }
 
-    // ==================== GET PRODUCTS BY PROMOTION ====================
+    // ==================== GET ITEMS BY PROMOTION ====================
 
-    @GetMapping("/{id}/products")
-    public ResponseEntity<ApiResponse<List<PromotionService.PromotionProductDto>>>> getProductsByPromotion(@PathVariable Integer id) {
+    @GetMapping("/{id}/items")
+    public ResponseEntity<ApiResponse<List<PromotionProductItemDto>>> getItemsByPromotion(@PathVariable Integer id) {
         try {
-            List<PromotionService.PromotionProductDto> products = promotionService.getProductsByPromotionId(id);
-            return ResponseEntity.ok(new ApiResponse<>(true, "Lấy sản phẩm theo promotion thành công", products));
+            List<PromotionProductItemDto> items = promotionService.getProductItemsByPromotionId(id);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Lấy biến thể theo promotion thành công", items));
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new ApiResponse<>(false, e.getMessage(), null));
         } catch (Exception e) {
-            log.error("Lỗi khi lấy sản phẩm theo promotion:", e);
+            log.error("Lỗi khi lấy biến thể theo promotion:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
+        }
+    }
+
+    // ==================== APPLY / REMOVE BY ITEMS ====================
+
+    @PostMapping("/apply-items")
+    public ResponseEntity<ApiResponse<String>> applyToItems(@RequestBody ApplyPromotionToItemsRequest request) {
+        try {
+            promotionService.applyPromotionToItems(request.getProductItemIds(), request.getPromotionId());
+            return ResponseEntity.ok(new ApiResponse<>(true, "Áp dụng promotion cho biến thể thành công", null));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (Exception e) {
+            log.error("Lỗi khi apply promotion to items:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
+        }
+    }
+
+    @DeleteMapping("/apply-items")
+    public ResponseEntity<ApiResponse<String>> removeFromItems(@RequestBody List<Integer> productItemIds) {
+        try {
+            promotionService.removePromotionFromItems(productItemIds);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Gỡ promotion khỏi biến thể thành công", null));
+        } catch (Exception e) {
+            log.error("Lỗi khi remove promotion from items:", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
         }

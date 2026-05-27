@@ -3,6 +3,7 @@ package com.example.ecommerce.service;
 import com.example.ecommerce.dto.CreateProductItemRequest;
 import com.example.ecommerce.dto.ProductItemDTO;
 import com.example.ecommerce.dto.ProductItemListDTO;
+import com.example.ecommerce.dto.ProductItemVariantDto;
 import com.example.ecommerce.dto.UpdateProductItemRequest;
 import com.example.ecommerce.entity.ProductItem;
 import com.example.ecommerce.entity.Product;
@@ -399,5 +400,20 @@ public class ProductItemService {
         dto.setSerials(serialDTOs);
 
         return dto;
+    }
+
+    public List<ProductItemVariantDto> getVariantsByProduct(Integer productId) {
+        List<ProductItem> items = productItemRepository.findByProductIdWithProduct(productId);
+        return items.stream().map(item -> {
+            ProductItemVariantDto dto = new ProductItemVariantDto();
+            dto.setProductItemId(item.getProductItemId());
+            dto.setSku(item.getSku());
+            dto.setDescription(item.getDescription());
+            dto.setStockQuantity(item.getStockQuantity());
+            dto.setStatus(item.getStatus());
+            dto.setPrice(item.getPrice());
+            dto.setSalePrice(item.getSalePrice());
+            return dto;
+        }).toList();
     }
 }
