@@ -151,6 +151,16 @@ public class ProductItemService {
         return toDTO(item);
     }
 
+    public ProductItemDTO getProductItemBySku(String sku) {
+        if (sku == null || sku.trim().isEmpty()) {
+            throw new RuntimeException("SKU không được bỏ trống");
+        }
+
+        ProductItem item = productItemRepository.findBySkuWithSerialsAndProduct(sku.trim())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy product item với SKU: " + sku));
+        return toDTO(item);
+    }
+
     public List<ProductItemDTO> getProductItemsByProduct(Integer productId) {
         List<ProductItem> items = productItemRepository.findByProductProductIdWithSerialsAndProduct(productId);
         return items.stream()

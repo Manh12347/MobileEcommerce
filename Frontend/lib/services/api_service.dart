@@ -13,6 +13,7 @@ import '../models/product_item.dart';
 import '../models/register_request.dart';
 import '../models/register_response.dart';
 import '../models/verify_otp_request.dart';
+import '../models/warranty.dart';
 
 class ApiService {
   static const String baseUrl = API_BASE_URL;
@@ -261,6 +262,54 @@ class ApiService {
       }
       throw Exception(
         _extractMessage(response, fallback: 'Không thể theo dõi đơn hàng'),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<Warranty>> getWarrantyBySerial(int serialId) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl$WARRANTIES_ENDPOINT/serial/$serialId'),
+            headers: _headers(auth: true),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final body = _decodeJsonBody(response.body);
+      if (response.statusCode == 200) {
+        return _parseObjectResponse(body, Warranty.fromJson);
+      }
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể tải bảo hành'),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<List<WarrantyClaim>>> getWarrantyClaimsByAccount(
+    int accountId,
+  ) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl$WARRANTY_CLAIMS_ENDPOINT/account/$accountId'),
+            headers: _headers(auth: true),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final body = _decodeJsonBody(response.body);
+      if (response.statusCode == 200) {
+        return _parseListResponse(body, WarrantyClaim.fromJson);
+      }
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể tải lịch sử bảo hành'),
       );
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));

@@ -6,6 +6,8 @@ const String PRODUCTS_ENDPOINT = '/catalogs/products';
 const String PRODUCT_ITEMS_ENDPOINT = '/product-items';
 const String CART_ENDPOINT = '/cart';
 const String ORDERS_ENDPOINT = '/orders';
+const String WARRANTIES_ENDPOINT = '/warranties';
+const String WARRANTY_CLAIMS_ENDPOINT = '/warranty-claims';
 
 
 const String GOOGLE_OAUTH_SERVER_CLIENT_ID = String.fromEnvironment(

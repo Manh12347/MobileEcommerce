@@ -6,8 +6,8 @@ import '../widgets/app_bottom_nav.dart';
 import 'cart_screen.dart';
 import 'categories_screen.dart';
 import 'home_screen.dart';
-import 'orders_screen.dart';
 import 'profile_screen.dart';
+import 'warranty_screen.dart';
 
 class MainShellScreen extends StatefulWidget {
   const MainShellScreen({super.key, this.initialIndex = 0});
@@ -47,7 +47,7 @@ class MainShellScreenState extends State<MainShellScreen> {
           HomeScreen(),
           CategoriesScreen(),
           CartScreen(),
-          OrdersScreen(),
+          WarrantyScreen(),
           ProfileScreen(),
         ],
       ),
