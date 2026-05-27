@@ -139,6 +139,17 @@ const normalizeStatus = (statusCounts = {}) => {
   return "processing"
 }
 
+const isCompletedStatus = (status) => {
+  const normalized = String(status || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "")
+
+  return normalized === "completed" || normalized === "hoantat"
+}
+
 const groupToWarrantyRow = (group, index) => {
   const claims = uniqueBy(
     group.claims || [],
@@ -294,7 +305,7 @@ export function WarrantyPage() {
   }
 
   const updateClaimStatus = async (claim, nextStatus) => {
-    if (claim.status === "completed") {
+    if (isCompletedStatus(claim.status)) {
       setErrorMessage(uiText.lockWarning)
       return
     }
@@ -315,7 +326,7 @@ export function WarrantyPage() {
   }
 
   const updateWarrantyGroupStatus = async (item, nextStatus) => {
-    const editableClaims = (item.claims || []).filter((claim) => claim.status !== "completed")
+    const editableClaims = (item.claims || []).filter((claim) => !isCompletedStatus(claim.status))
 
     if (editableClaims.length === 0) {
       setErrorMessage(uiText.lockWarning)
@@ -511,20 +522,24 @@ export function WarrantyPage() {
                         <Eye className="mr-3 h-5 w-5 text-blue-500" />
                         {uiText.viewDetail}
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="flex cursor-pointer items-center rounded-md px-4 py-3 text-base"
-                        onSelect={() => updateWarrantyGroupStatus(item, "cancelled")}
-                      >
-                        <XCircle className="mr-3 h-5 w-5 text-amber-500" />
-                        {uiText.updateStatus}: {statusLabels.cancelled}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="flex cursor-pointer items-center rounded-md px-4 py-3 text-base"
-                        onSelect={() => updateWarrantyGroupStatus(item, "completed")}
-                      >
-                        <CheckCircle2 className="mr-3 h-5 w-5 text-emerald-500" />
-                        {uiText.updateStatus}: {statusLabels.completed}
-                      </DropdownMenuItem>
+                      {!isCompletedStatus(item.status) && (
+                        <>
+                          <DropdownMenuItem
+                            className="flex cursor-pointer items-center rounded-md px-4 py-3 text-base"
+                            onSelect={() => updateWarrantyGroupStatus(item, "cancelled")}
+                          >
+                            <XCircle className="mr-3 h-5 w-5 text-amber-500" />
+                            {uiText.updateStatus}: {statusLabels.cancelled}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="flex cursor-pointer items-center rounded-md px-4 py-3 text-base"
+                            onSelect={() => updateWarrantyGroupStatus(item, "completed")}
+                          >
+                            <CheckCircle2 className="mr-3 h-5 w-5 text-emerald-500" />
+                            {uiText.updateStatus}: {statusLabels.completed}
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
@@ -713,11 +728,7 @@ export function WarrantyPage() {
                         </Badge>
                       </div>
                       <p className="mt-3 leading-6 text-muted-foreground">{claim.issueDescription || uiText.noIssue}</p>
-                      {claim.status === "completed" ? (
-                        <p className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-                          {uiText.lockWarning}
-                        </p>
-                      ) : (
+                      {!isCompletedStatus(claim.status) && (
                         <div className="mt-3 flex flex-wrap gap-2">
                           <Button
                             type="button"
