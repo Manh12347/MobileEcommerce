@@ -38,7 +38,6 @@ public class CartServiceImpl implements CartService {
     private final AccountRepository accountRepository;
 
     @Override
-    @Transactional(readOnly = true)
     public CartDTO getOrCreateCartForAccount(Integer accountId) {
         Cart cart = getOrCreateCart(accountId);
         return toDTO(cart);
