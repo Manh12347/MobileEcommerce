@@ -104,6 +104,7 @@ class OrderSummary {
 class OrderDetail {
   final int orderId;
   final String orderCode;
+  final String? gencode;
   final int accountId;
   final String? status;
   final String? paymentStatus;
@@ -117,6 +118,7 @@ class OrderDetail {
   OrderDetail({
     required this.orderId,
     required this.orderCode,
+    this.gencode,
     required this.accountId,
     this.status,
     this.paymentStatus,
@@ -133,6 +135,7 @@ class OrderDetail {
     return OrderDetail(
       orderId: _toInt(json['orderId']) ?? 0,
       orderCode: json['orderCode']?.toString() ?? '',
+      gencode: json['gencode']?.toString(),
       accountId: _toInt(json['accountId']) ?? 0,
       status: json['status']?.toString(),
       paymentStatus: json['paymentStatus']?.toString(),

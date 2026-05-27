@@ -38,6 +38,8 @@ dependencies:
   provider: ^6.1.5+1
   google_sign_in: ^7.2.0
   shared_preferences: ^2.5.3
+  qr_flutter: ^4.1.0
+  stomp_dart_client: ^2.1.0
 
 dev_dependencies:
   flutter_test:

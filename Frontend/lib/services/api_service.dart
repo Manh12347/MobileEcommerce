@@ -9,6 +9,7 @@ import '../models/login_request.dart';
 import '../models/login_response.dart';
 import '../models/oauth_login_request.dart';
 import '../models/order.dart';
+import '../models/payment_models.dart';
 import '../models/product_item.dart';
 import '../models/register_request.dart';
 import '../models/register_response.dart';
@@ -406,6 +407,85 @@ class ApiService {
         response,
         fallback: 'Không thể tải danh sách sản phẩm',
       ));
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<Map<String, dynamic>>> getProfile() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/profile'),
+        headers: _headers(auth: true),
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw Exception('Request timeout'),
+      );
+      final body = _decodeJsonBody(response.body);
+      if (response.statusCode == 200) {
+        return ApiResponse<Map<String, dynamic>>(
+          success: body['success'] == true,
+          message: body['message']?.toString() ?? '',
+          data: body['data'] is Map<String, dynamic> ? body['data'] : {},
+          statusCode: response.statusCode,
+        );
+      }
+      throw Exception(_extractMessage(response, fallback: 'Không thể tải hồ sơ'));
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<PaymentQrData>> getPaymentQr({
+    required String gencode,
+    required double amount,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/payment/qr?gencode=$gencode&amount=$amount'),
+        headers: _headers(auth: true),
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw Exception('Request timeout'),
+      );
+      final body = _decodeJsonBody(response.body);
+      if (response.statusCode == 200) {
+        return ApiResponse<PaymentQrData>(
+          success: body['success'] == true,
+          message: body['message']?.toString() ?? '',
+          data: body['data'] is Map<String, dynamic>
+              ? PaymentQrData.fromJson(body['data'])
+              : null,
+          statusCode: response.statusCode,
+        );
+      }
+      throw Exception(_extractMessage(response, fallback: 'Không thể tạo QR'));
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<PaymentStatusData>> getPaymentStatus(String gencode) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/payment/status/$gencode'),
+        headers: _headers(auth: true),
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw Exception('Request timeout'),
+      );
+      final body = _decodeJsonBody(response.body);
+      if (response.statusCode == 200) {
+        return ApiResponse<PaymentStatusData>(
+          success: body['success'] == true,
+          message: body['message']?.toString() ?? '',
+          data: body['data'] is Map<String, dynamic>
+              ? PaymentStatusData.fromJson(body['data'])
+              : null,
+          statusCode: response.statusCode,
+        );
+      }
+      throw Exception(_extractMessage(response, fallback: 'Không thể kiểm tra thanh toán'));
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
