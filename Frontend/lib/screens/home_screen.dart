@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../models/product_item.dart';
 import '../providers/login_provider.dart';
 import '../services/api_service.dart';
+import '../utils/format_utils.dart';
+import '../widgets/product_badge.dart';
 import 'product_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -43,19 +45,20 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final response = await ApiService.getProductItems(page: 1, size: 10);
       if (!response.success) {
-        throw Exception(response.message.isNotEmpty
-            ? response.message
-            : 'Không thể tải danh sách sản phẩm');
+        throw Exception(
+          response.message.isNotEmpty
+              ? response.message
+              : 'Không thể tải danh sách sản phẩm',
+        );
       }
 
       final summaries = response.data ?? const <ProductItemSummary>[];
       final loadedProducts = <_CatalogProduct>[];
       for (var i = 0; i < summaries.length; i++) {
-        loadedProducts.add(
-          _CatalogProduct(
-            summary: summaries[i],
-          ),
-        );
+        final summary = summaries[i];
+        if (isActiveProductStatus(summary.status)) {
+          loadedProducts.add(_CatalogProduct(summary: summary));
+        }
       }
 
       if (!mounted) {
@@ -97,13 +100,15 @@ class _HomeScreenState extends State<HomeScreen> {
       final categoryName = product.summary.category?.name?.toLowerCase() ?? '';
       final sku = product.summary.sku?.toLowerCase() ?? '';
       final description = product.summary.description?.toLowerCase() ?? '';
-      final queryMatch = _query.isEmpty ||
+      final queryMatch =
+          _query.isEmpty ||
           name.contains(_query) ||
           brandName.contains(_query) ||
           categoryName.contains(_query) ||
           sku.contains(_query) ||
           description.contains(_query);
-      final categoryMatch = _selectedCategory == 'Tất cả' ||
+      final categoryMatch =
+          _selectedCategory == 'Tất cả' ||
           product.summary.category?.name == _selectedCategory;
       return queryMatch && categoryMatch;
     }).toList();
@@ -117,10 +122,8 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ProductDetailScreen(
-          summary: product.summary,
-          initialDetail: null,
-        ),
+        builder: (_) =>
+            ProductDetailScreen(summary: product.summary, initialDetail: null),
       ),
     );
   }
@@ -162,11 +165,13 @@ class _HomeScreenState extends State<HomeScreen> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                  child: _HeroBanner(onExploreTap: () {
-                    if (_visibleProducts.isNotEmpty) {
-                      _openProductDetail(_visibleProducts.first);
-                    }
-                  }),
+                  child: _HeroBanner(
+                    onExploreTap: () {
+                      if (_visibleProducts.isNotEmpty) {
+                        _openProductDetail(_visibleProducts.first);
+                      }
+                    },
+                  ),
                 ),
               ),
               SliverToBoxAdapter(
@@ -304,21 +309,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   sliver: SliverGrid(
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 14,
-                      crossAxisSpacing: 14,
-                      childAspectRatio: 0.72,
-                    ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final product = visibleProducts[index];
-                        return _ProductCard(
-                          product: product,
-                          onTap: () => _openProductDetail(product),
-                        );
-                      },
-                      childCount: visibleProducts.length,
-                    ),
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 14,
+                          crossAxisSpacing: 14,
+                          childAspectRatio: 0.72,
+                        ),
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final product = visibleProducts[index];
+                      return _ProductCard(
+                        product: product,
+                        onTap: () => _openProductDetail(product),
+                      );
+                    }, childCount: visibleProducts.length),
                   ),
                 ),
             ],
@@ -387,10 +389,7 @@ class _TopBar extends StatelessWidget {
             ],
           ),
         ),
-        _IconActionButton(
-          icon: Icons.notifications_none_rounded,
-          onTap: () {},
-        ),
+        _IconActionButton(icon: Icons.notifications_none_rounded, onTap: () {}),
       ],
     );
   }
@@ -502,8 +501,10 @@ class _HeroBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(999),
@@ -625,6 +626,20 @@ class _ProductCard extends StatelessWidget {
     final imageUrl = summary.mainImageUrl;
     final currentPrice = summary.salePrice ?? summary.price;
     final originalPrice = summary.hasSalePrice ? summary.price : null;
+    final badges = <Widget>[
+      ProductBadge(
+        label: productStatusLabel(summary.status),
+        backgroundColor: const Color(0xFF0C8C71),
+      ),
+      if (summary.hasSalePrice) ...[
+        const SizedBox(width: 8),
+        const ProductBadge(
+          label: 'Giảm giá',
+          backgroundColor: Color(0xFFD28A00),
+          foregroundColor: Colors.white,
+        ),
+      ],
+    ];
 
     return Material(
       color: Colors.white,
@@ -658,18 +673,7 @@ class _ProductCard extends StatelessWidget {
                     ),
                     child: _ProductImage(url: imageUrl),
                   ),
-                  Positioned(
-                    left: 12,
-                    top: 12,
-                    child: _Badge(
-                      text: summary.status == 'active'
-                        ? 'Hot'
-                        : (summary.status ?? 'N/A'),
-                      backgroundColor: summary.status == 'active'
-                        ? const Color(0xFFD63546)
-                        : const Color(0xFFB27A00),
-                    ),
-                  ),
+                  Positioned(left: 12, top: 12, child: Row(children: badges)),
                   Positioned(
                     right: 10,
                     top: 10,
@@ -719,7 +723,7 @@ class _ProductCard extends StatelessWidget {
                     const SizedBox(height: 8),
                     if (currentPrice != null)
                       Text(
-                        _formatCurrency(currentPrice),
+                        formatCurrency(currentPrice),
                         style: const TextStyle(
                           color: Color(0xFF1F67E2),
                           fontSize: 15,
@@ -738,7 +742,7 @@ class _ProductCard extends StatelessWidget {
                     if (originalPrice != null) ...[
                       const SizedBox(height: 2),
                       Text(
-                        _formatCurrency(originalPrice),
+                        formatCurrency(originalPrice),
                         style: const TextStyle(
                           color: Color(0xFF91A0B8),
                           fontSize: 12,
@@ -782,25 +786,6 @@ class _ProductCard extends StatelessWidget {
   }
 }
 
-String _formatCurrency(num? value) {
-  if (value == null) {
-    return '0đ';
-  }
-
-  final rounded = value.round();
-  final reversed = rounded.toString().split('').reversed.toList();
-  final buffer = StringBuffer();
-
-  for (var i = 0; i < reversed.length; i++) {
-    if (i > 0 && i % 3 == 0) {
-      buffer.write('.');
-    }
-    buffer.write(reversed[i]);
-  }
-
-  return '${buffer.toString().split('').reversed.join()}đ';
-}
-
 class _ProductImage extends StatelessWidget {
   const _ProductImage({required this.url});
 
@@ -810,11 +795,7 @@ class _ProductImage extends StatelessWidget {
   Widget build(BuildContext context) {
     if (url == null || url!.isEmpty) {
       return const Center(
-        child: Icon(
-          Icons.memory_rounded,
-          size: 54,
-          color: Color(0xFF1F67E2),
-        ),
+        child: Icon(Icons.memory_rounded, size: 54, color: Color(0xFF1F67E2)),
       );
     }
 
@@ -832,32 +813,6 @@ class _ProductImage extends StatelessWidget {
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-class _Badge extends StatelessWidget {
-  const _Badge({required this.text, required this.backgroundColor});
-
-  final String text;
-  final Color backgroundColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-        ),
       ),
     );
   }

@@ -60,6 +60,49 @@ List<String> _decodeStringList(Object? rawValue) {
   return ['$rawValue'];
 }
 
+String _normalizeProductStatus(String? status) {
+  return status?.trim().toLowerCase() ?? '';
+}
+
+bool isActiveProductStatus(String? status) {
+  switch (_normalizeProductStatus(status)) {
+    case 'active':
+    case 'available':
+    case 'enabled':
+    case 'publish':
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool isInactiveProductStatus(String? status) {
+  switch (_normalizeProductStatus(status)) {
+    case 'disable':
+    case 'disabled':
+    case 'inactive':
+    case 'discontinued':
+    case 'hidden':
+    case 'archived':
+      return true;
+    default:
+      return false;
+  }
+}
+
+String productStatusLabel(String? status) {
+  if (isActiveProductStatus(status)) {
+    return 'Hoạt động';
+  }
+  if (isInactiveProductStatus(status)) {
+    return 'Không hoạt động';
+  }
+  final normalized = status?.trim();
+  return normalized == null || normalized.isEmpty
+      ? 'Không xác định'
+      : normalized;
+}
+
 class ProductBrand {
   final int? brandId;
   final String? name;
@@ -245,9 +288,9 @@ class ProductItemDetail {
       productName: json['productName']?.toString(),
       serials: serialJson is List
           ? serialJson
-              .whereType<Map<String, dynamic>>()
-              .map(ProductSerial.fromJson)
-              .toList()
+                .whereType<Map<String, dynamic>>()
+                .map(ProductSerial.fromJson)
+                .toList()
           : const [],
       createdAt: _toDateTime(json['createdAt']),
       updatedAt: _toDateTime(json['updatedAt']),
