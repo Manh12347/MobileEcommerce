@@ -38,7 +38,6 @@ public class CartServiceImpl implements CartService {
     private final AccountRepository accountRepository;
 
     @Override
-    @Transactional(readOnly = true)
     public CartDTO getOrCreateCartForAccount(Integer accountId) {
         Cart cart = getOrCreateCart(accountId);
         return toDTO(cart);
@@ -60,6 +59,7 @@ public class CartServiceImpl implements CartService {
         validateStock(productItem, request.getQuantity());
 
         Cart cart = getOrCreateCart(account);
+        BigDecimal unitPrice = resolveEffectivePrice(productItem);
 
         Optional<CartItem> existing = cartItemRepository
                 .findByCartCartIdAndProductItemProductItemId(cart.getCartId(), productItem.getProductItemId());
@@ -70,11 +70,13 @@ public class CartServiceImpl implements CartService {
             int newQuantity = cartItem.getQuantity() + request.getQuantity();
             validateStock(productItem, newQuantity);
             cartItem.setQuantity(newQuantity);
+            cartItem.setPrice(unitPrice);
         } else {
             cartItem = new CartItem();
             cartItem.setCart(cart);
             cartItem.setProductItem(productItem);
             cartItem.setQuantity(request.getQuantity());
+            cartItem.setPrice(unitPrice);
         }
 
         cartItemRepository.save(cartItem);
@@ -93,6 +95,9 @@ public class CartServiceImpl implements CartService {
         validateStock(productItem, request.getQuantity());
 
         cartItem.setQuantity(request.getQuantity());
+        if (cartItem.getPrice() == null) {
+            cartItem.setPrice(resolveEffectivePrice(productItem));
+        }
 
         cartItemRepository.save(cartItem);
         touchCart(cartItem.getCart());
@@ -205,7 +210,9 @@ public class CartServiceImpl implements CartService {
 
     private CartItemDTO toItemDTO(CartItem item) {
         ProductItem productItem = item.getProductItem();
-        BigDecimal unitPrice = resolveEffectivePrice(productItem);
+        BigDecimal unitPrice = item.getPrice() != null
+                ? item.getPrice()
+                : resolveEffectivePrice(productItem);
 
         CartItemDTO dto = new CartItemDTO();
         dto.setCartItemId(item.getCartItemId());

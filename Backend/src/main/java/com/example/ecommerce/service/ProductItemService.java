@@ -324,6 +324,49 @@ public class ProductItemService {
         return toDTO(item);
     }
 
+    /**
+     * Lấy danh sách sản phẩm đang giảm giá (có sale_price)
+     */
+    public Page<ProductItemListDTO> getDiscountedItems(int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(page - 1, 0), size);
+        Page<Object[]> results = productItemRepository.findDiscountedItems(pageable);
+
+        return results.map(row -> {
+            ProductItemListDTO dto = new ProductItemListDTO();
+            dto.setProductItemId(((Number) row[0]).intValue());
+            dto.setSku((String) row[1]);
+            dto.setStockQuantity(row[2] != null ? ((Number) row[2]).intValue() : 0);
+            dto.setStatus((String) row[3]);
+            dto.setPrice(row[4] != null ? new java.math.BigDecimal(row[4].toString()) : null);
+            dto.setSalePrice(row[5] != null ? new java.math.BigDecimal(row[5].toString()) : null);
+            dto.setCreatedAt(row[6] != null ? row[6].toString() : null);
+
+            if (row[7] != null) {
+                dto.setProductId(((Number) row[7]).intValue());
+            }
+            dto.setProductName((String) row[8]);
+            dto.setSoldQuantity(row[9] != null ? ((Number) row[9]).intValue() : 0);
+            dto.setDescription((String) row[10]);
+            dto.setSpecifications(row[11] != null ? row[11].toString() : null);
+            dto.setMainImageUrl((String) row[12]);
+
+            return dto;
+        });
+    }
+
+    /**
+     * Tắt giảm giá cho một product item (xóa sale_price)
+     */
+    public ProductItemDTO disableDiscount(Integer productItemId) {
+        ProductItem item = productItemRepository.findById(productItemId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy product item với id: " + productItemId));
+
+        item.setSalePrice(null);
+        productItemRepository.save(item);
+
+        return toDTO(item);
+    }
+
     private ProductItemDTO toDTO(ProductItem item) {
         ProductItemDTO dto = new ProductItemDTO();
         dto.setProductItemId(item.getProductItemId());
