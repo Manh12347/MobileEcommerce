@@ -99,18 +99,30 @@ class CartProvider extends ChangeNotifier {
   }
 
   Future<bool> removeItem(int cartItemId) async {
+    _isLoading = true;
+    _errorMessage = '';
+    notifyListeners();
+
     try {
       final response = await ApiService.removeCartItem(cartItemId);
-      if (response.success && response.data != null) {
-        _cart = response.data;
+      if (response.success) {
+        if (response.data != null) {
+          _cart = response.data;
+        } else {
+          await loadCart(silent: true);
+        }
+        _isLoading = false;
         notifyListeners();
         return true;
       }
+
       _errorMessage = response.message.isNotEmpty ? response.message : 'Xóa thất bại';
+      _isLoading = false;
       notifyListeners();
       return false;
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isLoading = false;
       notifyListeners();
       return false;
     }
