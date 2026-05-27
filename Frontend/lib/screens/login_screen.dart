@@ -402,6 +402,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             TextButton(
                               onPressed: () {
+                                context.read<LoginProvider>().clearError();
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(

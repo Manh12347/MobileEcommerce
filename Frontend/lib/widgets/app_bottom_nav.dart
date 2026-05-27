@@ -16,7 +16,7 @@ class AppBottomNav extends StatelessWidget {
     (icon: Icons.home_rounded, label: 'Trang chủ'),
     (icon: Icons.grid_view_rounded, label: 'Danh mục'),
     (icon: Icons.shopping_cart_outlined, label: 'Giỏ hàng'),
-    (icon: Icons.receipt_long_outlined, label: 'Đơn hàng'),
+    (icon: Icons.verified_user_outlined, label: 'Bảo hành'),
     (icon: Icons.person_outline_rounded, label: 'Cá nhân'),
   ];
 
