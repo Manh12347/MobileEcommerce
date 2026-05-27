@@ -13,6 +13,7 @@ import java.util.List;
 public class OrderDTO {
     private Integer orderId;
     private String orderCode;
+    private String gencode; // mã thanh toán, chỉ tồn tại trong Redis
     private Integer accountId;
     private String status;
     private String paymentStatus;

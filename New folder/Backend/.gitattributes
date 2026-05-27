@@ -1,0 +1,24 @@
+# Shell scripts chạy trên Linux
+*.sh text eol=lf
+
+# GitHub Actions
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Docker
+Dockerfile text eol=lf
+
+# Environment files
+.env text eol=lf
+.env.example text eol=lf
+.env.* text eol=lf
+
+# Config files
+*.json text eol=lf
+*.conf text eol=lf
+
+# Markdown
+*.md text eol=lf
+
+# Auto detect text files and normalize line endings
+* text=auto

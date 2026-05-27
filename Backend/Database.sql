@@ -400,3 +400,5 @@ ON product_items(status);
 COMMIT;
 
 ALTER TABLE promotions ADD COLUMN IF NOT EXISTS discount_cost NUMERIC(12,2);
+
+ALTER TABLE cart_items ADD COLUMN IF NOT EXISTS price NUMERIC(15, 2) NOT NULL DEFAULT 0;

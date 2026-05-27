@@ -7,14 +7,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
+@Slf4j
 public class OrderService {
 
     private static final Set<String> VALID_STATUSES = Set.of("pending", "shipping", "completed", "cancelled");
@@ -53,6 +57,9 @@ public class OrderService {
     @Autowired
     private NotificationService notificationService;
 
+    @Autowired
+    private PaymentRedisService paymentRedisService;
+
     public OrderDTO checkout(Integer accountId, CreateOrderRequest request) {
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản"));
@@ -80,6 +87,9 @@ public class OrderService {
         order.setTotalPrice(BigDecimal.ZERO);
         Order savedOrder = orderRepository.save(order);
 
+        // Determine payment type early so allocation logic can use it
+        boolean isTransfer = "Transfer".equalsIgnoreCase(savedOrder.getPaymentMethod());
+
         BigDecimal total = BigDecimal.ZERO;
         for (CartItem cartItem : cartItems) {
             ProductItem productItem = productItemRepository
@@ -95,26 +105,98 @@ public class OrderService {
             orderItem.setPrice(unitPrice);
             OrderItem savedItem = orderItemRepository.save(orderItem);
 
-            allocateSerials(savedItem, productItem, cartItem.getQuantity());
+            if (!isTransfer) {
+                allocateSerials(savedItem, productItem, cartItem.getQuantity());
+            }
             total = total.add(unitPrice.multiply(BigDecimal.valueOf(cartItem.getQuantity())));
         }
 
         savedOrder.setTotalPrice(total);
         orderRepository.save(savedOrder);
 
+        String gencode = null;
+
+        if (isTransfer) {
+            // Capture cart snapshot BEFORE clearing cart items (for cart restore on timeout)
+            List<PaymentCacheInfo.CartSnapshotItem> cartSnapshot = cartItems.stream()
+                    .map(ci -> PaymentCacheInfo.CartSnapshotItem.builder()
+                            .productItemId(ci.getProductItem().getProductItemId())
+                            .quantity(ci.getQuantity())
+                            .price(ci.getPrice())
+                            .build())
+                    .collect(Collectors.toList());
+
+            // Transfer: tao gencode + cache Redis voi 5 phut timeout
+            gencode = generatePaymentGencode();
+            PaymentCacheInfo cacheInfo = PaymentCacheInfo.builder()
+                    .orderId(savedOrder.getOrderId())
+                    .orderCode(savedOrder.getOrderCode())
+                    .gencode(gencode)
+                    .accountId(accountId)
+                    .totalAmount(total)
+                    .paymentStatus("pending")
+                    .createdAt(LocalDateTime.now())
+                    .expiresInMinutes(30)
+                    .cartSnapshot(cartSnapshot)
+                    .build();
+            paymentRedisService.cacheOrderPaymentInfo(cacheInfo, 30);
+
+            notificationService.createNotification(
+                    account,
+                    "Chờ thanh toán",
+                    "Đơn hàng " + savedOrder.getOrderCode() + " đang chờ thanh toán chuyển khoản.",
+                    "order"
+            );
+        } else {
+            // COD: xac nhan luon, khong can Redis
+            savedOrder.setPaymentStatus("paid");
+            orderRepository.save(savedOrder);
+
+            notificationService.createNotification(
+                    account,
+                    "Đặt hàng thành công",
+                    "Đơn hàng " + savedOrder.getOrderCode() + " đã được tạo và đang chờ xử lý.",
+                    "order"
+            );
+        }
+
+        // Xoa cart items (da chuyen thanh order items roi)
         cartItemRepository.deleteAll(cartItems);
         cart.setUpdatedOn(LocalDateTime.now());
         cartRepository.save(cart);
 
         logAudit(account, "CREATE_ORDER", savedOrder.getOrderId());
-        notificationService.createNotification(
-                account,
-                "Đặt hàng thành công",
-                "Đơn hàng " + savedOrder.getOrderCode() + " đã được tạo và đang chờ xử lý.",
-                "order"
-        );
 
-        return toOrderDTO(savedOrder);
+        OrderDTO dto = toOrderDTO(savedOrder);
+        dto.setGencode(gencode);
+        return dto;
+    }
+
+    public void confirmTransferPayment(Integer orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+
+        if (!"Transfer".equalsIgnoreCase(order.getPaymentMethod())) {
+            return;
+        }
+
+        if (!"paid".equals(order.getPaymentStatus())) {
+            throw new RuntimeException("Đơn hàng chưa được xác nhận thanh toán");
+        }
+
+        List<SoldSerial> existingSoldSerials = soldSerialRepository.findByOrderIdWithSerial(orderId);
+        if (!existingSoldSerials.isEmpty()) {
+            return;
+        }
+
+        List<OrderItem> items = orderItemRepository.findByOrderOrderId(orderId);
+        for (OrderItem item : items) {
+            ProductItem productItem = productItemRepository
+                    .findByIdWithSerialsAndProduct(item.getProductItem().getProductItemId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm"));
+
+            allocateSerials(item, productItem, item.getQuantity());
+        }
     }
 
     public List<OrderSummaryDTO> getMyOrders(Integer accountId) {
@@ -314,6 +396,16 @@ public class OrderService {
                     + "_" + String.format("%04d", new Random().nextInt(10000));
         } while (orderRepository.findByOrderCode(code).isPresent());
         return code;
+    }
+
+    private String generatePaymentGencode() {
+        String gencode;
+        do {
+            // Format: ORDER + 15 random digits (no underscore)
+            long suffix = Math.abs(new Random().nextLong()) % 1_000_000_000_000_000L;
+            gencode = "ORDER" + String.format("%015d", suffix);
+        } while (paymentRedisService.exists(gencode));
+        return gencode;
     }
 
     private BigDecimal resolveUnitPrice(ProductItem productItem) {
