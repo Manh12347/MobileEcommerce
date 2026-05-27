@@ -58,6 +58,22 @@ public class ProductItemController {
         }
     }
 
+    @GetMapping("/sku/{sku}")
+    public ResponseEntity<ApiResponse<ProductItemDTO>> getProductItemBySku(@PathVariable String sku) {
+        try {
+            ProductItemDTO item = productItemService.getProductItemBySku(sku);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Lấy product item theo SKU thành công", item));
+        } catch (RuntimeException e) {
+            log.warn("Không tìm thấy product item theo SKU: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (Exception e) {
+            log.error("Lỗi khi lấy product item theo SKU:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
+        }
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<ProductItemDTO>> getProductItemById(@PathVariable Integer id) {
         try {

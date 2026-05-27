@@ -28,6 +28,12 @@ public interface ProductItemRepository extends JpaRepository<ProductItem, Intege
            "WHERE pi.productItemId = :id")
     Optional<ProductItem> findByIdWithSerialsAndProduct(@Param("id") Integer id);
 
+    @Query("SELECT pi FROM ProductItem pi " +
+           "LEFT JOIN FETCH pi.serials " +
+           "LEFT JOIN FETCH pi.product " +
+           "WHERE LOWER(pi.sku) = LOWER(:sku)")
+    Optional<ProductItem> findBySkuWithSerialsAndProduct(@Param("sku") String sku);
+
     @Query("SELECT DISTINCT pi FROM ProductItem pi " +
            "LEFT JOIN FETCH pi.serials " +
            "LEFT JOIN FETCH pi.product " +
