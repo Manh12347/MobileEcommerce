@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../models/product_item.dart';
 import '../services/api_service.dart';
+import '../utils/format_utils.dart';
+import '../widgets/product_badge.dart';
 import 'product_detail_screen.dart';
 
 class CategoriesScreen extends StatefulWidget {
@@ -49,16 +51,23 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
   List<String> get _categoryNames {
     final names = <String>{};
-    for (final p in _products) {
+    for (final p in _activeProducts) {
       final name = p.category?.name;
       if (name != null && name.isNotEmpty) names.add(name);
     }
     return names.toList()..sort();
   }
 
-  List<ProductItemSummary> get _filteredProducts {
-    if (_selectedCategory == null) return _products;
+  List<ProductItemSummary> get _activeProducts {
     return _products
+        .where((product) => isActiveProductStatus(product.status))
+        .toList();
+  }
+
+  List<ProductItemSummary> get _filteredProducts {
+    final products = _activeProducts;
+    if (_selectedCategory == null) return products;
+    return products
         .where((p) => p.category?.name == _selectedCategory)
         .toList();
   }
@@ -131,66 +140,63 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               crossAxisSpacing: 12,
               childAspectRatio: 2.4,
             ),
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final name = categories[index];
-                final count = _products
-                    .where((p) => p.category?.name == name)
-                    .length;
-                final selected = _selectedCategory == name;
-                return Material(
-                  color: selected ? const Color(0xFFE8F4FF) : Colors.white,
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final name = categories[index];
+              final count = _activeProducts
+                  .where((p) => p.category?.name == name)
+                  .length;
+              final selected = _selectedCategory == name;
+              return Material(
+                color: selected ? const Color(0xFFE8F4FF) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  onTap: () => setState(() => _selectedCategory = name),
                   borderRadius: BorderRadius.circular(16),
-                  child: InkWell(
-                    onTap: () => setState(() => _selectedCategory = name),
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: selected
-                              ? const Color(0xFF1F67E2)
-                              : const Color(0xFFE3EAF5),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.category_outlined,
-                            color: selected
-                                ? const Color(0xFF1F67E2)
-                                : const Color(0xFF6B7893),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              color: selected
-                                  ? const Color(0xFF1F67E2)
-                                  : const Color(0xFF14213D),
-                            ),
-                          ),
-                          Text(
-                            '$count sản phẩm',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF6B7893),
-                            ),
-                          ),
-                        ],
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: selected
+                            ? const Color(0xFF1F67E2)
+                            : const Color(0xFFE3EAF5),
                       ),
                     ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.category_outlined,
+                          color: selected
+                              ? const Color(0xFF1F67E2)
+                              : const Color(0xFF6B7893),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: selected
+                                ? const Color(0xFF1F67E2)
+                                : const Color(0xFF14213D),
+                          ),
+                        ),
+                        Text(
+                          '$count sản phẩm',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF6B7893),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                );
-              },
-              childCount: categories.length,
-            ),
+                ),
+              );
+            }, childCount: categories.length),
           ),
         ),
         SliverToBoxAdapter(
@@ -218,7 +224,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
             sliver: SliverList.separated(
               itemCount: products.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              separatorBuilder: (context, index) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 final product = products[index];
                 return _CategoryProductTile(
@@ -227,9 +233,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => ProductDetailScreen(
-                          summary: product,
-                        ),
+                        builder: (_) => ProductDetailScreen(summary: product),
                       ),
                     );
                   },
@@ -251,6 +255,7 @@ class _CategoryProductTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final price = product.salePrice ?? product.price;
+    final hasDiscount = product.hasSalePrice;
 
     return Material(
       color: Colors.white,
@@ -268,14 +273,16 @@ class _CategoryProductTile extends StatelessWidget {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: product.mainImageUrl != null &&
+                child:
+                    product.mainImageUrl != null &&
                         product.mainImageUrl!.isNotEmpty
                     ? Image.network(
                         product.mainImageUrl!,
                         width: 56,
                         height: 56,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _placeholder(),
+                        errorBuilder: (context, error, stackTrace) =>
+                            _placeholder(),
                       )
                     : _placeholder(),
               ),
@@ -284,6 +291,16 @@ class _CategoryProductTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Row(
+                      children: [
+                        ProductBadge(label: productStatusLabel(product.status)),
+                        if (hasDiscount) ...[
+                          const SizedBox(width: 8),
+                          const ProductBadge(label: 'Giảm giá'),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 8),
                     Text(
                       product.name,
                       maxLines: 2,
@@ -305,7 +322,7 @@ class _CategoryProductTile extends StatelessWidget {
                 ),
               ),
               Text(
-                price != null ? '${price.round()}đ' : '',
+                price != null ? formatCurrency(price) : '',
                 style: const TextStyle(
                   color: Color(0xFF1F67E2),
                   fontWeight: FontWeight.w900,
