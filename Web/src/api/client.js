@@ -107,6 +107,7 @@ export const productItemAPI = {
   getAll: (params = {}) => apiClient.get('/product-items/list', { params }),
   getAllFull: (params = {}) => apiClient.get('/product-items', { params }),
   getByProduct: (productId) => apiClient.get(`/product-items/product/${productId}`),
+  getById: (id) => apiClient.get(`/product-items/${id}`),
   create: (payload) => apiClient.post('/product-items', payload),
   update: (id, payload) => apiClient.put(`/product-items/${id}`, payload),
   toggleStatus: (id) => apiClient.put(`/product-items/${id}/toggle-status`),
@@ -128,6 +129,10 @@ export const promotionsAPI = {
   apply: (payload) => apiClient.post('/promotions/apply', payload),
   remove: (payload) => apiClient.delete('/promotions/apply', { data: payload }),
   getProductsByPromotion: (promotionId) => apiClient.get(`/promotions/${promotionId}/products`),
+  getItemsByPromotion: (promotionId) => apiClient.get(`/promotions/${promotionId}/items`),
+  getVariantsByProduct: (productId) => apiClient.get(`/product-items/variants/${productId}`),
+  applyToItems: (payload) => apiClient.post('/promotions/apply-items', payload),
+  removeFromItems: (productItemIds) => apiClient.delete('/promotions/apply-items', { data: productItemIds }),
 };
 
 export const usersAPI = {
