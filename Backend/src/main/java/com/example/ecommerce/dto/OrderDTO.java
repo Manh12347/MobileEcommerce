@@ -20,6 +20,12 @@ public class OrderDTO {
     private String paymentMethod;
     private String shippingAddress;
     private String phone;
+    private Integer provinceId;
+    private Integer districtId;
+    private String wardCode;
+    private String provinceName;
+    private String districtName;
+    private String wardName;
     private BigDecimal totalPrice;
     private String createdOn;
     private List<OrderItemDTO> items;

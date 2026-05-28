@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stomp_dart_client/stomp_dart_client.dart';
 
+import '../config/api_config.dart';
+import '../models/cart.dart';
+import '../models/ghn_location.dart';
+import '../models/ghn_shipping_preview.dart';
 import '../models/order.dart';
 import '../models/payment_models.dart';
 import '../providers/cart_provider.dart';
@@ -25,7 +29,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   String _paymentMethod = 'COD';
   bool _isLoadingProfile = true;
+  bool _isLoadingProvinces = true;
+  bool _isLoadingDistricts = false;
+  bool _isLoadingWards = false;
+  bool _isCheckingPreview = false;
   bool _isSubmitting = false;
+
+  List<GhnProvince> _provinces = [];
+  List<GhnDistrict> _districts = [];
+  List<GhnWard> _wards = [];
+  GhnProvince? _selectedProvince;
+  GhnDistrict? _selectedDistrict;
+  GhnWard? _selectedWard;
+  String _customerName = 'Khách hàng';
+  GhnShippingPreviewResponse? _previewResponse;
 
   // Payment screen state
   bool _showPayment = false;
@@ -43,6 +60,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void initState() {
     super.initState();
     _loadProfileDefaults();
+    _loadProvinces();
   }
 
   @override
@@ -60,10 +78,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (resp.success && resp.data != null) {
         final address = resp.data!['address']?.toString() ?? '';
         final phone = resp.data!['phone']?.toString() ?? '';
+        final fullName = resp.data!['full_name']?.toString() ??
+            resp.data!['fullName']?.toString() ??
+            '';
         if (mounted) {
           setState(() {
             _addressController.text = address;
             _phoneController.text = phone;
+            if (fullName.isNotEmpty) {
+              _customerName = fullName;
+            }
           });
         }
       }
@@ -74,12 +98,313 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
-  Future<void> _submit() async {
+  Future<void> _loadProvinces() async {
+    try {
+      final provinces = await ApiService.getGhnProvinces();
+      if (!mounted) return;
+      setState(() {
+        _provinces = provinces;
+      });
+    } catch (e) {
+      if (mounted) {
+        _showSnackBar('Không tải được danh sách tỉnh/thành: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingProvinces = false);
+    }
+  }
+
+  Future<void> _onProvinceChanged(GhnProvince? province) async {
+    setState(() {
+      _selectedProvince = province;
+      _selectedDistrict = null;
+      _selectedWard = null;
+      _districts = [];
+      _wards = [];
+      _previewResponse = null;
+      _isLoadingDistricts = province != null;
+      _isLoadingWards = false;
+    });
+
+    if (province == null) return;
+
+    try {
+      final districts = await ApiService.getGhnDistricts(province.provinceId);
+      if (!mounted) return;
+      setState(() {
+        _districts = districts;
+      });
+    } catch (e) {
+      if (mounted) {
+        _showSnackBar('Không tải được quận/huyện: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingDistricts = false);
+    }
+  }
+
+  Future<void> _onDistrictChanged(GhnDistrict? district) async {
+    setState(() {
+      _selectedDistrict = district;
+      _selectedWard = null;
+      _wards = [];
+      _previewResponse = null;
+      _isLoadingWards = district != null;
+    });
+
+    if (district == null) return;
+
+    try {
+      final wards = await ApiService.getGhnWards(district.districtId);
+      if (!mounted) return;
+      setState(() {
+        _wards = wards;
+      });
+    } catch (e) {
+      if (mounted) {
+        _showSnackBar('Không tải được phường/xã: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingWards = false);
+    }
+  }
+
+  Future<void> _checkGhnPreview(Cart? cart) async {
     final address = _addressController.text.trim();
+    final phone = _phoneController.text.trim();
+
+    if (cart == null || cart.items.isEmpty) {
+      _showSnackBar('Giỏ hàng đang trống');
+      return;
+    }
+    if (address.isEmpty || phone.isEmpty) {
+      _showSnackBar('Vui lòng nhập địa chỉ và số điện thoại');
+      return;
+    }
+    if (_selectedProvince == null ||
+        _selectedDistrict == null ||
+        _selectedWard == null) {
+      _showSnackBar('Vui lòng chọn Tỉnh/Thành, Quận/Huyện và Phường/Xã');
+      return;
+    }
+
+    setState(() {
+      _isCheckingPreview = true;
+      _previewResponse = null;
+    });
+
+    try {
+      final request = GhnShippingPreviewRequest(
+        paymentTypeId: _paymentMethod == 'COD' ? 2 : 1,
+        note: 'Kiểm tra đơn hàng trên FE',
+        requiredNote: GHN_REQUIRED_NOTE,
+        returnPhone: GHN_RETURN_PHONE,
+        returnAddress: GHN_RETURN_ADDRESS,
+        clientOrderCode: '',
+        fromName: GHN_FROM_NAME,
+        fromPhone: GHN_FROM_PHONE,
+        fromAddress: GHN_FROM_ADDRESS,
+        fromWardName: GHN_FROM_WARD_NAME,
+        fromDistrictName: GHN_FROM_DISTRICT_NAME,
+        fromProvinceName: GHN_FROM_PROVINCE_NAME,
+        toName: _customerName,
+        toPhone: phone,
+        toAddress: address,
+        toWardName: _selectedWard!.wardName,
+        toWardCode: _selectedWard!.wardCode,
+        toDistrictName: _selectedDistrict!.districtName,
+        toProvinceName: _selectedProvince!.provinceName,
+        codAmount: _paymentMethod == 'COD' ? cart.totalAmount.round() : 0,
+        content: 'Đơn hàng preview từ FE',
+        weight: GHN_DEFAULT_WEIGHT,
+        length: GHN_DEFAULT_LENGTH,
+        width: GHN_DEFAULT_WIDTH,
+        height: GHN_DEFAULT_HEIGHT,
+        pickStationId: null,
+        deliverStationId: null,
+        insuranceValue: cart.totalAmount.round(),
+        serviceTypeId: GHN_SERVICE_TYPE_ID,
+        coupon: null,
+        pickupTime: null,
+        pickShift: const [GHN_PICK_SHIFT],
+        codFailedAmount: 2000,
+        items: cart.items
+            .map(
+              (item) => GhnPreviewItem(
+                name: item.productName ?? 'Sản phẩm',
+                code: item.sku ?? '',
+                quantity: item.quantity,
+                price: item.unitPrice.round(),
+                length: GHN_DEFAULT_LENGTH,
+                width: GHN_DEFAULT_WIDTH,
+                height: GHN_DEFAULT_HEIGHT,
+                weight: GHN_DEFAULT_WEIGHT,
+                category: GhnPreviewCategory(level1: 'Sản phẩm'),
+              ),
+            )
+            .toList(),
+      );
+
+      final preview = await ApiService.previewGhnShippingOrder(request);
+      if (!mounted) return;
+      setState(() => _previewResponse = preview);
+      _showSnackBar('Đã kiểm tra thông tin GHN thành công');
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar('Không thể kiểm tra thông tin đơn hàng: $e');
+    } finally {
+      if (mounted) setState(() => _isCheckingPreview = false);
+    }
+  }
+
+  Future<void> _confirmCheckout(Cart? cart) async {
+    final preview = _previewResponse;
+    if (cart == null || cart.items.isEmpty) {
+      _showSnackBar('Giỏ hàng đang trống');
+      return;
+    }
+    if (preview?.data == null) {
+      _showSnackBar('Vui lòng kiểm tra đơn hàng GHN trước khi xác nhận');
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text('Xác nhận đặt hàng?'),
+        content: Text(
+          'Tổng phí GHN: ${formatCurrency(preview!.data!.totalFee?.toDouble())}\n'
+          'Bạn có chắc muốn tiến hành đặt hàng không?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Xác nhận'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    await _submit();
+  }
+
+  Future<void> _confirmPickupCheckout(Cart? cart) async {
+    if (cart == null || cart.items.isEmpty) {
+      _showSnackBar('Giỏ hàng đang trống');
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text('Xác nhận lấy tại cửa hàng?'),
+        content: const Text(
+          'Đơn hàng sẽ được tạo và hoàn tất ngay, không cần GHN hay thanh toán online.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Xác nhận'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    await _submit(isPickup: true);
+  }
+
+  String _formatPreviewDate(DateTime? dateTime) {
+    if (dateTime == null) return '-';
+    final local = dateTime.toLocal().toString();
+    return local.length >= 16 ? local.substring(0, 16).replaceFirst('T', ' ') : local;
+  }
+
+  Widget _buildPreviewCard() {
+    final preview = _previewResponse;
+    if (preview?.data == null) return const SizedBox.shrink();
+
+    final data = preview!.data!;
+    final fee = data.fee;
+
+    return _Section(
+      title: 'Thông tin đơn hàng GHN',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (data.orderCode != null && data.orderCode!.isNotEmpty)
+            _previewRow('Mã đơn', data.orderCode!),
+          if (data.sortCode != null && data.sortCode!.isNotEmpty)
+            _previewRow('Sort code', data.sortCode!),
+          if (data.transType != null && data.transType!.isNotEmpty)
+            _previewRow('Loại vận chuyển', data.transType!),
+          if (fee != null) ...[
+            const Divider(height: 20),
+            _previewRow('Phí vận chuyển', formatCurrency(fee.mainService?.toDouble())),
+            _previewRow('Phí khai giá', formatCurrency(fee.insurance?.toDouble())),
+            _previewRow('Phí hoàn/đổi', formatCurrency(fee.returnFee?.toDouble())),
+            _previewRow('Phí giao lại', formatCurrency(fee.r2s?.toDouble())),
+            _previewRow('Tổng phí', formatCurrency(data.totalFee?.toDouble())),
+          ],
+          const Divider(height: 20),
+          _previewRow(
+            'Giao dự kiến',
+            _formatPreviewDate(data.expectedDeliveryTime),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _previewRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Color(0xFF6B7893))),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF14213D),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _submit({bool isPickup = false}) async {
+    final address = isPickup
+        ? GHN_FROM_ADDRESS
+        : _addressController.text.trim();
     final phone = _phoneController.text.trim();
 
     if (address.isEmpty || phone.isEmpty) {
       _showSnackBar('Vui lòng nhập địa chỉ và số điện thoại');
+      return;
+    }
+
+    if (!isPickup && (_selectedProvince == null ||
+        _selectedDistrict == null ||
+        _selectedWard == null)) {
+      _showSnackBar('Vui lòng chọn Tỉnh/Thành, Quận/Huyện và Phường/Xã');
       return;
     }
 
@@ -90,6 +415,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         CreateOrderRequest(
           shippingAddress: address,
           phone: phone,
+          provinceId: isPickup ? null : _selectedProvince?.provinceId,
+          districtId: isPickup ? null : _selectedDistrict?.districtId,
+          wardCode: isPickup ? null : _selectedWard?.wardCode,
+          provinceName: isPickup ? null : _selectedProvince?.provinceName,
+          districtName: isPickup ? null : _selectedDistrict?.districtName,
+          wardName: isPickup ? null : _selectedWard?.wardName,
           paymentMethod: _paymentMethod,
         ),
       );
@@ -99,7 +430,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (response.success && response.data != null) {
         final order = response.data!;
 
-        if (_paymentMethod == 'COD') {
+        if (_paymentMethod == 'Pickup' || _paymentMethod == 'COD') {
           // COD: xác nhận luôn, sang màn hình order
           await context.read<CartProvider>().loadCart(silent: true);
           if (!mounted) return;
@@ -113,7 +444,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
             (route) => route.isFirst,
           );
-          _showSnackBar('Đặt hàng thành công — ${order.orderCode}');
+          _showSnackBar(
+            _paymentMethod == 'Pickup'
+                ? 'Đã tạo đơn nhận tại cửa hàng — ${order.orderCode}'
+                : 'Đặt hàng thành công — ${order.orderCode}',
+          );
         } else {
           // Transfer: hiển thị màn hình QR + countdown
           if (!mounted) return;
@@ -129,9 +464,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _fetchQrAndStartCountdown(order.gencode!, amount);
         }
       } else {
-        _showSnackBar(response.message.isNotEmpty
-            ? response.message
-            : 'Đặt hàng thất bại');
+        _showSnackBar(
+          response.message.isNotEmpty ? response.message : 'Đặt hàng thất bại',
+        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -208,7 +543,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void _connectPaymentSocket(String gencode) {
     _paymentStompClient?.deactivate();
 
-    final wsUrl = '${ApiService.baseUrl.replaceFirst(RegExp(r'/v1/api/?$'), '')}/ws/payment';
+    final wsUrl =
+        '${ApiService.baseUrl.replaceFirst(RegExp(r'/v1/api/?$'), '')}/ws/payment';
     final topic = '/topic/payment/$gencode';
 
     _paymentStompClient = StompClient(
@@ -276,9 +612,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => OrderDetailScreen(
-                    orderId: _orderId ?? 0,
-                  ),
+                  builder: (_) => OrderDetailScreen(orderId: _orderId ?? 0),
                 ),
                 (route) => route.isFirst,
               );
@@ -311,7 +645,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ],
         ),
         content: const Text(
-                  'Hết thời gian thanh toán.\n'
+          'Hết thời gian thanh toán.\n'
           'Sản phẩm đã được hoàn lại giỏ hàng.',
         ),
         actions: [
@@ -330,9 +664,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   void _showSnackBar(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   String _formatCountdown(int seconds) {
@@ -431,16 +763,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       width: 200,
                       height: 200,
                       fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) => const SizedBox(
-                        width: 200,
-                        height: 200,
-                        child: Center(
-                          child: Text(
-                            'Không tải được QR',
-                            textAlign: TextAlign.center,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const SizedBox(
+                            width: 200,
+                            height: 200,
+                            child: Center(
+                              child: Text(
+                                'Không tải được QR',
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -578,7 +911,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: highlight ? 15 : 14,
-                color: highlight ? const Color(0xFF1F67E2) : const Color(0xFF14213D),
+                color: highlight
+                    ? const Color(0xFF1F67E2)
+                    : const Color(0xFF14213D),
               ),
             ),
           ),
@@ -647,16 +982,86 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   title: 'Địa chỉ giao hàng',
                   child: Column(
                     children: [
-                      TextField(
-                        controller: _addressController,
-                        maxLines: 3,
-                        decoration: _inputDecoration('Địa chỉ đầy đủ'),
+                      DropdownButtonFormField<GhnProvince>(
+                        value: _selectedProvince,
+                        items: _provinces
+                            .map(
+                              (province) => DropdownMenuItem<GhnProvince>(
+                                value: province,
+                                child: Text(province.provinceName),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: _isLoadingProvinces
+                            ? null
+                            : _onProvinceChanged,
+                        decoration: _inputDecoration(
+                          _isLoadingProvinces
+                              ? 'Đang tải tỉnh/thành...'
+                              : 'Chọn Tỉnh/Thành',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<GhnDistrict>(
+                        value: _selectedDistrict,
+                        items: _districts
+                            .map(
+                              (district) => DropdownMenuItem<GhnDistrict>(
+                                value: district,
+                                child: Text(district.districtName),
+                              ),
+                            )
+                            .toList(),
+                        onChanged:
+                            (_selectedProvince == null || _isLoadingDistricts)
+                            ? null
+                            : _onDistrictChanged,
+                        decoration: _inputDecoration(
+                          _selectedProvince == null
+                              ? 'Chọn Tỉnh/Thành trước'
+                              : (_isLoadingDistricts
+                                    ? 'Đang tải quận/huyện...'
+                                    : 'Chọn Quận/Huyện'),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<GhnWard>(
+                        value: _selectedWard,
+                        items: _wards
+                            .map(
+                              (ward) => DropdownMenuItem<GhnWard>(
+                                value: ward,
+                                child: Text(ward.wardName),
+                              ),
+                            )
+                            .toList(),
+                        onChanged:
+                            (_selectedDistrict == null || _isLoadingWards)
+                            ? null
+                            : (ward) => setState(() => _selectedWard = ward),
+                        decoration: _inputDecoration(
+                          _selectedDistrict == null
+                              ? 'Chọn Quận/Huyện trước'
+                              : (_isLoadingWards
+                                    ? 'Đang tải phường/xã...'
+                                    : 'Chọn Phường/Xã'),
+                        ),
                       ),
                       const SizedBox(height: 12),
                       TextField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
+                        onChanged: (_) => setState(() => _previewResponse = null),
                         decoration: _inputDecoration('Số điện thoại'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _addressController,
+                        maxLines: 3,
+                        onChanged: (_) => setState(() => _previewResponse = null),
+                        decoration: _inputDecoration(
+                          'Địa chỉ chi tiết, số nhà, tên đường...',
+                        ),
                       ),
                     ],
                   ),
@@ -669,15 +1074,37 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       RadioListTile<String>(
                         value: 'COD',
                         groupValue: _paymentMethod,
-                        onChanged: (v) => setState(() => _paymentMethod = v!),
+                        onChanged: (v) => setState(() {
+                          _paymentMethod = v!;
+                          _previewResponse = null;
+                        }),
                         title: const Text('Thanh toán khi nhận hàng (COD)'),
+                        activeColor: const Color(0xFF1F67E2),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      RadioListTile<String>(
+                        value: 'Pickup',
+                        groupValue: _paymentMethod,
+                        onChanged: (v) => setState(() {
+                          _paymentMethod = v!;
+                          _previewResponse = null;
+                        }),
+                        title: const Text('Lấy tại cửa hàng'),
+                        secondary: const Icon(
+                          Icons.store,
+                          color: Color(0xFF1F67E2),
+                          size: 22,
+                        ),
                         activeColor: const Color(0xFF1F67E2),
                         contentPadding: EdgeInsets.zero,
                       ),
                       RadioListTile<String>(
                         value: 'Transfer',
                         groupValue: _paymentMethod,
-                        onChanged: (v) => setState(() => _paymentMethod = v!),
+                        onChanged: (v) => setState(() {
+                          _paymentMethod = v!;
+                          _previewResponse = null;
+                        }),
                         title: const Text('Chuyển khoản ngân hàng'),
                         secondary: const Icon(
                           Icons.qr_code,
@@ -691,6 +1118,94 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+
+                if (_paymentMethod != 'Pickup') ...[
+                  _Section(
+                    title: 'Kiểm tra thông tin GHN',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'Kiểm tra phí vận chuyển và thời gian giao dự kiến trước khi đặt hàng.',
+                          style: TextStyle(
+                            color: Colors.grey.shade700,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        FilledButton.icon(
+                          onPressed: _isCheckingPreview
+                              ? null
+                              : () => _checkGhnPreview(cart),
+                          icon: _isCheckingPreview
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.search),
+                          label: Text(
+                            _isCheckingPreview
+                                ? 'Đang kiểm tra...'
+                                : 'Kiểm tra đơn hàng GHN',
+                          ),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF1F67E2),
+                            minimumSize: const Size.fromHeight(48),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  _buildPreviewCard(),
+
+                  if (_previewResponse?.message != null &&
+                      _previewResponse!.message!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Text(
+                        _previewResponse!.message!,
+                        style: const TextStyle(
+                          color: Color(0xFF6B7893),
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+
+                  const SizedBox(height: 16),
+                ] else ...[
+                  _Section(
+                    title: 'Lấy tại cửa hàng',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          GHN_FROM_ADDRESS,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF14213D),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Đơn hàng sẽ được tạo và hoàn tất ngay, không cần GHN hay thanh toán online.',
+                          style: TextStyle(color: Color(0xFF6B7893), height: 1.4),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
                 _Section(
                   title: 'Tóm tắt đơn hàng',
                   child: Column(
@@ -728,7 +1243,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         child: SafeArea(
           top: false,
           child: FilledButton(
-            onPressed: _isSubmitting ? null : _submit,
+            onPressed: _isSubmitting
+                ? null
+                : () async {
+                    if (_paymentMethod == 'Pickup') {
+                      await _confirmPickupCheckout(cart);
+                      return;
+                    }
+                    if (cart == null || cart.items.isEmpty) {
+                      _showSnackBar('Giỏ hàng đang trống');
+                      return;
+                    }
+                    if (_previewResponse?.data == null) {
+                      await _checkGhnPreview(cart);
+                      return;
+                    }
+                    await _confirmCheckout(cart);
+                  },
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFF1F67E2),
               minimumSize: const Size.fromHeight(52),
@@ -746,8 +1277,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                   )
                 : Text(
-                    _paymentMethod == 'COD' ? 'Đặt hàng' : 'Tiến hành thanh toán',
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                    _paymentMethod == 'Pickup'
+                        ? 'Xác nhận lấy tại cửa hàng'
+                        : (_previewResponse?.data == null
+                            ? 'Kiểm tra đơn hàng GHN'
+                            : (_paymentMethod == 'COD'
+                                ? 'Xác nhận đặt hàng'
+                                : 'Xác nhận và tạo QR')),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                    ),
                   ),
           ),
         ),

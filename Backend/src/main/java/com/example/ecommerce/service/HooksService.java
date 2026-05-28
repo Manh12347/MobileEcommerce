@@ -14,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -146,7 +148,7 @@ public class HooksService {
 
         // 11. Tao don van chuyen GHN (bat dong bo)
         try {
-            ghnService.createShippingOrderAsync(orderId);
+              scheduleGhnAfterCommit(orderId);
         } catch (Exception e) {
             log.warn("[HooksService] GHN order creation failed (non-critical): orderId={}, error={}",
                     orderId, e.getMessage());
@@ -227,5 +229,14 @@ public class HooksService {
                     log.info("[HooksService] New payment record created: orderId={}", orderId);
                 }
         );
+    }
+
+    private void scheduleGhnAfterCommit(Integer orderId) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                ghnService.createShippingOrderAsync(orderId);
+            }
+        });
     }
 }

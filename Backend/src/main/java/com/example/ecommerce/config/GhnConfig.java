@@ -17,6 +17,7 @@ public class GhnConfig {
     private String fromProvinceName;
     private String returnPhone;
     private String returnAddress;
+    private String defaultToWardCode;
     private int defaultWeight;   // gram
     private int defaultLength;   // cm
     private int defaultWidth;    // cm
@@ -56,6 +57,9 @@ public class GhnConfig {
 
     public String getReturnAddress() { return returnAddress; }
     public void setReturnAddress(String returnAddress) { this.returnAddress = returnAddress; }
+
+    public String getDefaultToWardCode() { return defaultToWardCode; }
+    public void setDefaultToWardCode(String defaultToWardCode) { this.defaultToWardCode = defaultToWardCode; }
 
     public int getDefaultWeight() { return defaultWeight; }
     public void setDefaultWeight(int defaultWeight) { this.defaultWeight = defaultWeight; }

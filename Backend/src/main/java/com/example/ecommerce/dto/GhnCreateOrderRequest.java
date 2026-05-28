@@ -70,6 +70,9 @@ public class GhnCreateOrderRequest {
     @JsonProperty("to_ward_name")
     private String toWardName;
 
+    @JsonProperty("to_ward_code")
+    private String toWardCode;
+
     @JsonProperty("to_district_name")
     private String toDistrictName;
 

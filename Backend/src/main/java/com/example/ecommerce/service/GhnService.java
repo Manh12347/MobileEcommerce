@@ -40,9 +40,18 @@ public class GhnService {
             String url = ghnConfig.getBaseUrl() + "/shiip/public-api/v2/shipping-order/create";
 
             HttpHeaders headers = new HttpHeaders();
+            // Set content type and accept headers
             headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+
+            // Prefer standard Authorization Bearer if GHN supports it
+            // headers.setBearerAuth(ghnConfig.getToken());
+
+            // Fallback to existing Token header if required by GHN
             headers.set("Token", ghnConfig.getToken());
-            headers.set("ShopId", ghnConfig.getShopId());
+
+            // Ensure ShopId is always sent as a string
+            headers.set("ShopId", String.valueOf(ghnConfig.getShopId()));
 
             HttpEntity<GhnCreateOrderRequest> entity = new HttpEntity<>(request, headers);
             ResponseEntity<GhnCreateOrderResponse> response = restTemplate.exchange(
@@ -132,6 +141,25 @@ public class GhnService {
             toAddress = order.getShippingAddress();
         }
 
+        if (order.getWardName() != null && !order.getWardName().isBlank()) {
+            toWardName = order.getWardName();
+        }
+        if (order.getDistrictName() != null && !order.getDistrictName().isBlank()) {
+            toDistrictName = order.getDistrictName();
+        }
+        if (order.getProvinceName() != null && !order.getProvinceName().isBlank()) {
+            toProvinceName = order.getProvinceName();
+        }
+
+        // Ward code: prefer order value, fall back to configured default (can be hardcoded in application.properties)
+        String toWardCodeValue = order.getShippingWardCode();
+        if (toWardCodeValue == null || toWardCodeValue.isBlank()) {
+            toWardCodeValue = order.getWardCode();
+        }
+        if (toWardCodeValue == null || toWardCodeValue.isBlank()) {
+            toWardCodeValue = ghnConfig.getDefaultToWardCode();
+        }
+
         // Build GHN items
         List<GhnCreateOrderRequest.GhnOrderItem> ghnItems = items.stream()
                 .map(item -> {
@@ -181,6 +209,7 @@ public class GhnService {
                 .toPhone(toPhone)
                 .toAddress(toAddress)
                 .toWardName(toWardName)
+                .toWardCode(toWardCodeValue)
                 .toDistrictName(toDistrictName)
                 .toProvinceName(toProvinceName)
                 .codAmount(codAmount)

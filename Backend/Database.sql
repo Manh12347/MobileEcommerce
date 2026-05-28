@@ -402,3 +402,22 @@ COMMIT;
 ALTER TABLE promotions ADD COLUMN IF NOT EXISTS discount_cost NUMERIC(12,2);
 
 ALTER TABLE cart_items ADD COLUMN IF NOT EXISTS price NUMERIC(15, 2) NOT NULL DEFAULT 0;
+
+
+ALTER TABLE orders
+ADD COLUMN province_id INT,
+
+ADD COLUMN district_id INT,
+
+ADD COLUMN ward_code VARCHAR(50);
+
+ALTER TABLE orders
+ADD COLUMN province_name VARCHAR(255),
+
+ADD COLUMN district_name VARCHAR(255),
+
+ADD COLUMN ward_name VARCHAR(255);
+
+
+ALTER TABLE orders
+ADD COLUMN IF NOT EXISTS shipping_ward_code VARCHAR(50);

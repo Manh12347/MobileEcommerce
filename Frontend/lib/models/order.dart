@@ -61,9 +61,9 @@ class OrderItem {
       lineTotal: _toDouble(json['lineTotal']),
       serials: rawSerials is List
           ? rawSerials
-              .whereType<Map<String, dynamic>>()
-              .map(OrderSerial.fromJson)
-              .toList()
+                .whereType<Map<String, dynamic>>()
+                .map(OrderSerial.fromJson)
+                .toList()
           : const [],
     );
   }
@@ -111,6 +111,12 @@ class OrderDetail {
   final String? paymentMethod;
   final String? shippingAddress;
   final String? phone;
+  final int? provinceId;
+  final int? districtId;
+  final String? wardCode;
+  final String? provinceName;
+  final String? districtName;
+  final String? wardName;
   final double? totalPrice;
   final String? createdOn;
   final List<OrderItem> items;
@@ -125,6 +131,12 @@ class OrderDetail {
     this.paymentMethod,
     this.shippingAddress,
     this.phone,
+    this.provinceId,
+    this.districtId,
+    this.wardCode,
+    this.provinceName,
+    this.districtName,
+    this.wardName,
     this.totalPrice,
     this.createdOn,
     required this.items,
@@ -142,13 +154,19 @@ class OrderDetail {
       paymentMethod: json['paymentMethod']?.toString(),
       shippingAddress: json['shippingAddress']?.toString(),
       phone: json['phone']?.toString(),
+      provinceId: _toInt(json['provinceId']),
+      districtId: _toInt(json['districtId']),
+      wardCode: json['wardCode']?.toString(),
+      provinceName: json['provinceName']?.toString(),
+      districtName: json['districtName']?.toString(),
+      wardName: json['wardName']?.toString(),
       totalPrice: _toDouble(json['totalPrice']),
       createdOn: json['createdOn']?.toString(),
       items: rawItems is List
           ? rawItems
-              .whereType<Map<String, dynamic>>()
-              .map(OrderItem.fromJson)
-              .toList()
+                .whereType<Map<String, dynamic>>()
+                .map(OrderItem.fromJson)
+                .toList()
           : const [],
     );
   }
@@ -201,9 +219,9 @@ class OrderTrack {
       statusMessage: json['statusMessage']?.toString(),
       timeline: rawTimeline is List
           ? rawTimeline
-              .whereType<Map<String, dynamic>>()
-              .map(OrderStatusStep.fromJson)
-              .toList()
+                .whereType<Map<String, dynamic>>()
+                .map(OrderStatusStep.fromJson)
+                .toList()
           : const [],
     );
   }
@@ -212,17 +230,35 @@ class OrderTrack {
 class CreateOrderRequest {
   final String shippingAddress;
   final String phone;
+  final int? provinceId;
+  final int? districtId;
+  final String? wardCode;
+  final String? provinceName;
+  final String? districtName;
+  final String? wardName;
   final String paymentMethod;
 
   CreateOrderRequest({
     required this.shippingAddress,
     required this.phone,
+    this.provinceId,
+    this.districtId,
+    this.wardCode,
+    this.provinceName,
+    this.districtName,
+    this.wardName,
     this.paymentMethod = 'COD',
   });
 
   Map<String, dynamic> toJson() => {
-        'shippingAddress': shippingAddress,
-        'phone': phone,
-        'paymentMethod': paymentMethod,
-      };
+    'shippingAddress': shippingAddress,
+    'phone': phone,
+    'provinceId': provinceId,
+    'districtId': districtId,
+    'wardCode': wardCode,
+    'provinceName': provinceName,
+    'districtName': districtName,
+    'wardName': wardName,
+    'paymentMethod': paymentMethod,
+  };
 }

@@ -16,6 +16,9 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Collectors;
 
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 @Service
 @Transactional
 @Slf4j
@@ -60,6 +63,9 @@ public class OrderService {
     @Autowired
     private PaymentRedisService paymentRedisService;
 
+    @Autowired
+    private GhnService ghnService;
+
     public OrderDTO checkout(Integer accountId, CreateOrderRequest request) {
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản"));
@@ -81,14 +87,22 @@ public class OrderService {
         order.setOrderCode(generateUniqueOrderCode());
         order.setShippingAddress(request.getShippingAddress());
         order.setPhone(request.getPhone());
+        order.setProvinceId(request.getProvinceId());
+        order.setDistrictId(request.getDistrictId());
+        order.setWardCode(request.getWardCode());
+        order.setProvinceName(request.getProvinceName());
+        order.setDistrictName(request.getDistrictName());
+        order.setWardName(request.getWardName());
+        order.setShippingWardCode(request.getWardCode());
         order.setPaymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : "COD");
         order.setStatus("pending");
         order.setPaymentStatus("pending");
         order.setTotalPrice(BigDecimal.ZERO);
         Order savedOrder = orderRepository.save(order);
 
-        // Determine payment type early so allocation logic can use it
+        // Determine fulfillment flow early so allocation logic can use it
         boolean isTransfer = "Transfer".equalsIgnoreCase(savedOrder.getPaymentMethod());
+        boolean isPickup = "Pickup".equalsIgnoreCase(savedOrder.getPaymentMethod());
 
         BigDecimal total = BigDecimal.ZERO;
         for (CartItem cartItem : cartItems) {
@@ -147,9 +161,22 @@ public class OrderService {
                     "Đơn hàng " + savedOrder.getOrderCode() + " đang chờ thanh toán chuyển khoản.",
                     "order"
             );
+            } else if (isPickup) {
+                // Pickup tại cửa hàng: hoàn tất ngay, không cần GHN hay Redis
+                savedOrder.setPaymentStatus("paid");
+                savedOrder.setStatus("completed");
+                orderRepository.save(savedOrder);
+
+                notificationService.createNotification(
+                    account,
+                    "Đặt hàng thành công",
+                    "Đơn hàng " + savedOrder.getOrderCode() + " đã được xác nhận. Khách nhận tại cửa hàng.",
+                    "order"
+                );
         } else {
             // COD: xac nhan luon, khong can Redis
             savedOrder.setPaymentStatus("paid");
+                savedOrder.setStatus("pending");
             orderRepository.save(savedOrder);
 
             notificationService.createNotification(
@@ -158,6 +185,9 @@ public class OrderService {
                     "Đơn hàng " + savedOrder.getOrderCode() + " đã được tạo và đang chờ xử lý.",
                     "order"
             );
+
+                // COD cần tạo vận đơn GHN sau khi transaction commit để GHN đọc thấy order đã lưu
+                scheduleGhnAfterCommit(savedOrder.getOrderId());
         }
 
         // Xoa cart items (da chuyen thanh order items roi)
@@ -251,6 +281,15 @@ public class OrderService {
 
         logAudit(order.getAccount(), "CANCEL_ORDER", order.getOrderId());
         return toOrderDTO(order);
+    }
+
+    private void scheduleGhnAfterCommit(Integer orderId) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                ghnService.createShippingOrderAsync(orderId);
+            }
+        });
     }
 
     public List<OrderSummaryDTO> getAllOrdersForStaff(String status) {
@@ -432,6 +471,12 @@ public class OrderService {
         dto.setPaymentMethod(order.getPaymentMethod());
         dto.setShippingAddress(order.getShippingAddress());
         dto.setPhone(order.getPhone());
+        dto.setProvinceId(order.getProvinceId());
+        dto.setDistrictId(order.getDistrictId());
+        dto.setWardCode(order.getWardCode());
+        dto.setProvinceName(order.getProvinceName());
+        dto.setDistrictName(order.getDistrictName());
+        dto.setWardName(order.getWardName());
         dto.setTotalPrice(order.getTotalPrice());
         dto.setCreatedOn(order.getCreatedOn() != null ? order.getCreatedOn().toString() : null);
         dto.setItems(itemDTOs);

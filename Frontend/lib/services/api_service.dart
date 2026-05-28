@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/api_response.dart';
 import '../models/cart.dart';
+import '../models/ghn_location.dart';
+import '../models/ghn_shipping_preview.dart';
 import '../models/login_request.dart';
 import '../models/login_response.dart';
 import '../models/oauth_login_request.dart';
@@ -59,10 +61,7 @@ class ApiService {
   ) {
     final rawData = body['data'];
     final list = rawData is List
-        ? rawData
-            .whereType<Map<String, dynamic>>()
-            .map(fromJson)
-            .toList()
+        ? rawData.whereType<Map<String, dynamic>>().map(fromJson).toList()
         : <T>[];
     return ApiResponse<List<T>>(
       success: body['success'] == true,
@@ -89,7 +88,9 @@ class ApiService {
       if (response.statusCode == 200) {
         return _parseObjectResponse(body, Cart.fromJson);
       }
-      throw Exception(_extractMessage(response, fallback: 'Không thể tải giỏ hàng'));
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể tải giỏ hàng'),
+      );
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
@@ -186,14 +187,138 @@ class ApiService {
             body: jsonEncode(request.toJson()),
           )
           .timeout(
-            const Duration(seconds: 20),
+            const Duration(seconds: 60),
             onTimeout: () => throw Exception('Request timeout'),
           );
       final body = _decodeJsonBody(response.body);
       if (response.statusCode == 200 || response.statusCode == 201) {
         return _parseObjectResponse(body, OrderDetail.fromJson);
       }
-      throw Exception(_extractMessage(response, fallback: 'Không thể đặt hàng'));
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể đặt hàng'),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Map<String, String> _ghnHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      'Token': GHN_TOKEN,
+      'ShopId': GHN_SHOP_ID,
+    };
+  }
+
+  static List<T> _parseGhnList<T>(
+    Map<String, dynamic> body,
+    T Function(Map<String, dynamic>) fromJson,
+  ) {
+    final rawData = body['data'];
+    final list = rawData is List
+        ? rawData.whereType<Map<String, dynamic>>().map(fromJson).toList()
+        : rawData is Map<String, dynamic>
+        ? <T>[fromJson(rawData)]
+        : <T>[];
+    return list;
+  }
+
+  static Future<List<GhnProvince>> getGhnProvinces() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$GHN_BASE_URL/master-data/province'),
+            headers: _ghnHeaders(),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final body = _decodeJsonBody(response.body);
+      if (response.statusCode == 200) {
+        return _parseGhnList(body, GhnProvince.fromJson);
+      }
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể tải tỉnh/thành GHN'),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<List<GhnDistrict>> getGhnDistricts(int provinceId) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$GHN_BASE_URL/master-data/district'),
+            headers: _ghnHeaders(),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final body = _decodeJsonBody(response.body);
+      if (response.statusCode == 200) {
+        return _parseGhnList(body, GhnDistrict.fromJson)
+            .where((district) => district.provinceId == provinceId)
+            .toList();
+      }
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể tải quận/huyện GHN'),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<List<GhnWard>> getGhnWards(int districtId) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$GHN_BASE_URL/master-data/ward?district_id=$districtId'),
+            headers: _ghnHeaders(),
+            body: jsonEncode({'district_id': districtId}),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final body = _decodeJsonBody(response.body);
+      if (response.statusCode == 200) {
+        return _parseGhnList(body, GhnWard.fromJson);
+      }
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể tải phường/xã GHN'),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<GhnShippingPreviewResponse> previewGhnShippingOrder(
+    GhnShippingPreviewRequest request,
+  ) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$GHN_BASE_URL/v2/shipping-order/preview'),
+            headers: _ghnHeaders(),
+            body: jsonEncode(request.toJson()),
+          )
+          .timeout(
+            const Duration(seconds: 20),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final body = _decodeJsonBody(response.body);
+      final preview = GhnShippingPreviewResponse.fromJson(body);
+      if (response.statusCode == 200 && preview.isSuccess) {
+        return preview;
+      }
+      throw Exception(
+        preview.message?.isNotEmpty == true
+            ? preview.message!
+            : _extractMessage(response, fallback: 'Không thể kiểm tra phí GHN'),
+      );
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
@@ -293,7 +418,9 @@ class ApiService {
     String? status,
   }) async {
     try {
-      final query = status != null && status.isNotEmpty ? '?status=$status' : '';
+      final query = status != null && status.isNotEmpty
+          ? '?status=$status'
+          : '';
       final response = await http
           .get(
             Uri.parse('$baseUrl$ORDERS_ENDPOINT/staff$query'),
@@ -372,24 +499,28 @@ class ApiService {
     int size = 10,
   }) async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl$PRODUCT_ITEMS_ENDPOINT/list?page=$page&size=$size'),
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw Exception('Request timeout'),
-      );
+      final response = await http
+          .get(
+            Uri.parse(
+              '$baseUrl$PRODUCT_ITEMS_ENDPOINT/list?page=$page&size=$size',
+            ),
+          )
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
 
       final body = _decodeJsonBody(response.body);
-        final rawData = body['data'];
-        final rawList = rawData is Map<String, dynamic>
+      final rawData = body['data'];
+      final rawList = rawData is Map<String, dynamic>
           ? rawData['content']
           : rawData;
 
-        final items = rawList is List
+      final items = rawList is List
           ? rawList
-            .whereType<Map<String, dynamic>>()
-            .map(ProductItemSummary.fromJson)
-            .toList()
+                .whereType<Map<String, dynamic>>()
+                .map(ProductItemSummary.fromJson)
+                .toList()
           : <ProductItemSummary>[];
 
       if (response.statusCode == 200) {
@@ -403,10 +534,9 @@ class ApiService {
         );
       }
 
-      throw Exception(_extractMessage(
-        response,
-        fallback: 'Không thể tải danh sách sản phẩm',
-      ));
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể tải danh sách sản phẩm'),
+      );
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
@@ -414,13 +544,12 @@ class ApiService {
 
   static Future<ApiResponse<Map<String, dynamic>>> getProfile() async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/profile'),
-        headers: _headers(auth: true),
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw Exception('Request timeout'),
-      );
+      final response = await http
+          .get(Uri.parse('$baseUrl/profile'), headers: _headers(auth: true))
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
       final body = _decodeJsonBody(response.body);
       if (response.statusCode == 200) {
         return ApiResponse<Map<String, dynamic>>(
@@ -430,7 +559,9 @@ class ApiService {
           statusCode: response.statusCode,
         );
       }
-      throw Exception(_extractMessage(response, fallback: 'Không thể tải hồ sơ'));
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể tải hồ sơ'),
+      );
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
@@ -441,13 +572,15 @@ class ApiService {
     required double amount,
   }) async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/payment/qr?gencode=$gencode&amount=$amount'),
-        headers: _headers(auth: true),
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw Exception('Request timeout'),
-      );
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/payment/qr?gencode=$gencode&amount=$amount'),
+            headers: _headers(auth: true),
+          )
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
       final body = _decodeJsonBody(response.body);
       if (response.statusCode == 200) {
         return ApiResponse<PaymentQrData>(
@@ -465,15 +598,19 @@ class ApiService {
     }
   }
 
-  static Future<ApiResponse<PaymentStatusData>> getPaymentStatus(String gencode) async {
+  static Future<ApiResponse<PaymentStatusData>> getPaymentStatus(
+    String gencode,
+  ) async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/payment/status/$gencode'),
-        headers: _headers(auth: true),
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw Exception('Request timeout'),
-      );
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/payment/status/$gencode'),
+            headers: _headers(auth: true),
+          )
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
       final body = _decodeJsonBody(response.body);
       if (response.statusCode == 200) {
         return ApiResponse<PaymentStatusData>(
@@ -485,7 +622,9 @@ class ApiService {
           statusCode: response.statusCode,
         );
       }
-      throw Exception(_extractMessage(response, fallback: 'Không thể kiểm tra thanh toán'));
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể kiểm tra thanh toán'),
+      );
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
@@ -495,12 +634,12 @@ class ApiService {
     int productItemId,
   ) async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl$PRODUCT_ITEMS_ENDPOINT/$productItemId'),
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw Exception('Request timeout'),
-      );
+      final response = await http
+          .get(Uri.parse('$baseUrl$PRODUCT_ITEMS_ENDPOINT/$productItemId'))
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
 
       final body = _decodeJsonBody(response.body);
 
@@ -518,10 +657,9 @@ class ApiService {
         );
       }
 
-      throw Exception(_extractMessage(
-        response,
-        fallback: 'Không thể tải chi tiết sản phẩm',
-      ));
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể tải chi tiết sản phẩm'),
+      );
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
@@ -535,8 +673,10 @@ class ApiService {
     throw Exception('Invalid response from server');
   }
 
-  static String _extractMessage(http.Response response,
-      {String fallback = 'Request failed'}) {
+  static String _extractMessage(
+    http.Response response, {
+    String fallback = 'Request failed',
+  }) {
     try {
       final data = _decodeJsonBody(response.body);
       final message = data['message']?.toString();
@@ -548,49 +688,16 @@ class ApiService {
 
   static Future<ApiResponse<LoginResponse>> login(LoginRequest request) async {
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/login'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(request.toJson()),
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw Exception('Request timeout'),
-      );
-
-      final body = _decodeJsonBody(response.body);
-
-      if (response.statusCode == 200 || response.statusCode == 400 || response.statusCode == 401) {
-        return ApiResponse<LoginResponse>.fromJson(
-          body,
-          (json) => LoginResponse.fromJson(json),
-        );
-      } else {
-        throw Exception(_extractMessage(
-          response,
-          fallback: 'Lỗi đăng nhập. Vui lòng thử lại',
-        ));
-      }
-    } on Exception catch (e) {
-      throw Exception(e.toString().replaceAll('Exception: ', ''));
-    }
-  }
-
-  static Future<ApiResponse<LoginResponse>> oauthLogin(
-    OAuthLoginRequest request,
-  ) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/oauth'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(request.toJson()),
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw Exception('Request timeout'),
-      );
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/login'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(request.toJson()),
+          )
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
 
       final body = _decodeJsonBody(response.body);
 
@@ -602,41 +709,83 @@ class ApiService {
           (json) => LoginResponse.fromJson(json),
         );
       } else {
-        throw Exception(_extractMessage(
-          response,
-          fallback: 'OAuth login failed. Please try again',
-        ));
+        throw Exception(
+          _extractMessage(
+            response,
+            fallback: 'Lỗi đăng nhập. Vui lòng thử lại',
+          ),
+        );
       }
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
 
-  static Future<ApiResponse<RegisterResponse>> register(RegisterRequest request) async {
+  static Future<ApiResponse<LoginResponse>> oauthLogin(
+    OAuthLoginRequest request,
+  ) async {
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/register'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(request.toJson()),
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw Exception('Request timeout'),
-      );
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/oauth'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(request.toJson()),
+          )
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
 
       final body = _decodeJsonBody(response.body);
 
-      if (response.statusCode == 201 || response.statusCode == 200 || response.statusCode == 400) {
+      if (response.statusCode == 200 ||
+          response.statusCode == 400 ||
+          response.statusCode == 401) {
+        return ApiResponse<LoginResponse>.fromJson(
+          body,
+          (json) => LoginResponse.fromJson(json),
+        );
+      } else {
+        throw Exception(
+          _extractMessage(
+            response,
+            fallback: 'OAuth login failed. Please try again',
+          ),
+        );
+      }
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<RegisterResponse>> register(
+    RegisterRequest request,
+  ) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/register'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(request.toJson()),
+          )
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+
+      final body = _decodeJsonBody(response.body);
+
+      if (response.statusCode == 201 ||
+          response.statusCode == 200 ||
+          response.statusCode == 400) {
         return ApiResponse<RegisterResponse>.fromJson(
           body,
           (json) => RegisterResponse.fromJson(json),
         );
       } else {
-        throw Exception(_extractMessage(
-          response,
-          fallback: 'Lỗi đăng ký. Vui lòng thử lại',
-        ));
+        throw Exception(
+          _extractMessage(response, fallback: 'Lỗi đăng ký. Vui lòng thử lại'),
+        );
       }
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
@@ -645,16 +794,16 @@ class ApiService {
 
   static Future<ApiResponse<String>> verifyOtp(VerifyOtpRequest request) async {
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/verify-otp'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(request.toJson()),
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw Exception('Request timeout'),
-      );
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/verify-otp'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(request.toJson()),
+          )
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
 
       final body = _decodeJsonBody(response.body);
 
@@ -668,10 +817,12 @@ class ApiService {
               : int.tryParse('${body['statusCode'] ?? ''}'),
         );
       } else {
-        throw Exception(_extractMessage(
-          response,
-          fallback: 'Lỗi xác thực OTP. Vui lòng thử lại',
-        ));
+        throw Exception(
+          _extractMessage(
+            response,
+            fallback: 'Lỗi xác thực OTP. Vui lòng thử lại',
+          ),
+        );
       }
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));

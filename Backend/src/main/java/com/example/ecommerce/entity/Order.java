@@ -28,6 +28,27 @@ public class Order extends BaseCreatedEntity {
     private String shippingAddress;
     private String phone;
 
+    @Column(name = "province_id")
+    private Integer provinceId;
+
+    @Column(name = "district_id")
+    private Integer districtId;
+
+    @Column(name = "ward_code")
+    private String wardCode;
+
+    @Column(name = "province_name")
+    private String provinceName;
+
+    @Column(name = "district_name")
+    private String districtName;
+
+    @Column(name = "ward_name")
+    private String wardName;
+
+    @Column(name = "shipping_ward_code")
+    private String shippingWardCode;
+
     private java.math.BigDecimal totalPrice;
 
     @ManyToOne

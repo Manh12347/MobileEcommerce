@@ -15,5 +15,12 @@ public class CreateOrderRequest {
     @NotBlank(message = "Số điện thoại là bắt buộc")
     private String phone;
 
+    private Integer provinceId;
+    private Integer districtId;
+    private String wardCode;
+    private String provinceName;
+    private String districtName;
+    private String wardName;
+
     private String paymentMethod = "COD";
 }
