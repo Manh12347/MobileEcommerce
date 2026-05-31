@@ -6,7 +6,7 @@ import '../providers/cart_provider.dart';
 import '../services/api_service.dart';
 import '../utils/format_utils.dart';
 import '../widgets/product_badge.dart';
-import 'cart_screen.dart';
+import '../utils/app_globals.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   const ProductDetailScreen({
@@ -44,13 +44,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return isActiveProductStatus(status) && _maxStock(detail) > 0;
   }
 
-  Future<void> _addToCart(ProductItemDetail? detail) async {
+  Future<bool> _submitCartAction(
+    ProductItemDetail? detail, {
+    required bool navigateToCart,
+  }) async {
     final productItemId = detail?.id ?? widget.summary.id;
     if (productItemId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Không xác định được sản phẩm')),
       );
-      return;
+      return false;
     }
 
     final stock = _maxStock(detail);
@@ -58,14 +61,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Sản phẩm đã hết hàng')));
-      return;
+      return false;
     }
 
     if (_quantity > stock) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Chỉ còn $stock sản phẩm trong kho')),
       );
-      return;
+      return false;
     }
 
     setState(() => _isAdding = true);
@@ -73,24 +76,36 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       productItemId: productItemId,
       quantity: _quantity,
     );
-    if (!mounted) return;
+    if (!mounted) return false;
     setState(() => _isAdding = false);
 
     if (ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Đã thêm $_quantity sản phẩm vào giỏ'),
-          action: SnackBarAction(
-            label: 'Xem giỏ',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const CartScreen()),
-              );
-            },
-          ),
-        ),
-      );
+      // Ensure the global cart state is reloaded so UI badges update in other screens.
+      // ignore: unawaited_futures
+      context.read<CartProvider>().loadCart(silent: true);
+      
+      if (navigateToCart) {
+        // Show success message first
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Đã thêm $_quantity sản phẩm vào giỏ')),
+        );
+        
+        // Wait for snackbar to show, then navigate
+        await Future.delayed(const Duration(milliseconds: 300));
+        
+        if (!mounted) return false;
+        
+        // Set the tab index BEFORE popping to ensure the listener catches it
+        navigateToTabNotifier.value = 2;
+        
+        // Pop back to root - this will trigger the main shell to switch tabs
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Đã thêm $_quantity sản phẩm vào giỏ')),
+        );
+      }
+      return true;
     } else {
       final msg = context.read<CartProvider>().errorMessage;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -98,7 +113,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           content: Text(msg.isNotEmpty ? msg : 'Không thêm được vào giỏ'),
         ),
       );
+      return false;
     }
+  }
+
+  Future<void> _addToCart(ProductItemDetail? detail) async {
+    await _submitCartAction(detail, navigateToCart: false);
+  }
+
+  Future<void> _buyNow(ProductItemDetail? detail) async {
+    await _submitCartAction(detail, navigateToCart: true);
   }
 
   Future<ProductItemDetail?> _loadDetail() async {
@@ -304,31 +328,58 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
             child: SafeArea(
               top: false,
-              child: FilledButton.icon(
-                onPressed: !canBuy || _isAdding
-                    ? null
-                    : () => _addToCart(detail),
-                icon: _isAdding
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: !canBuy || _isAdding
+                          ? null
+                          : () => _addToCart(detail),
+                      icon: const Icon(Icons.shopping_cart_outlined),
+                      label: Text(
+                        canBuy ? 'Thêm vào giỏ' : 'Hết hàng / Ngừng bán',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF1F67E2),
+                        side: const BorderSide(color: Color(0xFF1F67E2)),
+                        minimumSize: const Size.fromHeight(50),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                      )
-                    : const Icon(Icons.shopping_cart_outlined),
-                label: Text(
-                  canBuy ? 'Thêm vào giỏ ($_quantity)' : 'Hết hàng / Ngừng bán',
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF1F67E2),
-                  minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: !canBuy || _isAdding
+                          ? null
+                          : () => _buyNow(detail),
+                      icon: _isAdding
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.flash_on_outlined),
+                      label: Text(
+                        canBuy ? 'Mua ngay' : 'Hết hàng / Ngừng bán',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF1F67E2),
+                        minimumSize: const Size.fromHeight(50),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           );

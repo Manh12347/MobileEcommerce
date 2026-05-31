@@ -67,13 +67,15 @@ class _StaffOrdersScreenState extends State<StaffOrdersScreen> {
       if (!mounted) return;
       if (response.success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Đã cập nhật → ${orderStatusLabel(newStatus)}')),
+          SnackBar(
+            content: Text('Đã cập nhật → ${orderStatusLabel(newStatus)}'),
+          ),
         );
         _load();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response.message)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(response.message)));
       }
     } catch (e) {
       if (!mounted) return;
@@ -111,13 +113,18 @@ class _StaffOrdersScreenState extends State<StaffOrdersScreen> {
               padding: const EdgeInsets.all(16),
               child: Text(
                 'Cập nhật ${order.orderCode}',
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                ),
               ),
             ),
             ...options.map(
               (status) => ListTile(
                 leading: Icon(
-                  status == 'cancelled' ? Icons.cancel_outlined : Icons.check_circle_outline,
+                  status == 'cancelled'
+                      ? Icons.cancel_outlined
+                      : Icons.check_circle_outline,
                   color: orderStatusColor(status),
                 ),
                 title: Text(orderStatusLabel(status)),
@@ -156,7 +163,7 @@ class _StaffOrdersScreenState extends State<StaffOrdersScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               itemCount: _filters.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              separatorBuilder: (context, index) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
                 final filter = _filters[index];
                 final selected = _statusFilter == filter.$1;
@@ -167,7 +174,9 @@ class _StaffOrdersScreenState extends State<StaffOrdersScreen> {
                     setState(() => _statusFilter = filter.$1);
                     _load();
                   },
-                  selectedColor: const Color(0xFF1F67E2).withValues(alpha: 0.15),
+                  selectedColor: const Color(
+                    0xFF1F67E2,
+                  ).withValues(alpha: 0.15),
                   checkmarkColor: const Color(0xFF1F67E2),
                 );
               },
@@ -213,11 +222,13 @@ class _StaffOrdersScreenState extends State<StaffOrdersScreen> {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: _orders.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      separatorBuilder: (context, index) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final order = _orders[index];
         return Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: ListTile(
             title: Text(
               order.orderCode,
@@ -241,7 +252,10 @@ class _StaffOrdersScreenState extends State<StaffOrdersScreen> {
               },
               itemBuilder: (_) => const [
                 PopupMenuItem(value: 'detail', child: Text('Chi tiết')),
-                PopupMenuItem(value: 'status', child: Text('Cập nhật trạng thái')),
+                PopupMenuItem(
+                  value: 'status',
+                  child: Text('Cập nhật trạng thái'),
+                ),
               ],
             ),
           ),

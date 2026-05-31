@@ -2,14 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/product_item.dart';
+import '../providers/cart_provider.dart';
 import '../providers/login_provider.dart';
 import '../services/api_service.dart';
+import '../utils/app_globals.dart';
 import '../utils/format_utils.dart';
 import '../widgets/product_badge.dart';
 import 'product_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.onNavigateToTab});
+
+  final ValueChanged<int>? onNavigateToTab;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -124,6 +128,120 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(
         builder: (_) =>
             ProductDetailScreen(summary: product.summary, initialDetail: null),
+      ),
+    );
+  }
+
+  Future<void> _buyNow(_CatalogProduct product) async {
+    final summary = product.summary;
+    final productItemId = summary.id;
+
+    if (productItemId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không xác định được sản phẩm')),
+      );
+      return;
+    }
+
+    final stock = summary.stockQuantity ?? 0;
+    if (!isActiveProductStatus(summary.status) || stock <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sản phẩm hiện không thể mua')),
+      );
+      return;
+    }
+
+    final cartProvider = context.read<CartProvider>();
+    final ok = await cartProvider.addToCart(
+      productItemId: productItemId,
+      quantity: 1,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (ok) {
+      // reload cart state so UI (badges) update
+      // ignore: unawaited_futures
+      context.read<CartProvider>().loadCart(silent: true);
+      
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã thêm vào giỏ hàng thành công'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      
+      // Wait a bit for snackbar, then switch to Cart tab
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      if (!mounted) return;
+      
+      // Set the tab index to Cart (index 2)
+      navigateToTabNotifier.value = 2;
+      return;
+    }
+
+    final errorMessage = cartProvider.errorMessage;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          errorMessage.isNotEmpty ? errorMessage : 'Không thêm được vào giỏ',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addToCart(_CatalogProduct product) async {
+    final summary = product.summary;
+    final productItemId = summary.id;
+
+    if (productItemId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không xác định được sản phẩm')),
+      );
+      return;
+    }
+
+    final stock = summary.stockQuantity ?? 0;
+    if (!isActiveProductStatus(summary.status) || stock <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sản phẩm hiện không thể mua')),
+      );
+      return;
+    }
+
+    final cartProvider = context.read<CartProvider>();
+    final ok = await cartProvider.addToCart(
+      productItemId: productItemId,
+      quantity: 1,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (ok) {
+      // reload cart state so UI (badges) update
+      // ignore: unawaited_futures
+      context.read<CartProvider>().loadCart(silent: true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã thêm vào giỏ hàng thành công'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final errorMessage = cartProvider.errorMessage;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          errorMessage.isNotEmpty ? errorMessage : 'Không thêm được vào giỏ',
+        ),
       ),
     );
   }
@@ -319,6 +437,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       return _ProductCard(
                         product: product,
                         onTap: () => _openProductDetail(product),
+                        onAddToCart: () => _addToCart(product),
+                        onBuyNow: () => _buyNow(product),
                       );
                     }, childCount: visibleProducts.length),
                   ),
@@ -615,10 +735,17 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _ProductCard extends StatelessWidget {
-  const _ProductCard({required this.product, required this.onTap});
+  const _ProductCard({
+    required this.product,
+    required this.onTap,
+    required this.onAddToCart,
+    required this.onBuyNow,
+  });
 
   final _CatalogProduct product;
   final VoidCallback onTap;
+  final VoidCallback onAddToCart;
+  final VoidCallback onBuyNow;
 
   @override
   Widget build(BuildContext context) {
@@ -626,10 +753,18 @@ class _ProductCard extends StatelessWidget {
     final imageUrl = summary.mainImageUrl;
     final currentPrice = summary.salePrice ?? summary.price;
     final originalPrice = summary.hasSalePrice ? summary.price : null;
+    final isActive = isActiveProductStatus(summary.status);
+    final stock = summary.stockQuantity ?? 0;
+    final canBuy = isActive && stock > 0;
     final badges = <Widget>[
       ProductBadge(
         label: productStatusLabel(summary.status),
-        backgroundColor: const Color(0xFF0C8C71),
+        backgroundColor: isActive
+            ? const Color(0xFFFFE8E8)
+            : const Color(0xFFF3F4F6),
+        foregroundColor: isActive
+            ? const Color(0xFFDC2626)
+            : const Color(0xFF6B7280),
       ),
       if (summary.hasSalePrice) ...[
         const SizedBox(width: 8),
@@ -770,6 +905,51 @@ class _ProductCard extends StatelessWidget {
                               color: Color(0xFF5F6B82),
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: canBuy ? onAddToCart : null,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF1F67E2),
+                              side: const BorderSide(color: Color(0xFF1F67E2)),
+                              minimumSize: const Size.fromHeight(42),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: Text(
+                              canBuy ? 'Thêm vào giỏ' : 'Hết hàng',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: canBuy ? onBuyNow : null,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF1F67E2),
+                              disabledBackgroundColor: const Color(0xFFD9E3F2),
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size.fromHeight(42),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: Text(
+                              canBuy ? 'Mua ngay' : 'Hết hàng',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
                         ),

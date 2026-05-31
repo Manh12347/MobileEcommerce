@@ -42,8 +42,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (email.isEmpty) {
       _emailError = 'Email không được bỏ trống';
       isValid = false;
-    } else if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
-        .hasMatch(email)) {
+    } else if (!RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    ).hasMatch(email)) {
       _emailError = 'Email không hợp lệ';
       isValid = false;
     }
@@ -84,10 +85,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => OtpConfirmScreen(
-            email: email,
-            navigateToHomeOnSuccess: true,
-          ),
+          builder: (_) =>
+              OtpConfirmScreen(email: email, navigateToHomeOnSuccess: true),
         ),
       );
     }
@@ -113,7 +112,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF576CA8).withOpacity(0.08),
+                          color: const Color(
+                            0xFF576CA8,
+                          ).withValues(alpha: 0.08),
                           blurRadius: 34,
                           offset: const Offset(0, 18),
                         ),
@@ -210,8 +211,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ),
                         ),
-                        if (_passwordError != null)
-                          _ErrorText(_passwordError!),
+                        if (_passwordError != null) _ErrorText(_passwordError!),
                         const SizedBox(height: 16),
                         const _FieldLabel(text: 'Nhập lại mật khẩu'),
                         const SizedBox(height: 7),
@@ -286,8 +286,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     : () => _register(provider),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF2F66EA),
-                                  disabledBackgroundColor:
-                                      const Color(0xFF8EAAF6),
+                                  disabledBackgroundColor: const Color(
+                                    0xFF8EAAF6,
+                                  ),
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10),
@@ -301,8 +302,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                           strokeWidth: 2,
                                           valueColor:
                                               AlwaysStoppedAnimation<Color>(
-                                            Colors.white,
-                                          ),
+                                                Colors.white,
+                                              ),
                                         ),
                                       )
                                     : const Text(
@@ -331,8 +332,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             TextButton(
                               onPressed: () => Navigator.pop(context),
                               style: TextButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                ),
                                 minimumSize: const Size(0, 32),
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
@@ -390,10 +392,7 @@ class _FieldLabel extends StatelessWidget {
 }
 
 class _InputShell extends StatelessWidget {
-  const _InputShell({
-    required this.child,
-    required this.hasError,
-  });
+  const _InputShell({required this.child, required this.hasError});
 
   final Widget child;
   final bool hasError;

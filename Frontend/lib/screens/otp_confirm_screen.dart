@@ -46,9 +46,9 @@ class _OtpConfirmScreenState extends State<OtpConfirmScreen> {
     }
 
     final success = await context.read<LoginProvider>().verifyOtp(
-          widget.email,
-          _otp,
-        );
+      widget.email,
+      _otp,
+    );
 
     if (!mounted) {
       return;
@@ -64,9 +64,7 @@ class _OtpConfirmScreenState extends State<OtpConfirmScreen> {
       if (widget.navigateToHomeOnSuccess) {
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(
-            builder: (_) => const MainShellScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const MainShellScreen()),
           (route) => false,
         );
       } else {
@@ -213,8 +211,7 @@ class _OtpConfirmScreenState extends State<OtpConfirmScreen> {
                     ),
                     Consumer<LoginProvider>(
                       builder: (context, provider, _) {
-                        final message =
-                            _localError ?? provider.errorMessage;
+                        final message = _localError ?? provider.errorMessage;
                         if (message.isEmpty) {
                           return const SizedBox(height: 32);
                         }
@@ -240,12 +237,12 @@ class _OtpConfirmScreenState extends State<OtpConfirmScreen> {
                             onPressed: provider.isLoading ? null : _verifyOtp,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF2F66EA),
-                              disabledBackgroundColor:
-                                  const Color(0xFF8EAAF6),
+                              disabledBackgroundColor: const Color(0xFF8EAAF6),
                               foregroundColor: Colors.white,
                               elevation: 12,
-                              shadowColor:
-                                  const Color(0xFF2F66EA).withOpacity(0.26),
+                              shadowColor: const Color(
+                                0xFF2F66EA,
+                              ).withValues(alpha: 0.26),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
@@ -321,10 +318,7 @@ class _OtpConfirmScreenState extends State<OtpConfirmScreen> {
                     const Text(
                       '© 2024 TechShop. Tất cả quyền được bảo lưu.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Color(0xFF8A8F9E),
-                        fontSize: 15,
-                      ),
+                      style: TextStyle(color: Color(0xFF8A8F9E), fontSize: 15),
                     ),
                   ],
                 ),
@@ -374,17 +368,11 @@ class _OtpBox extends StatelessWidget {
           contentPadding: EdgeInsets.zero,
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(
-              color: Color(0xFFC8CEE0),
-              width: 1.6,
-            ),
+            borderSide: const BorderSide(color: Color(0xFFC8CEE0), width: 1.6),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(
-              color: Color(0xFF0759D8),
-              width: 2.4,
-            ),
+            borderSide: const BorderSide(color: Color(0xFF0759D8), width: 2.4),
           ),
         ),
       ),
@@ -393,10 +381,7 @@ class _OtpBox extends StatelessWidget {
 }
 
 class _SupportButton extends StatelessWidget {
-  const _SupportButton({
-    required this.icon,
-    required this.onPressed,
-  });
+  const _SupportButton({required this.icon, required this.onPressed});
 
   final IconData icon;
   final VoidCallback onPressed;

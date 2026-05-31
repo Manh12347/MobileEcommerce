@@ -28,8 +28,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       return false;
     }
 
-    if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
-        .hasMatch(email)) {
+    if (!RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    ).hasMatch(email)) {
       _emailError = 'Email không hợp lệ';
       return false;
     }
@@ -89,7 +90,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       border: Border.all(color: const Color(0xFFD5DAEA)),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF3F6DB5).withOpacity(0.10),
+                          color: const Color(
+                            0xFF3F6DB5,
+                          ).withValues(alpha: 0.10),
                           blurRadius: 28,
                           offset: const Offset(0, 16),
                         ),
@@ -193,8 +196,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               backgroundColor: const Color(0xFF0759D8),
                               foregroundColor: Colors.white,
                               elevation: 8,
-                              shadowColor:
-                                  const Color(0xFF0759D8).withOpacity(0.25),
+                              shadowColor: const Color(
+                                0xFF0759D8,
+                              ).withValues(alpha: 0.25),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),

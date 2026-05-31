@@ -83,7 +83,11 @@ class _CartScreenState extends State<CartScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         children: const [
           SizedBox(height: 120),
-          Icon(Icons.shopping_cart_outlined, size: 64, color: Color(0xFFB8C4DA)),
+          Icon(
+            Icons.shopping_cart_outlined,
+            size: 64,
+            color: Color(0xFFB8C4DA),
+          ),
           SizedBox(height: 16),
           Center(
             child: Text(
@@ -103,7 +107,7 @@ class _CartScreenState extends State<CartScreen> {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       itemCount: cart.items.length + 1,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         if (index == 0) {
           return _PromotionBanner(cart: cart);
@@ -198,7 +202,8 @@ class _CartItemCard extends StatelessWidget {
                     width: 72,
                     height: 72,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _placeholderImage(),
+                    errorBuilder: (context, error, stackTrace) =>
+                        _placeholderImage(),
                   )
                 : _placeholderImage(),
           ),
@@ -265,7 +270,10 @@ class _CartItemCard extends StatelessWidget {
                     const Spacer(),
                     IconButton(
                       onPressed: onRemove,
-                      icon: const Icon(Icons.delete_outline, color: Color(0xFFEF4444)),
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: Color(0xFFEF4444),
+                      ),
                       tooltip: 'Xóa',
                     ),
                   ],

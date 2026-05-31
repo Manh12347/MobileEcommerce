@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/cart_provider.dart';
 import '../providers/login_provider.dart';
+import 'debug_profile_screen.dart';
 import 'login_screen.dart';
 import 'main_shell_screen.dart';
 import 'staff_orders_screen.dart';
@@ -50,7 +51,11 @@ class ProfileScreen extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.person, color: Colors.white, size: 32),
+                  child: const Icon(
+                    Icons.person,
+                    color: Colors.white,
+                    size: 32,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -115,6 +120,17 @@ class ProfileScreen extends StatelessWidget {
               },
             ),
           ],
+          const SizedBox(height: 8),
+          _MenuTile(
+            icon: Icons.bug_report_outlined,
+            title: '🔧 Debug Profile API',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DebugProfileScreen()),
+              );
+            },
+          ),
           const SizedBox(height: 24),
           OutlinedButton.icon(
             onPressed: () => _logout(context),
@@ -197,10 +213,7 @@ class _MenuTile extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: ListTile(
         leading: Icon(icon, color: const Color(0xFF1F67E2)),
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
         trailing: const Icon(Icons.chevron_right, color: Color(0xFF91A0B8)),
         onTap: onTap,
       ),

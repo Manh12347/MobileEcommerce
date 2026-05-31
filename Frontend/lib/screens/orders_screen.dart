@@ -42,7 +42,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
         });
       } else {
         setState(() {
-          _error = response.message.isNotEmpty ? response.message : 'Lỗi tải đơn';
+          _error = response.message.isNotEmpty
+              ? response.message
+              : 'Lỗi tải đơn';
           _isLoading = false;
         });
       }
@@ -124,7 +126,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: _orders.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final order = _orders[index];
         return _OrderCard(
@@ -193,7 +195,10 @@ class _OrderCard extends StatelessWidget {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
@@ -218,7 +223,10 @@ class _OrderCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   order.createdOn!,
-                  style: const TextStyle(color: Color(0xFF91A0B8), fontSize: 12),
+                  style: const TextStyle(
+                    color: Color(0xFF91A0B8),
+                    fontSize: 12,
+                  ),
                 ),
               ],
               const SizedBox(height: 12),

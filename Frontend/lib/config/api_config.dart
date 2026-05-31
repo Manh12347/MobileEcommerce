@@ -1,3 +1,5 @@
+// ignore_for_file: constant_identifier_names
+
 // API Configuration
 // Frontend gọi vào backend server đã deploy
 

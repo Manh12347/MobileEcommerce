@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -78,7 +80,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (resp.success && resp.data != null) {
         final address = resp.data!['address']?.toString() ?? '';
         final phone = resp.data!['phone']?.toString() ?? '';
-        final fullName = resp.data!['full_name']?.toString() ??
+        final fullName =
+            resp.data!['full_name']?.toString() ??
             resp.data!['fullName']?.toString() ??
             '';
         if (mounted) {
@@ -328,7 +331,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String _formatPreviewDate(DateTime? dateTime) {
     if (dateTime == null) return '-';
     final local = dateTime.toLocal().toString();
-    return local.length >= 16 ? local.substring(0, 16).replaceFirst('T', ' ') : local;
+    return local.length >= 16
+        ? local.substring(0, 16).replaceFirst('T', ' ')
+        : local;
   }
 
   Widget _buildPreviewCard() {
@@ -351,9 +356,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             _previewRow('Loại vận chuyển', data.transType!),
           if (fee != null) ...[
             const Divider(height: 20),
-            _previewRow('Phí vận chuyển', formatCurrency(fee.mainService?.toDouble())),
-            _previewRow('Phí khai giá', formatCurrency(fee.insurance?.toDouble())),
-            _previewRow('Phí hoàn/đổi', formatCurrency(fee.returnFee?.toDouble())),
+            _previewRow(
+              'Phí vận chuyển',
+              formatCurrency(fee.mainService?.toDouble()),
+            ),
+            _previewRow(
+              'Phí khai giá',
+              formatCurrency(fee.insurance?.toDouble()),
+            ),
+            _previewRow(
+              'Phí hoàn/đổi',
+              formatCurrency(fee.returnFee?.toDouble()),
+            ),
             _previewRow('Phí giao lại', formatCurrency(fee.r2s?.toDouble())),
             _previewRow('Tổng phí', formatCurrency(data.totalFee?.toDouble())),
           ],
@@ -401,9 +415,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
 
-    if (!isPickup && (_selectedProvince == null ||
-        _selectedDistrict == null ||
-        _selectedWard == null)) {
+    if (!isPickup &&
+        (_selectedProvince == null ||
+            _selectedDistrict == null ||
+            _selectedWard == null)) {
       _showSnackBar('Vui lòng chọn Tỉnh/Thành, Quận/Huyện và Phường/Xã');
       return;
     }
@@ -805,11 +820,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
           const SizedBox(height: 16),
 
+          // Show order code if available
+          if (_orderCode != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                'Mã đơn: ${_orderCode!}',
+                style: const TextStyle(
+                  color: Color(0xFF42506A),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+
           // Amount
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF1F67E2).withOpacity(0.08),
+              color: const Color(0xFF1F67E2).withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(18),
             ),
             child: Row(
@@ -983,7 +1013,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   child: Column(
                     children: [
                       DropdownButtonFormField<GhnProvince>(
-                        value: _selectedProvince,
+                        initialValue: _selectedProvince,
                         items: _provinces
                             .map(
                               (province) => DropdownMenuItem<GhnProvince>(
@@ -1003,7 +1033,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<GhnDistrict>(
-                        value: _selectedDistrict,
+                        initialValue: _selectedDistrict,
                         items: _districts
                             .map(
                               (district) => DropdownMenuItem<GhnDistrict>(
@@ -1026,7 +1056,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<GhnWard>(
-                        value: _selectedWard,
+                        initialValue: _selectedWard,
                         items: _wards
                             .map(
                               (ward) => DropdownMenuItem<GhnWard>(
@@ -1051,14 +1081,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       TextField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
-                        onChanged: (_) => setState(() => _previewResponse = null),
+                        onChanged: (_) =>
+                            setState(() => _previewResponse = null),
                         decoration: _inputDecoration('Số điện thoại'),
                       ),
                       const SizedBox(height: 12),
                       TextField(
                         controller: _addressController,
                         maxLines: 3,
-                        onChanged: (_) => setState(() => _previewResponse = null),
+                        onChanged: (_) =>
+                            setState(() => _previewResponse = null),
                         decoration: _inputDecoration(
                           'Địa chỉ chi tiết, số nhà, tên đường...',
                         ),
@@ -1198,7 +1230,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         const SizedBox(height: 6),
                         const Text(
                           'Đơn hàng sẽ được tạo và hoàn tất ngay, không cần GHN hay thanh toán online.',
-                          style: TextStyle(color: Color(0xFF6B7893), height: 1.4),
+                          style: TextStyle(
+                            color: Color(0xFF6B7893),
+                            height: 1.4,
+                          ),
                         ),
                       ],
                     ),
@@ -1280,10 +1315,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     _paymentMethod == 'Pickup'
                         ? 'Xác nhận lấy tại cửa hàng'
                         : (_previewResponse?.data == null
-                            ? 'Kiểm tra đơn hàng GHN'
-                            : (_paymentMethod == 'COD'
-                                ? 'Xác nhận đặt hàng'
-                                : 'Xác nhận và tạo QR')),
+                              ? 'Kiểm tra đơn hàng GHN'
+                              : (_paymentMethod == 'COD'
+                                    ? 'Xác nhận đặt hàng'
+                                    : 'Xác nhận và tạo QR')),
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 16,

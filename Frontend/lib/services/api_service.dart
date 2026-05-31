@@ -16,6 +16,7 @@ import '../models/product_item.dart';
 import '../models/register_request.dart';
 import '../models/register_response.dart';
 import '../models/verify_otp_request.dart';
+import '../models/warranty.dart';
 
 class ApiService {
   static const String baseUrl = API_BASE_URL;
@@ -223,6 +224,24 @@ class ApiService {
     return list;
   }
 
+  // Warranty endpoints (stubs).
+  // These are provided so screens depending on warranty APIs compile
+  // even if backend endpoints are not implemented yet. They return
+  // empty data by default.
+  static Future<ApiResponse<List<WarrantyClaim>>> getWarrantyClaimsByAccount(
+    int accountId,
+  ) async {
+    return ApiResponse<List<WarrantyClaim>>(
+      success: true,
+      message: '',
+      data: [],
+    );
+  }
+
+  static Future<ApiResponse<Warranty>> getWarrantyBySerial(int serialId) async {
+    return ApiResponse<Warranty>(success: true, message: '', data: null);
+  }
+
   static Future<List<GhnProvince>> getGhnProvinces() async {
     try {
       final response = await http
@@ -259,9 +278,10 @@ class ApiService {
           );
       final body = _decodeJsonBody(response.body);
       if (response.statusCode == 200) {
-        return _parseGhnList(body, GhnDistrict.fromJson)
-            .where((district) => district.provinceId == provinceId)
-            .toList();
+        return _parseGhnList(
+          body,
+          GhnDistrict.fromJson,
+        ).where((district) => district.provinceId == provinceId).toList();
       }
       throw Exception(
         _extractMessage(response, fallback: 'Không thể tải quận/huyện GHN'),
