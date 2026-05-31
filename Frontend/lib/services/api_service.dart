@@ -20,6 +20,7 @@ import '../models/warranty.dart';
 
 class ApiService {
   static const String baseUrl = API_BASE_URL;
+  static const Duration _requestTimeout = Duration(seconds: 30);
   static String? accessToken;
 
   static void setAccessToken(String? token) {
@@ -82,7 +83,7 @@ class ApiService {
             headers: _headers(auth: true),
           )
           .timeout(
-            const Duration(seconds: 15),
+            _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
       final body = _decodeJsonBody(response.body);
@@ -112,7 +113,7 @@ class ApiService {
             }),
           )
           .timeout(
-            const Duration(seconds: 15),
+            _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
       final body = _decodeJsonBody(response.body);
@@ -139,7 +140,7 @@ class ApiService {
             body: jsonEncode({'quantity': quantity}),
           )
           .timeout(
-            const Duration(seconds: 15),
+            _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
       final body = _decodeJsonBody(response.body);
@@ -162,7 +163,7 @@ class ApiService {
             headers: _headers(auth: true),
           )
           .timeout(
-            const Duration(seconds: 15),
+            _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
       final body = _decodeJsonBody(response.body);
@@ -250,7 +251,7 @@ class ApiService {
             headers: _ghnHeaders(),
           )
           .timeout(
-            const Duration(seconds: 15),
+            _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
       final body = _decodeJsonBody(response.body);
@@ -273,7 +274,7 @@ class ApiService {
             headers: _ghnHeaders(),
           )
           .timeout(
-            const Duration(seconds: 15),
+            _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
       final body = _decodeJsonBody(response.body);
@@ -300,7 +301,7 @@ class ApiService {
             body: jsonEncode({'district_id': districtId}),
           )
           .timeout(
-            const Duration(seconds: 15),
+            _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
       final body = _decodeJsonBody(response.body);
@@ -352,7 +353,7 @@ class ApiService {
             headers: _headers(auth: true),
           )
           .timeout(
-            const Duration(seconds: 15),
+            _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
       final body = _decodeJsonBody(response.body);
@@ -375,7 +376,7 @@ class ApiService {
             headers: _headers(auth: true),
           )
           .timeout(
-            const Duration(seconds: 15),
+            _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
       final body = _decodeJsonBody(response.body);
@@ -398,7 +399,7 @@ class ApiService {
             headers: _headers(auth: true),
           )
           .timeout(
-            const Duration(seconds: 15),
+            _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
       final body = _decodeJsonBody(response.body);
@@ -421,7 +422,7 @@ class ApiService {
             headers: _headers(auth: true),
           )
           .timeout(
-            const Duration(seconds: 15),
+            _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
       final body = _decodeJsonBody(response.body);
@@ -447,7 +448,7 @@ class ApiService {
             headers: _headers(auth: true),
           )
           .timeout(
-            const Duration(seconds: 15),
+            _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
       final body = _decodeJsonBody(response.body);
@@ -472,7 +473,7 @@ class ApiService {
             headers: _headers(auth: true),
           )
           .timeout(
-            const Duration(seconds: 15),
+            _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
       final body = _decodeJsonBody(response.body);
@@ -499,7 +500,7 @@ class ApiService {
             body: jsonEncode({'status': status}),
           )
           .timeout(
-            const Duration(seconds: 15),
+            _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
       final body = _decodeJsonBody(response.body);
@@ -517,12 +518,45 @@ class ApiService {
   static Future<ApiResponse<List<ProductItemSummary>>> getProductItems({
     int page = 1,
     int size = 10,
+    int? brandId,
+    int? categoryId,
+    int? productId,
+    int? productItemId,
+    double? minPrice,
+    double? maxPrice,
+    String sortBy = 'newest',
+    String sortDir = 'desc',
   }) async {
     try {
+      final queryParameters = <String, String>{
+        'page': '$page',
+        'size': '$size',
+        'sortBy': sortBy,
+        'sortDir': sortDir,
+      };
+      if (brandId != null) {
+        queryParameters['brandId'] = '$brandId';
+      }
+      if (categoryId != null) {
+        queryParameters['categoryId'] = '$categoryId';
+      }
+      if (productId != null) {
+        queryParameters['productId'] = '$productId';
+      }
+      if (productItemId != null) {
+        queryParameters['productItemId'] = '$productItemId';
+      }
+      if (minPrice != null) {
+        queryParameters['minPrice'] = '$minPrice';
+      }
+      if (maxPrice != null) {
+        queryParameters['maxPrice'] = '$maxPrice';
+      }
+
       final response = await http
           .get(
-            Uri.parse(
-              '$baseUrl$PRODUCT_ITEMS_ENDPOINT/list?page=$page&size=$size',
+            Uri.parse('$baseUrl$PRODUCT_ITEMS_ENDPOINT/list').replace(
+              queryParameters: queryParameters,
             ),
           )
           .timeout(
@@ -556,6 +590,82 @@ class ApiService {
 
       throw Exception(
         _extractMessage(response, fallback: 'Không thể tải danh sách sản phẩm'),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<List<ProductItemVariantSummary>>> getProductItemVariants(
+    int productId,
+  ) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl$PRODUCT_ITEMS_ENDPOINT/variants/$productId'))
+          .timeout(
+            _requestTimeout,
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+
+      final body = _decodeJsonBody(response.body);
+      final rawData = body['data'];
+      final items = rawData is List
+          ? rawData
+                .whereType<Map<String, dynamic>>()
+                .map(ProductItemVariantSummary.fromJson)
+                .toList()
+          : <ProductItemVariantSummary>[];
+
+      if (response.statusCode == 200) {
+        return ApiResponse<List<ProductItemVariantSummary>>(
+          success: body['success'] == true,
+          message: body['message']?.toString() ?? '',
+          data: items,
+          statusCode: body['statusCode'] is int
+              ? body['statusCode'] as int
+              : int.tryParse('${body['statusCode'] ?? ''}'),
+        );
+      }
+
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể tải danh sách biến thể'),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<List<ProductCategory>>> getCategories() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl$CATEGORIES_ENDPOINT'))
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+
+      final body = _decodeJsonBody(response.body);
+      final rawData = body['data'];
+      final items = rawData is List
+          ? rawData
+                .whereType<Map<String, dynamic>>()
+                .map(ProductCategory.fromJson)
+                .toList()
+          : <ProductCategory>[];
+
+      if (response.statusCode == 200) {
+        return ApiResponse<List<ProductCategory>>(
+          success: body['success'] == true,
+          message: body['message']?.toString() ?? '',
+          data: items,
+          statusCode: body['statusCode'] is int
+              ? body['statusCode'] as int
+              : int.tryParse('${body['statusCode'] ?? ''}'),
+        );
+      }
+
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể tải danh sách danh mục'),
       );
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));

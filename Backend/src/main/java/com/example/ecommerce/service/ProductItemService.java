@@ -1,6 +1,8 @@
 package com.example.ecommerce.service;
 
 import com.example.ecommerce.dto.CreateProductItemRequest;
+import com.example.ecommerce.dto.BrandDTO;
+import com.example.ecommerce.dto.CategoryDTO;
 import com.example.ecommerce.dto.ProductItemDTO;
 import com.example.ecommerce.dto.ProductItemListDTO;
 import com.example.ecommerce.dto.ProductItemVariantDto;
@@ -183,11 +185,37 @@ public class ProductItemService {
     /**
      * Lấy danh sách product items cho list view - KHÔNG load serials
      * Performance tốt hơn nhiều so với getAllProductItems
-     * Sử dụng native query để đếm sold_count trong 1 query thay vì N+1
      */
     public Page<ProductItemListDTO> getAllProductItemsForList(int page, int size) {
+        return getAllProductItemsForList(page, size, null, null, null, null, null, null, "newest", "desc");
+        }
+
+        public Page<ProductItemListDTO> getAllProductItemsForList(
+            int page,
+            int size,
+            Integer brandId,
+            Integer categoryId,
+            Integer productId,
+            Integer productItemId,
+            java.math.BigDecimal minPrice,
+            java.math.BigDecimal maxPrice,
+            String sortBy,
+            String sortDir
+        ) {
         Pageable pageable = PageRequest.of(Math.max(page - 1, 0), size);
-        Page<Object[]> results = productItemRepository.findAllForListWithSoldCount(pageable);
+        String normalizedSortBy = normalizeSortBy(sortBy);
+        String normalizedSortDir = normalizeSortDir(sortDir);
+        Page<Object[]> results = productItemRepository.findForListWithFilters(
+                brandId,
+            categoryId,
+                productId,
+            productItemId,
+                minPrice,
+                maxPrice,
+            normalizedSortBy,
+            normalizedSortDir,
+            pageable
+        );
         
         return results.map(row -> {
             ProductItemListDTO dto = new ProductItemListDTO();
@@ -203,13 +231,47 @@ public class ProductItemService {
                 dto.setProductId(((Number) row[7]).intValue());
             }
             dto.setProductName((String) row[8]);
-            dto.setSoldQuantity(row[9] != null ? ((Number) row[9]).intValue() : 0);
-            dto.setDescription((String) row[10]);
-            dto.setSpecifications(row[11] != null ? row[11].toString() : null);
-            dto.setMainImageUrl((String) row[12]);
+            dto.setSoldQuantity(0);
+            dto.setDescription((String) row[9]);
+            dto.setSpecifications(row[10] != null ? row[10].toString() : null);
+            dto.setMainImageUrl((String) row[11]);
+
+            if (row[12] != null) {
+                dto.setBrand(new BrandDTO(
+                        row[12] != null ? ((Number) row[12]).intValue() : null,
+                        (String) row[13],
+                        (String) row[14],
+                        (String) row[15]
+                ));
+            }
+
+            if (row[16] != null) {
+                dto.setCategory(new CategoryDTO(
+                        row[16] != null ? ((Number) row[16]).intValue() : null,
+                        (String) row[17],
+                        (String) row[18]
+                ));
+            }
             
             return dto;
         });
+    }
+
+    private String normalizeSortBy(String sortBy) {
+        if (sortBy == null) {
+            return "newest";
+        }
+        return switch (sortBy.trim().toLowerCase()) {
+            case "price", "name", "newest" -> sortBy.trim().toLowerCase();
+            default -> "newest";
+        };
+    }
+
+    private String normalizeSortDir(String sortDir) {
+        if (sortDir == null) {
+            return "desc";
+        }
+        return "asc".equalsIgnoreCase(sortDir.trim()) ? "asc" : "desc";
     }
 
     public ProductItemDTO updateProductItem(Integer productItemId, UpdateProductItemRequest request) {
@@ -356,10 +418,10 @@ public class ProductItemService {
                 dto.setProductId(((Number) row[7]).intValue());
             }
             dto.setProductName((String) row[8]);
-            dto.setSoldQuantity(row[9] != null ? ((Number) row[9]).intValue() : 0);
-            dto.setDescription((String) row[10]);
-            dto.setSpecifications(row[11] != null ? row[11].toString() : null);
-            dto.setMainImageUrl((String) row[12]);
+            dto.setSoldQuantity(0);
+            dto.setDescription((String) row[9]);
+            dto.setSpecifications(row[10] != null ? row[10].toString() : null);
+            dto.setMainImageUrl((String) row[11]);
 
             return dto;
         });

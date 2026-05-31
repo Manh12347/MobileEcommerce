@@ -26,6 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _errorMessage;
   String _query = '';
   String _selectedCategory = 'Tất cả';
+  List<ProductCategory> _availableCategories = const [];
   List<_CatalogProduct> _products = const [];
 
   @override
@@ -47,7 +48,29 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      final response = await ApiService.getProductItems(page: 1, size: 10);
+      int? selectedCategoryId;
+      if (_selectedCategory != 'Tất cả') {
+        for (final category in _availableCategories) {
+          final categoryName = category.name?.trim();
+          if (categoryName == _selectedCategory) {
+            selectedCategoryId = category.categoryId;
+            break;
+          }
+        }
+      }
+
+      final productFuture = ApiService.getProductItems(
+        page: 1,
+        size: 10,
+        categoryId: selectedCategoryId,
+        sortBy: 'newest',
+        sortDir: 'desc',
+      );
+      final categoryFuture = ApiService.getCategories();
+
+      final response = await productFuture;
+      final categoryResponse = await categoryFuture;
+
       if (!response.success) {
         throw Exception(
           response.message.isNotEmpty
@@ -69,9 +92,38 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
+      final normalizedCategories = <ProductCategory>[];
+      if (categoryResponse.success) {
+        for (final category in categoryResponse.data ?? const <ProductCategory>[]) {
+          final name = category.name?.trim();
+          if (name == null || name.isEmpty) {
+            continue;
+          }
+          final status = category.status?.trim().toLowerCase() ?? '';
+          if (status.isNotEmpty && !isActiveProductStatus(status)) {
+            continue;
+          }
+          normalizedCategories.add(
+            ProductCategory(
+              categoryId: category.categoryId,
+              name: name,
+              status: category.status,
+            ),
+          );
+        }
+      }
+
+      final nextCategories = _resolveCategoryNames(
+        products: loadedProducts,
+        categories: normalizedCategories,
+      );
+      final nextSelected =
+          nextCategories.contains(_selectedCategory) ? _selectedCategory : 'Tất cả';
+
       setState(() {
         _products = loadedProducts;
-        _selectedCategory = 'Tất cả';
+        _availableCategories = normalizedCategories;
+        _selectedCategory = nextSelected;
         _isLoading = false;
       });
     } catch (e) {
@@ -87,14 +139,56 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<String> get _categories {
-    final categories = <String>{};
-    for (final product in _products) {
-      final categoryName = product.summary.category?.name;
-      if (categoryName != null && categoryName.isNotEmpty) {
-        categories.add(categoryName);
+    return _resolveCategoryNames(
+      products: _products,
+      categories: _availableCategories,
+    );
+  }
+
+  List<String> _resolveCategoryNames({
+    required List<_CatalogProduct> products,
+    required List<ProductCategory> categories,
+  }) {
+    final orderByName = <String, int>{};
+    final names = <String>{};
+
+    for (final category in categories) {
+      final rawName = category.name;
+      if (rawName == null) {
+        continue;
       }
+      final name = rawName.trim();
+      if (name.isEmpty) {
+        continue;
+      }
+      names.add(name);
+      orderByName[name] = category.categoryId ?? 1 << 30;
     }
-    return ['Tất cả', ...categories];
+
+    for (final product in products) {
+      final rawName = product.summary.category?.name;
+      if (rawName == null) {
+        continue;
+      }
+      final name = rawName.trim();
+      if (name.isEmpty) {
+        continue;
+      }
+      names.add(name);
+      orderByName.putIfAbsent(name, () => 1 << 30);
+    }
+
+    final sorted = names.toList()
+      ..sort((left, right) {
+        final leftOrder = orderByName[left] ?? 1 << 30;
+        final rightOrder = orderByName[right] ?? 1 << 30;
+        if (leftOrder != rightOrder) {
+          return leftOrder.compareTo(rightOrder);
+        }
+        return left.toLowerCase().compareTo(right.toLowerCase());
+      });
+
+    return ['Tất cả', ...sorted];
   }
 
   List<_CatalogProduct> get _visibleProducts {
@@ -111,10 +205,7 @@ class _HomeScreenState extends State<HomeScreen> {
           categoryName.contains(_query) ||
           sku.contains(_query) ||
           description.contains(_query);
-      final categoryMatch =
-          _selectedCategory == 'Tất cả' ||
-          product.summary.category?.name == _selectedCategory;
-      return queryMatch && categoryMatch;
+      return queryMatch;
     }).toList();
   }
 
@@ -143,8 +234,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    final stock = summary.stockQuantity ?? 0;
-    if (!isActiveProductStatus(summary.status) || stock <= 0) {
+    if (!isActiveProductStatus(summary.status)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Sản phẩm hiện không thể mua')),
       );
@@ -205,8 +295,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    final stock = summary.stockQuantity ?? 0;
-    if (!isActiveProductStatus(summary.status) || stock <= 0) {
+    if (!isActiveProductStatus(summary.status)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Sản phẩm hiện không thể mua')),
       );
@@ -299,9 +388,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     title: 'Danh mục',
                     actionLabel: 'Xem tất cả',
                     onActionTap: () {
+                      if (_selectedCategory == 'Tất cả') return;
                       setState(() {
                         _selectedCategory = 'Tất cả';
                       });
+                      _loadProducts();
                     },
                   ),
                 ),
@@ -320,9 +411,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       return ChoiceChip(
                         selected: selected,
                         onSelected: (_) {
+                          if (_selectedCategory == category) {
+                            return;
+                          }
                           setState(() {
                             _selectedCategory = category;
                           });
+                          _loadProducts();
                         },
                         label: Text(category),
                         labelStyle: TextStyle(
@@ -754,26 +849,14 @@ class _ProductCard extends StatelessWidget {
     final currentPrice = summary.salePrice ?? summary.price;
     final originalPrice = summary.hasSalePrice ? summary.price : null;
     final isActive = isActiveProductStatus(summary.status);
-    final stock = summary.stockQuantity ?? 0;
-    final canBuy = isActive && stock > 0;
+    final canBuy = isActive;
     final badges = <Widget>[
-      ProductBadge(
-        label: productStatusLabel(summary.status),
-        backgroundColor: isActive
-            ? const Color(0xFFFFE8E8)
-            : const Color(0xFFF3F4F6),
-        foregroundColor: isActive
-            ? const Color(0xFFDC2626)
-            : const Color(0xFF6B7280),
-      ),
-      if (summary.hasSalePrice) ...[
-        const SizedBox(width: 8),
+      if (summary.hasSalePrice)
         const ProductBadge(
           label: 'Giảm giá',
           backgroundColor: Color(0xFFD28A00),
           foregroundColor: Colors.white,
         ),
-      ],
     ];
 
     return Material(
@@ -808,154 +891,119 @@ class _ProductCard extends StatelessWidget {
                     ),
                     child: _ProductImage(url: imageUrl),
                   ),
-                  Positioned(left: 12, top: 12, child: Row(children: badges)),
-                  Positioned(
-                    right: 10,
-                    top: 10,
-                    child: Container(
-                      height: 28,
-                      width: 28,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.82),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.favorite_border_rounded,
-                        size: 16,
-                        color: Color(0xFF4F5C77),
-                      ),
-                    ),
-                  ),
+                  if (badges.isNotEmpty)
+                    Positioned(left: 12, top: 12, child: Row(children: badges)),
                 ],
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      summary.sku ?? summary.category?.name ?? 'Sản phẩm',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF1F67E2),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      summary.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF17243D),
-                        fontSize: 14,
-                        height: 1.25,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (currentPrice != null)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        formatCurrency(currentPrice),
+                        summary.sku ?? summary.category?.name ?? 'Sản phẩm',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: Color(0xFF1F67E2),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      )
-                    else
-                      const Text(
-                        'Giá đang cập nhật',
-                        style: TextStyle(
-                          color: Color(0xFF5F6B82),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
-                    if (originalPrice != null) ...[
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
-                        formatCurrency(originalPrice),
+                        summary.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: Color(0xFF91A0B8),
-                          fontSize: 12,
-                          decoration: TextDecoration.lineThrough,
+                          color: Color(0xFF17243D),
+                          fontSize: 14,
+                          height: 1.25,
+                          fontWeight: FontWeight.w800,
                         ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (currentPrice != null)
+                        Text(
+                          formatCurrency(currentPrice),
+                          style: const TextStyle(
+                            color: Color(0xFF1F67E2),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        )
+                      else
+                        const Text(
+                          'Giá đang cập nhật',
+                          style: TextStyle(
+                            color: Color(0xFF5F6B82),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      if (originalPrice != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          formatCurrency(originalPrice),
+                          style: const TextStyle(
+                            color: Color(0xFF91A0B8),
+                            fontSize: 12,
+                            decoration: TextDecoration.lineThrough,
+                          ),
+                        ),
+                      ],
+                      const Spacer(),
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 52,
+                            child: OutlinedButton(
+                              onPressed: canBuy ? onAddToCart : null,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF1F67E2),
+                                side: const BorderSide(color: Color(0xFF1F67E2)),
+                                padding: const EdgeInsets.symmetric(horizontal: 0),
+                                minimumSize: const Size(52, 42),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              child: Icon(
+                                canBuy
+                                    ? Icons.shopping_cart_outlined
+                                    : Icons.remove_shopping_cart_outlined,
+                                size: 18,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: canBuy ? onBuyNow : null,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF1F67E2),
+                                disabledBackgroundColor: const Color(0xFFD9E3F2),
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size.fromHeight(42),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              child: Text(
+                                canBuy ? 'Mua ngay' : 'Hết hàng',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.inventory_2_outlined,
-                          size: 14,
-                          color: Color(0xFF5F6B82),
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            summary.stockQuantity != null
-                                ? 'Còn ${summary.stockQuantity} sản phẩm'
-                                : 'Còn hàng',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xFF5F6B82),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: canBuy ? onAddToCart : null,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF1F67E2),
-                              side: const BorderSide(color: Color(0xFF1F67E2)),
-                              minimumSize: const Size.fromHeight(42),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: Text(
-                              canBuy ? 'Thêm vào giỏ' : 'Hết hàng',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: canBuy ? onBuyNow : null,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF1F67E2),
-                              disabledBackgroundColor: const Color(0xFFD9E3F2),
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size.fromHeight(42),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: Text(
-                              canBuy ? 'Mua ngay' : 'Hết hàng',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ],

@@ -22,6 +22,8 @@ public class ProductItemListDTO {
     private BigDecimal salePrice;
     private Integer productId;
     private String productName;
+    private BrandDTO brand;
+    private CategoryDTO category;
     private String createdAt;
     private String specifications;
     private String mainImageUrl;

@@ -47,9 +47,28 @@ public class ProductItemController {
     @GetMapping("/list")
     public ResponseEntity<ApiResponse<Page<ProductItemListDTO>>> getAllProductItemsList(
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) Integer brandId,
+            @RequestParam(required = false) Integer categoryId,
+            @RequestParam(required = false) Integer productId,
+            @RequestParam(required = false) Integer productItemId,
+            @RequestParam(required = false) java.math.BigDecimal minPrice,
+            @RequestParam(required = false) java.math.BigDecimal maxPrice,
+            @RequestParam(defaultValue = "newest") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
         try {
-            Page<ProductItemListDTO> items = productItemService.getAllProductItemsForList(page, size);
+            Page<ProductItemListDTO> items = productItemService.getAllProductItemsForList(
+                    page,
+                    size,
+                brandId,
+                    categoryId,
+                productId,
+                    productItemId,
+                minPrice,
+                maxPrice,
+                    sortBy,
+                    sortDir
+            );
             return ResponseEntity.ok(new ApiResponse<>(true, "Lấy danh sách product items thành công", items));
         } catch (Exception e) {
             log.error("Lỗi khi lấy danh sách product items:", e);

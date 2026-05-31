@@ -297,3 +297,57 @@ class ProductItemDetail {
     );
   }
 }
+
+class ProductItemVariantSummary {
+  final int? productItemId;
+  final String? sku;
+  final String? description;
+  final int? stockQuantity;
+  final String? status;
+  final double? price;
+  final double? salePrice;
+  final Object? imagesRaw;
+  final String? mainImageUrl;
+
+  ProductItemVariantSummary({
+    this.productItemId,
+    this.sku,
+    this.description,
+    this.stockQuantity,
+    this.status,
+    this.price,
+    this.salePrice,
+    this.imagesRaw,
+    this.mainImageUrl,
+  });
+
+  factory ProductItemVariantSummary.fromJson(Map<String, dynamic> json) {
+    return ProductItemVariantSummary(
+      productItemId: _toInt(json['productItemId']),
+      sku: json['sku']?.toString(),
+      description: json['description']?.toString(),
+      stockQuantity: _toInt(json['stockQuantity']),
+      status: json['status']?.toString(),
+      price: _toDouble(json['price']),
+      salePrice: _toDouble(json['salePrice']),
+      imagesRaw: json['images'],
+      mainImageUrl: json['mainImageUrl']?.toString(),
+    );
+  }
+
+  bool get hasSalePrice => salePrice != null && price != null && salePrice! < price!;
+
+  String get label {
+    final code = sku?.trim();
+    if (code != null && code.isNotEmpty) {
+      return code;
+    }
+    final desc = description?.trim();
+    if (desc != null && desc.isNotEmpty) {
+      return desc;
+    }
+    return 'Biến thể';
+  }
+
+  List<String> get images => _decodeStringList(imagesRaw);
+}

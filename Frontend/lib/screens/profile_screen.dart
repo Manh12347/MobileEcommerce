@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../providers/cart_provider.dart';
 import '../providers/login_provider.dart';
-import 'debug_profile_screen.dart';
 import 'login_screen.dart';
 import 'main_shell_screen.dart';
 import 'staff_orders_screen.dart';
@@ -120,17 +119,6 @@ class ProfileScreen extends StatelessWidget {
               },
             ),
           ],
-          const SizedBox(height: 8),
-          _MenuTile(
-            icon: Icons.bug_report_outlined,
-            title: '🔧 Debug Profile API',
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const DebugProfileScreen()),
-              );
-            },
-          ),
           const SizedBox(height: 24),
           OutlinedButton.icon(
             onPressed: () => _logout(context),
