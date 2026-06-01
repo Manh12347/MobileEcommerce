@@ -70,7 +70,9 @@ public class OrderService {
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản"));
 
-        Cart cart = cartRepository.findByAccountAccountId(accountId)
+        Cart cart = cartRepository.findAllByAccountAccountIdOrderByUpdatedOnDescCartIdDesc(accountId)
+                .stream()
+                .findFirst()
                 .orElseThrow(() -> new RuntimeException("Giỏ hàng trống, không thể đặt hàng"));
 
         List<CartItem> cartItems = cartItemRepository.findByCartCartId(cart.getCartId());

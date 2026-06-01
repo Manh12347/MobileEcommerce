@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/cart.dart';
 import '../providers/cart_provider.dart';
 import '../utils/format_utils.dart';
+import 'build_compatibility_screen.dart';
 import 'checkout_screen.dart';
 
 class CartScreen extends StatefulWidget {
@@ -50,7 +51,9 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ),
           if (cart != null && cart.items.isNotEmpty)
-            _CartSummaryBar(cart: cart),
+            _CartSummaryBar(cart: cart)
+          else
+            _BuildConfigBar(cart: cart),
         ],
       ),
     );
@@ -320,6 +323,53 @@ class _QtyButton extends StatelessWidget {
   }
 }
 
+class _BuildConfigBar extends StatelessWidget {
+  const _BuildConfigBar({required this.cart});
+
+  final Cart? cart;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => BuildCompatibilityScreen(cart: cart),
+              ),
+            );
+          },
+          icon: const Icon(Icons.fact_check_outlined),
+          label: const Text('Xây dựng cấu hình'),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF1F67E2),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            textStyle: const TextStyle(fontWeight: FontWeight.w900),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _CartSummaryBar extends StatelessWidget {
   const _CartSummaryBar({required this.cart});
 
@@ -339,48 +389,81 @@ class _CartSummaryBar extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '${cart.totalItems} sản phẩm',
-                  style: const TextStyle(
-                    color: Color(0xFF6B7893),
-                    fontSize: 13,
-                  ),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${cart.totalItems} sản phẩm',
+                      style: const TextStyle(
+                        color: Color(0xFF6B7893),
+                        fontSize: 13,
+                      ),
+                    ),
+                    Text(
+                      formatCurrency(cart.totalAmount),
+                      style: const TextStyle(
+                        color: Color(0xFF1F67E2),
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
                 ),
-                Text(
-                  formatCurrency(cart.totalAmount),
-                  style: const TextStyle(
-                    color: Color(0xFF1F67E2),
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const CheckoutScreen()),
-              );
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF1F67E2),
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
               ),
-            ),
-            child: const Text(
-              'Thanh toán',
-              style: TextStyle(fontWeight: FontWeight.w800),
+              FilledButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CheckoutScreen()),
+                  );
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF1F67E2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text(
+                  'Thanh toán',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => BuildCompatibilityScreen(cart: cart),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.fact_check_outlined),
+              label: const Text('Xây dựng cấu hình'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF1F67E2),
+                side: const BorderSide(color: Color(0xFFB9D9FF)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                textStyle: const TextStyle(fontWeight: FontWeight.w800),
+              ),
             ),
           ),
         ],

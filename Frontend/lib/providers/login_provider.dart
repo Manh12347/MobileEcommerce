@@ -31,6 +31,9 @@ class LoginProvider extends ChangeNotifier {
 
   LoginProvider() {
     restoreSession();
+    ApiService.onUnauthorized = () {
+      logout();
+    };
   }
 
   Future<void> restoreSession() async {
@@ -62,6 +65,7 @@ class LoginProvider extends ChangeNotifier {
     await AuthStorage.clearSession();
     notifyListeners();
   }
+
   RegisterResponse? get registerResponse => _registerResponse;
   String? get otpMessage => _otpMessage;
 
@@ -71,11 +75,8 @@ class LoginProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final request = LoginRequest(
-        email: email,
-        password: password,
-      );
-      
+      final request = LoginRequest(email: email, password: password);
+
       final response = await ApiService.login(request);
 
       if (response.success) {
@@ -84,7 +85,9 @@ class LoginProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       } else {
-        _errorMessage = response.message.isNotEmpty ? response.message : 'Đăng nhập thất bại';
+        _errorMessage = response.message.isNotEmpty
+            ? response.message
+            : 'Đăng nhập thất bại';
         _isLoading = false;
         notifyListeners();
         return false;
@@ -135,8 +138,9 @@ class LoginProvider extends ChangeNotifier {
         return true;
       }
 
-      _errorMessage =
-          response.message.isNotEmpty ? response.message : 'Google login failed';
+      _errorMessage = response.message.isNotEmpty
+          ? response.message
+          : 'Google login failed';
       _isLoading = false;
       notifyListeners();
       return false;
@@ -166,9 +170,12 @@ class LoginProvider extends ChangeNotifier {
     return e.description ?? 'Google sign-in failed. Please try again';
   }
 
-  void clearError() {
+  void clearError({bool notify = true}) {
+    if (_errorMessage.isEmpty) return;
     _errorMessage = '';
-    notifyListeners();
+    if (notify) {
+      notifyListeners();
+    }
   }
 
   Future<bool> register(String email, String password) async {
@@ -187,7 +194,9 @@ class LoginProvider extends ChangeNotifier {
         return true;
       }
 
-      _errorMessage = response.message.isNotEmpty ? response.message : 'Đăng ký thất bại';
+      _errorMessage = response.message.isNotEmpty
+          ? response.message
+          : 'Đăng ký thất bại';
       _isLoading = false;
       notifyListeners();
       return false;
@@ -216,7 +225,73 @@ class LoginProvider extends ChangeNotifier {
         return true;
       }
 
-      _errorMessage = response.message.isNotEmpty ? response.message : 'Xác thực OTP thất bại';
+      _errorMessage = response.message.isNotEmpty
+          ? response.message
+          : 'Xác thực OTP thất bại';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> forgotPassword(String email) async {
+    _isLoading = true;
+    _errorMessage = '';
+    notifyListeners();
+
+    try {
+      final response = await ApiService.forgotPassword(email);
+
+      if (response.success) {
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      }
+
+      _errorMessage = response.message.isNotEmpty
+          ? response.message
+          : 'Không gửi được mã khôi phục';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    _isLoading = true;
+    _errorMessage = '';
+    notifyListeners();
+
+    try {
+      final response = await ApiService.resetPassword(
+        email: email,
+        otp: otp,
+        newPassword: newPassword,
+      );
+
+      if (response.success) {
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      }
+
+      _errorMessage = response.message.isNotEmpty
+          ? response.message
+          : 'Đặt lại mật khẩu thất bại';
       _isLoading = false;
       notifyListeners();
       return false;

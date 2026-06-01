@@ -3,6 +3,7 @@ package com.example.ecommerce.controller;
 import com.example.ecommerce.dto.*;
 import com.example.ecommerce.exception.AuthenticationException;
 import com.example.ecommerce.service.AuthService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -107,6 +108,49 @@ public class AuthController {
             log.error("Lỗi server khi verify-otp:", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
+        }
+    }
+    /**
+     * Forgot password endpoint
+     * POST /v1/api/auth/forgot-password
+     *
+     * Request body: { email }
+     * Sends a reset OTP to non-admin customer accounts.
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        try {
+            ApiResponse<String> response = authService.forgotPassword(request);
+            return ResponseEntity.ok(response);
+        } catch (AuthenticationException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (Exception e) {
+            log.error("Server error during forgot-password:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Server error: " + e.getMessage(), null));
+        }
+    }
+
+    /**
+     * Reset password endpoint
+     * POST /v1/api/auth/reset-password
+     *
+     * Request body: { email, otp, newPassword }
+     * Verifies OTP and saves a new password for non-admin customer accounts.
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        try {
+            ApiResponse<String> response = authService.resetPassword(request);
+            return ResponseEntity.ok(response);
+        } catch (AuthenticationException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (Exception e) {
+            log.error("Server error during reset-password:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Server error: " + e.getMessage(), null));
         }
     }
 }

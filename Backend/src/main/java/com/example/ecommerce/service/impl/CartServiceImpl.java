@@ -117,7 +117,7 @@ public class CartServiceImpl implements CartService {
 
     @Override
     public CartDTO clearCartForAccount(Integer accountId) {
-        Cart cart = cartRepository.findByAccountAccountId(accountId)
+        Cart cart = findLatestCart(accountId)
                 .orElseThrow(() -> new CartNotFoundException("Giỏ hàng trống"));
 
         List<CartItem> items = cartItemRepository.findByCartCartId(cart.getCartId());
@@ -135,7 +135,7 @@ public class CartServiceImpl implements CartService {
     }
 
     private Cart getOrCreateCart(Account account) {
-        return cartRepository.findByAccountAccountId(account.getAccountId())
+        return findLatestCart(account.getAccountId())
                 .orElseGet(() -> {
                     Cart cart = new Cart();
                     cart.setAccount(account);
@@ -143,6 +143,12 @@ public class CartServiceImpl implements CartService {
                     cart.setUpdatedOn(LocalDateTime.now());
                     return cartRepository.save(cart);
                 });
+    }
+
+    private Optional<Cart> findLatestCart(Integer accountId) {
+        return cartRepository.findAllByAccountAccountIdOrderByUpdatedOnDescCartIdDesc(accountId)
+                .stream()
+                .findFirst();
     }
 
     private ProductItem findProductItemOrThrow(Integer productItemId) {

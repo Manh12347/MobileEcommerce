@@ -22,6 +22,7 @@ class ApiService {
   static const String baseUrl = API_BASE_URL;
   static const Duration _requestTimeout = Duration(seconds: 30);
   static String? accessToken;
+  static void Function()? onUnauthorized;
 
   static void setAccessToken(String? token) {
     accessToken = token;
@@ -86,7 +87,7 @@ class ApiService {
             _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
-      final body = _decodeJsonBody(response.body);
+      final body = _decodeAndCheckResponse(response);
       if (response.statusCode == 200) {
         return _parseObjectResponse(body, Cart.fromJson);
       }
@@ -116,7 +117,7 @@ class ApiService {
             _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
-      final body = _decodeJsonBody(response.body);
+      final body = _decodeAndCheckResponse(response);
       if (response.statusCode == 200) {
         return _parseObjectResponse(body, Cart.fromJson);
       }
@@ -143,7 +144,7 @@ class ApiService {
             _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
-      final body = _decodeJsonBody(response.body);
+      final body = _decodeAndCheckResponse(response);
       if (response.statusCode == 200) {
         return _parseObjectResponse(body, Cart.fromJson);
       }
@@ -166,7 +167,7 @@ class ApiService {
             _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
-      final body = _decodeJsonBody(response.body);
+      final body = _decodeAndCheckResponse(response);
       if (response.statusCode == 200) {
         return _parseObjectResponse(body, Cart.fromJson);
       }
@@ -192,7 +193,7 @@ class ApiService {
             const Duration(seconds: 60),
             onTimeout: () => throw Exception('Request timeout'),
           );
-      final body = _decodeJsonBody(response.body);
+      final body = _decodeAndCheckResponse(response);
       if (response.statusCode == 200 || response.statusCode == 201) {
         return _parseObjectResponse(body, OrderDetail.fromJson);
       }
@@ -225,32 +226,7 @@ class ApiService {
     return list;
   }
 
-  // Warranty endpoints (stubs).
-  // These are provided so screens depending on warranty APIs compile
-  // even if backend endpoints are not implemented yet. They return
-  // empty data by default.
-  static Future<ApiResponse<List<WarrantyClaim>>> getWarrantyClaimsByAccount(
-    int accountId,
-  ) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/warranty-claims/account/$accountId'),
-        headers: _headers(auth: true),
-      );
-      final body = _decodeJsonBody(response.body);
-      return _parseListResponse(body, WarrantyClaim.fromJson);
-    } catch (e) {
-      return ApiResponse<List<WarrantyClaim>>(
-        success: false,
-        message: e.toString(),
-        data: [],
-      );
-    }
-  }
 
-  static Future<ApiResponse<Warranty>> getWarrantyBySerial(int serialId) async {
-    return ApiResponse<Warranty>(success: true, message: '', data: null);
-  }
 
   static Future<List<GhnProvince>> getGhnProvinces() async {
     try {
@@ -372,7 +348,7 @@ class ApiService {
             _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
-      final body = _decodeJsonBody(response.body);
+      final body = _decodeAndCheckResponse(response);
       if (response.statusCode == 200) {
         return _parseListResponse(body, OrderSummary.fromJson);
       }
@@ -395,7 +371,7 @@ class ApiService {
             _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
-      final body = _decodeJsonBody(response.body);
+      final body = _decodeAndCheckResponse(response);
       if (response.statusCode == 200) {
         return _parseObjectResponse(body, OrderDetail.fromJson);
       }
@@ -418,7 +394,7 @@ class ApiService {
             _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
-      final body = _decodeJsonBody(response.body);
+      final body = _decodeAndCheckResponse(response);
       if (response.statusCode == 200) {
         return _parseObjectResponse(body, OrderTrack.fromJson);
       }
@@ -430,6 +406,53 @@ class ApiService {
     }
   }
 
+  static Future<ApiResponse<Warranty>> getWarrantyBySerial(int serialId) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl$WARRANTIES_ENDPOINT/serial/$serialId'),
+            headers: _headers(auth: true),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final body = _decodeAndCheckResponse(response);
+      if (response.statusCode == 200) {
+        return _parseObjectResponse(body, Warranty.fromJson);
+      }
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể tải bảo hành'),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<List<WarrantyClaim>>> getWarrantyClaimsByAccount(
+    int accountId,
+  ) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl$WARRANTY_CLAIMS_ENDPOINT/account/$accountId'),
+            headers: _headers(auth: true),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final body = _decodeAndCheckResponse(response);
+      if (response.statusCode == 200) {
+        return _parseListResponse(body, WarrantyClaim.fromJson);
+      }
+      throw Exception(
+        _extractMessage(response, fallback: 'Không thể tải lịch sử bảo hành'),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
   static Future<ApiResponse<OrderDetail>> cancelOrder(int orderId) async {
     try {
       final response = await http
@@ -441,7 +464,7 @@ class ApiService {
             _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
-      final body = _decodeJsonBody(response.body);
+      final body = _decodeAndCheckResponse(response);
       if (response.statusCode == 200) {
         return _parseObjectResponse(body, OrderDetail.fromJson);
       }
@@ -467,7 +490,7 @@ class ApiService {
             _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
-      final body = _decodeJsonBody(response.body);
+      final body = _decodeAndCheckResponse(response);
       if (response.statusCode == 200) {
         return _parseListResponse(body, OrderSummary.fromJson);
       }
@@ -492,7 +515,7 @@ class ApiService {
             _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
-      final body = _decodeJsonBody(response.body);
+      final body = _decodeAndCheckResponse(response);
       if (response.statusCode == 200) {
         return _parseObjectResponse(body, OrderDetail.fromJson);
       }
@@ -519,7 +542,7 @@ class ApiService {
             _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
-      final body = _decodeJsonBody(response.body);
+      final body = _decodeAndCheckResponse(response);
       if (response.statusCode == 200) {
         return _parseObjectResponse(body, OrderDetail.fromJson);
       }
@@ -603,7 +626,6 @@ class ApiService {
               : int.tryParse('${body['statusCode'] ?? ''}'),
         );
       }
-
       throw Exception(
         _extractMessage(response, fallback: 'Không thể tải danh sách sản phẩm'),
       );
@@ -912,6 +934,19 @@ class ApiService {
     throw Exception('Invalid response from server');
   }
 
+  static Map<String, dynamic> _decodeAndCheckResponse(http.Response response) {
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      onUnauthorized?.call();
+    }
+    final body = _decodeJsonBody(response.body);
+    if (body['success'] == false) {
+      final msg = body['message']?.toString() ?? '';
+      if (msg.contains('đăng nhập') || msg.toLowerCase().contains('unauthorized')) {
+        onUnauthorized?.call();
+      }
+    }
+    return body;
+  }
   static String _extractMessage(
     http.Response response, {
     String fallback = 'Request failed',
@@ -1063,6 +1098,88 @@ class ApiService {
           ),
         );
       }
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<String>> forgotPassword(String email) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/forgot-password'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email}),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+
+      final body = _decodeJsonBody(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 400) {
+        return ApiResponse<String>(
+          success: body['success'] == true,
+          message: body['message']?.toString() ?? '',
+          data: body['data']?.toString(),
+          statusCode: body['statusCode'] is int
+              ? body['statusCode'] as int
+              : int.tryParse('${body['statusCode'] ?? ''}'),
+        );
+      }
+
+      throw Exception(
+        _extractMessage(
+          response,
+          fallback: 'Không thể gửi mã khôi phục. Vui lòng thử lại',
+        ),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<String>> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/reset-password'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'email': email,
+              'otp': otp,
+              'newPassword': newPassword,
+            }),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+
+      final body = _decodeJsonBody(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 400) {
+        return ApiResponse<String>(
+          success: body['success'] == true,
+          message: body['message']?.toString() ?? '',
+          data: body['data']?.toString(),
+          statusCode: body['statusCode'] is int
+              ? body['statusCode'] as int
+              : int.tryParse('${body['statusCode'] ?? ''}'),
+        );
+      }
+
+      throw Exception(
+        _extractMessage(
+          response,
+          fallback: 'Khong the dat lai mat khau. Vui long thu lai',
+        ),
+      );
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }

@@ -418,10 +418,27 @@ public class ProductItemService {
                 dto.setProductId(((Number) row[7]).intValue());
             }
             dto.setProductName((String) row[8]);
-            dto.setSoldQuantity(0);
-            dto.setDescription((String) row[9]);
-            dto.setSpecifications(row[10] != null ? row[10].toString() : null);
-            dto.setMainImageUrl((String) row[11]);
+            dto.setSoldQuantity(row[9] != null ? ((Number) row[9]).intValue() : 0);
+            dto.setDescription((String) row[10]);
+            dto.setSpecifications(row[11] != null ? row[11].toString() : null);
+            dto.setMainImageUrl((String) row[12]);
+
+            if (row[13] != null) {
+                dto.setBrand(new BrandDTO(
+                        row[13] != null ? ((Number) row[13]).intValue() : null,
+                        (String) row[14],
+                        (String) row[15],
+                        (String) row[16]
+                ));
+            }
+
+            if (row[17] != null) {
+                dto.setCategory(new CategoryDTO(
+                        row[17] != null ? ((Number) row[17]).intValue() : null,
+                        (String) row[18],
+                        (String) row[19]
+                ));
+            }
 
             return dto;
         });
@@ -457,6 +474,9 @@ public class ProductItemService {
         if (item.getProduct() != null) {
             dto.setProductId(item.getProduct().getProductId());
             dto.setProductName(item.getProduct().getName());
+            if (item.getProduct().getCategory() != null) {
+                dto.setCategoryName(item.getProduct().getCategory().getName());
+            }
         }
 
         if (item.getCreatedOn() != null) dto.setCreatedAt(item.getCreatedOn().toString());

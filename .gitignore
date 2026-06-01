@@ -28,6 +28,7 @@ ENV/
 # ============================
 Backend/build/
 Backend/.gradle/
+Backend/tools/
 *.class
 *.jar
 !gradle/wrapper/gradle-wrapper.jar
@@ -54,3 +55,8 @@ logs/
 *.tmp
 *.bak
 *.cache
+
+# ============================
+# Local gathered product images
+# ============================
+automatic-gather-images/

@@ -9,6 +9,8 @@ const String CATEGORIES_ENDPOINT = '/catalogs/categories';
 const String PRODUCT_ITEMS_ENDPOINT = '/product-items';
 const String CART_ENDPOINT = '/cart';
 const String ORDERS_ENDPOINT = '/orders';
+const String WARRANTIES_ENDPOINT = '/warranties';
+const String WARRANTY_CLAIMS_ENDPOINT = '/warranty-claims';
 const String GHN_BASE_URL =
     'https://dev-online-gateway.ghn.vn/shiip/public-api';
 const String GHN_TOKEN = '487a9da5-58a4-11f1-a973-aee5264794df';

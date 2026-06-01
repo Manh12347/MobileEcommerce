@@ -78,6 +78,11 @@ public class OtpService {
             throw new IllegalArgumentException("Email không được để trống");
         }
 
+        Account existingAccount = accountRepository.findByEmail(email).orElse(null);
+        if (existingAccount != null && "admin".equals(existingAccount.getRole())) {
+            throw new IllegalArgumentException("Admin accounts cannot use password reset");
+        }
+
         // Check if email is locked
         if (isEmailLocked(email)) {
             throw new IllegalArgumentException("Email đã bị khóa do gửi OTP quá nhiều lần. Vui lòng thử lại sau 15-30 phút");
