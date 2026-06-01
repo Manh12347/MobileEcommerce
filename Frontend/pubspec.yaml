@@ -40,6 +40,8 @@ dependencies:
   shared_preferences: ^2.5.3
   qr_flutter: ^4.1.0
   stomp_dart_client: ^2.1.0
+  fl_chart: ^0.70.2
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:

@@ -109,8 +109,10 @@ class OrderDetail {
   final String? status;
   final String? paymentStatus;
   final String? paymentMethod;
+  final String? shippingMethod;
   final String? shippingAddress;
   final String? phone;
+  final String? customerName;
   final int? provinceId;
   final int? districtId;
   final String? wardCode;
@@ -118,6 +120,7 @@ class OrderDetail {
   final String? districtName;
   final String? wardName;
   final double? totalPrice;
+  final double? shippingFee;
   final String? createdOn;
   final List<OrderItem> items;
 
@@ -129,8 +132,10 @@ class OrderDetail {
     this.status,
     this.paymentStatus,
     this.paymentMethod,
+    this.shippingMethod,
     this.shippingAddress,
     this.phone,
+    this.customerName,
     this.provinceId,
     this.districtId,
     this.wardCode,
@@ -138,6 +143,7 @@ class OrderDetail {
     this.districtName,
     this.wardName,
     this.totalPrice,
+    this.shippingFee,
     this.createdOn,
     required this.items,
   });
@@ -152,8 +158,10 @@ class OrderDetail {
       status: json['status']?.toString(),
       paymentStatus: json['paymentStatus']?.toString(),
       paymentMethod: json['paymentMethod']?.toString(),
+      shippingMethod: json['shippingMethod']?.toString() ?? json['shipping_method']?.toString() ?? json['shippingMethodName']?.toString(),
       shippingAddress: json['shippingAddress']?.toString(),
       phone: json['phone']?.toString(),
+      customerName: json['customerName']?.toString(),
       provinceId: _toInt(json['provinceId']),
       districtId: _toInt(json['districtId']),
       wardCode: json['wardCode']?.toString(),
@@ -161,6 +169,7 @@ class OrderDetail {
       districtName: json['districtName']?.toString(),
       wardName: json['wardName']?.toString(),
       totalPrice: _toDouble(json['totalPrice']),
+      shippingFee: _toDouble(json['shippingFee']),
       createdOn: json['createdOn']?.toString(),
       items: rawItems is List
           ? rawItems

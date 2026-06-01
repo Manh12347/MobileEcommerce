@@ -62,8 +62,34 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void initState() {
     super.initState();
     _loadProfileDefaults();
-    _loadProvinces();
   }
+
+  Future<void> _loadProfileDefaults() async {
+    _isLoadingProfile = true;
+    try {
+      final resp = await ApiService.getProfile();
+      if (resp.success && resp.data != null) {
+        final data = resp.data!;
+        _addressController.text = data['address']?.toString() ?? '';
+        _phoneController.text = data['phone']?.toString() ?? '';
+        _customerName = data['full_name']?.toString() ??
+            data['fullName']?.toString() ??
+            'Khách hàng';
+
+        _pendingProvinceId = _toInt(data['provinceId']);
+        _pendingDistrictId = _toInt(data['districtId']);
+        _pendingWardCode = data['wardCode']?.toString();
+      }
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() => _isLoadingProfile = false);
+    await _loadProvinces();
+  }
+
+  // Pending selections to apply after provinces list loads
+  int? _pendingProvinceId;
+  int? _pendingDistrictId;
+  String? _pendingWardCode;
 
   @override
   void dispose() {
@@ -74,31 +100,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     super.dispose();
   }
 
-  Future<void> _loadProfileDefaults() async {
-    try {
-      final resp = await ApiService.getProfile();
-      if (resp.success && resp.data != null) {
-        final address = resp.data!['address']?.toString() ?? '';
-        final phone = resp.data!['phone']?.toString() ?? '';
-        final fullName =
-            resp.data!['full_name']?.toString() ??
-            resp.data!['fullName']?.toString() ??
-            '';
-        if (mounted) {
-          setState(() {
-            _addressController.text = address;
-            _phoneController.text = phone;
-            if (fullName.isNotEmpty) {
-              _customerName = fullName;
-            }
-          });
-        }
-      }
-    } catch (_) {
-      // Ignore — user can fill manually
-    } finally {
-      if (mounted) setState(() => _isLoadingProfile = false);
-    }
+  static int? _toInt(dynamic val) {
+    if (val == null) return null;
+    if (val is int) return val;
+    if (val is num) return val.toInt();
+    return int.tryParse(val.toString());
   }
 
   Future<void> _loadProvinces() async {
@@ -108,6 +114,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       setState(() {
         _provinces = provinces;
       });
+      // Auto-select saved province after provinces list loads
+      await _applyPendingAddressSelections();
     } catch (e) {
       if (mounted) {
         _showSnackBar('Không tải được danh sách tỉnh/thành: $e');
@@ -117,7 +125,45 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
-  Future<void> _onProvinceChanged(GhnProvince? province) async {
+  Future<void> _applyPendingAddressSelections() async {
+    if (_pendingProvinceId == null || _provinces.isEmpty) return;
+
+    final province = _provinces.firstWhere(
+      (p) => p.provinceId == _pendingProvinceId,
+      orElse: () => _provinces.first,
+    );
+    await _onProvinceChanged(province);
+
+    if (_pendingDistrictId == null) return;
+
+    // Wait for districts to load before reading them
+    while (_isLoadingDistricts) {
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+
+    final district = _districts.firstWhere(
+      (d) => d.districtId == _pendingDistrictId,
+      orElse: () => _districts.first,
+    );
+    await _onDistrictChanged(district);
+
+    if (_pendingWardCode == null) return;
+
+    // Wait for wards to load before reading them
+    while (_isLoadingWards) {
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+
+    final ward = _wards.firstWhere(
+      (w) => w.wardCode == _pendingWardCode,
+      orElse: () => _wards.first,
+    );
+    if (mounted) {
+      setState(() => _selectedWard = ward);
+    }
+  }
+
+  Future<void> _onProvinceChanged(GhnProvince? province, {bool skipReload = false}) async {
     setState(() {
       _selectedProvince = province;
       _selectedDistrict = null;
@@ -129,7 +175,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _isLoadingWards = false;
     });
 
-    if (province == null) return;
+    if (province == null || skipReload) return;
 
     try {
       final districts = await ApiService.getGhnDistricts(province.provinceId);
@@ -146,7 +192,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
-  Future<void> _onDistrictChanged(GhnDistrict? district) async {
+  Future<void> _onDistrictChanged(GhnDistrict? district, {bool skipReload = false}) async {
     setState(() {
       _selectedDistrict = district;
       _selectedWard = null;
@@ -155,7 +201,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _isLoadingWards = district != null;
     });
 
-    if (district == null) return;
+    if (district == null || skipReload) return;
 
     try {
       final wards = await ApiService.getGhnWards(district.districtId);

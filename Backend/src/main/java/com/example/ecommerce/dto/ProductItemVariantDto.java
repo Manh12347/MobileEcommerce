@@ -12,4 +12,6 @@ public class ProductItemVariantDto {
     private String status;
     private BigDecimal price;
     private BigDecimal salePrice;
+    private String images;
+    private String mainImageUrl;
 }

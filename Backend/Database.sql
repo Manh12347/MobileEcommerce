@@ -421,3 +421,17 @@ ADD COLUMN ward_name VARCHAR(255);
 
 ALTER TABLE orders
 ADD COLUMN IF NOT EXISTS shipping_ward_code VARCHAR(50);
+
+
+-- ─── profiles: thêm 6 cột địa chỉ ──────────────────────────────────────────
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS province_id INT,
+  ADD COLUMN IF NOT EXISTS province_name VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS district_id INT,
+  ADD COLUMN IF NOT EXISTS district_name VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS ward_code VARCHAR(50),
+  ADD COLUMN IF NOT EXISTS ward_name VARCHAR(255);
+
+-- ─── orders: thêm cột phí vận chuyển ────────────────────────────────────────
+ALTER TABLE orders
+  ADD COLUMN IF NOT EXISTS shipping_fee NUMERIC(12, 2);

@@ -27,6 +27,8 @@ public class OrderDTO {
     private String districtName;
     private String wardName;
     private BigDecimal totalPrice;
+    private BigDecimal shippingFee;
     private String createdOn;
     private List<OrderItemDTO> items;
+    private String customerName;
 }

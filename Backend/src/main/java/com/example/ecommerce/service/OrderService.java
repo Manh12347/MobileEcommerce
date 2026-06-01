@@ -478,8 +478,19 @@ public class OrderService {
         dto.setDistrictName(order.getDistrictName());
         dto.setWardName(order.getWardName());
         dto.setTotalPrice(order.getTotalPrice());
+        dto.setShippingFee(order.getShippingFee());
         dto.setCreatedOn(order.getCreatedOn() != null ? order.getCreatedOn().toString() : null);
         dto.setItems(itemDTOs);
+        // Set customer name from linked account/profile when available
+        String customerName = null;
+        if (order.getAccount() != null) {
+            if (order.getAccount().getProfile() != null) {
+                customerName = order.getAccount().getProfile().getFullName();
+            } else if (order.getAccount().getEmail() != null) {
+                customerName = order.getAccount().getEmail();
+            }
+        }
+        dto.setCustomerName(customerName);
         return dto;
     }
 

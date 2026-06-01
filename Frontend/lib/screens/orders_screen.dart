@@ -17,14 +17,46 @@ class OrdersScreen extends StatefulWidget {
 }
 
 class _OrdersScreenState extends State<OrdersScreen> {
+  final _searchController = TextEditingController();
+  String _query = '';
+  String? _selectedStatus;
+
   bool _isLoading = true;
   String? _error;
-  List<OrderSummary> _orders = const [];
+  List<OrderSummary> _allOrders = const [];
+  List<OrderSummary> _filteredOrders = const [];
+
+  static const _statusFilters = [
+    (null, 'Tất cả'),
+    ('pending', 'Chờ xử lý'),
+    ('shipping', 'Đang giao'),
+    ('completed', 'Hoàn thành'),
+    ('cancelled', 'Đã hủy'),
+  ];
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _applyFilter() {
+    setState(() {
+      _filteredOrders = _allOrders.where((order) {
+        final matchesStatus =
+            _selectedStatus == null || order.status == _selectedStatus;
+        if (_query.isEmpty) return matchesStatus;
+        return matchesStatus &&
+            (order.orderCode.toLowerCase().contains(_query) ||
+                order.paymentStatus?.toLowerCase().contains(_query) == true);
+      }).toList();
+    });
   }
 
   Future<void> _load() async {
@@ -37,14 +69,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
       if (!mounted) return;
       if (response.success) {
         setState(() {
-          _orders = response.data ?? const [];
+          _allOrders = response.data ?? const [];
+          _applyFilter();
           _isLoading = false;
         });
       } else {
         setState(() {
-          _error = response.message.isNotEmpty
-              ? response.message
-              : 'Lỗi tải đơn';
+          _error =
+              response.message.isNotEmpty ? response.message : 'Lỗi tải đơn';
           _isLoading = false;
         });
       }
@@ -90,7 +122,88 @@ class _OrdersScreenState extends State<OrdersScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         color: const Color(0xFF1F67E2),
-        child: _buildBody(),
+        child: Column(
+          children: [
+            // Search bar
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2EAF5)),
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (v) {
+                    setState(() => _query = v.trim().toLowerCase());
+                    _applyFilter();
+                  },
+                  decoration: const InputDecoration(
+                    hintText: 'Tìm mã đơn, trạng thái...',
+                    prefixIcon: Icon(Icons.search_rounded, size: 20),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+            ),
+            // Status filter chips
+            SizedBox(
+              height: 50,
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                scrollDirection: Axis.horizontal,
+                itemCount: _statusFilters.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final (status, label) = _statusFilters[index];
+                  final selected = _selectedStatus == status;
+                  return ChoiceChip(
+                    selected: selected,
+                    label: Text(label),
+                    labelStyle: TextStyle(
+                      color: selected ? Colors.white : const Color(0xFF17315D),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    selectedColor: const Color(0xFF1F67E2),
+                    backgroundColor: Colors.white,
+                    side: BorderSide(
+                      color: selected
+                          ? const Color(0xFF1F67E2)
+                          : const Color(0xFFD8E3F3),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    onSelected: (_) {
+                      setState(() => _selectedStatus = status);
+                      _applyFilter();
+                    },
+                  );
+                },
+              ),
+            ),
+            // Order count
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Row(
+                children: [
+                  Text(
+                    '${_filteredOrders.length} đơn hàng',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF6B7893),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(child: _buildBody()),
+          ],
+        ),
       ),
     );
   }
@@ -112,23 +225,26 @@ class _OrdersScreenState extends State<OrdersScreen> {
       );
     }
 
-    if (_orders.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: const [
-          SizedBox(height: 100),
-          Center(child: Text('Chưa có đơn hàng nào')),
-        ],
+    if (_filteredOrders.isEmpty) {
+      return const Center(
+        child: Text(
+          'Không có đơn hàng phù hợp',
+          style: TextStyle(
+            color: Color(0xFF5F6B82),
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       );
     }
 
     return ListView.separated(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(16),
-      itemCount: _orders.length,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      itemCount: _filteredOrders.length,
       separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        final order = _orders[index];
+        final order = _filteredOrders[index];
         return _OrderCard(
           order: order,
           onTap: () {
@@ -219,10 +335,20 @@ class _OrderCard extends StatelessWidget {
                 '${order.itemCount} sản phẩm • ${formatCurrency(order.totalPrice)}',
                 style: const TextStyle(color: Color(0xFF6B7893), fontSize: 13),
               ),
+              if (order.paymentStatus != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  'Thanh toán: ${paymentStatusLabel(order.paymentStatus)}',
+                  style: const TextStyle(
+                    color: Color(0xFF6B7893),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
               if (order.createdOn != null) ...[
                 const SizedBox(height: 4),
                 Text(
-                  order.createdOn!,
+                  formatOrderDate(order.createdOn),
                   style: const TextStyle(
                     color: Color(0xFF91A0B8),
                     fontSize: 12,

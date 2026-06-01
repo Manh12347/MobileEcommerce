@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/product_item.dart';
 import '../providers/cart_provider.dart';
+import '../providers/product_view_history_provider.dart';
 import '../services/api_service.dart';
 import '../utils/format_utils.dart';
 import '../widgets/product_badge.dart';
@@ -25,22 +26,125 @@ class ProductDetailScreen extends StatefulWidget {
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   late Future<ProductItemDetail?> _detailFuture;
-  late Future<List<ProductItemSummary>> _relatedProductsFuture;
   late Future<List<ProductItemVariantSummary>> _variantsFuture;
   ProductItemVariantSummary? _selectedVariant;
   int _quantity = 1;
   bool _isAdding = false;
+  // Stable image URL: only set after confirmed fetch/precache, never stale fallbacks
+  String? _selectedVariantImageUrl;
+  // Pending variant ID: image for this variant is still loading
+  int? _imagePendingVariantId;
+  bool _isImageLoading = false;
 
   @override
   void initState() {
     super.initState();
     _detailFuture = _loadDetail();
-    _relatedProductsFuture = _loadRelatedProducts();
     _variantsFuture = _loadVariants();
   }
 
-  void _selectVariant(ProductItemVariantSummary variant) {
-    setState(() => _selectedVariant = variant);
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Record view after the first frame renders so all data is available.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _recordViewHistory();
+    });
+  }
+
+  Future<void> _recordViewHistory() async {
+    if (!mounted) return;
+    final history = context.read<ProductViewHistoryProvider>();
+    final productId = widget.summary.productId ?? widget.summary.productItemId ?? 0;
+
+    if (_selectedVariant != null) {
+      await history.recordView(ViewHistoryEntry.fromVariant(
+        _selectedVariant!,
+        widget.summary.name,
+        productId: productId,
+        summaryImageUrl: widget.summary.mainImageUrl,
+      ));
+    } else {
+      await history.recordView(ViewHistoryEntry.fromSummary(widget.summary));
+    }
+  }
+
+  Future<void> _selectVariant(ProductItemVariantSummary variant) async {
+    final currentVariantId = variant.productItemId;
+
+    // Immediately show loading state — keep current image until new one is ready
+    setState(() {
+      _selectedVariant = variant;
+      _imagePendingVariantId = currentVariantId;
+      _isImageLoading = true;
+    });
+
+    String? resolvedImage;
+
+    // Priority 1: variant has its own image
+    if (variant.mainImageUrl != null && variant.mainImageUrl!.isNotEmpty) {
+      resolvedImage = variant.mainImageUrl;
+    } else if (variant.images.isNotEmpty) {
+      resolvedImage = variant.images.first;
+    }
+
+    // Priority 2: find from the already-loaded detail (no extra API call)
+    if (resolvedImage == null) {
+      final detail = await _detailFuture;
+      if (_selectedVariant?.productItemId != currentVariantId) return;
+      if (detail != null && detail.images.isNotEmpty) {
+        resolvedImage = detail.images.first;
+      }
+    }
+
+    // Priority 3: fetch full detail for this specific productItemId
+    if (resolvedImage == null) {
+      final pid = variant.productItemId;
+      if (pid != null) {
+        try {
+          final resp = await ApiService.getProductItemDetail(pid);
+          if (!mounted) return;
+          if (_selectedVariant?.productItemId != currentVariantId) return;
+          if (resp.success && resp.data != null) {
+            resolvedImage = resp.data!.mainImageUrl ??
+                (resp.data!.images.isNotEmpty ? resp.data!.images.first : null);
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (!mounted) return;
+    if (_selectedVariant?.productItemId != currentVariantId) return;
+
+    // Only update image if we have a confirmed one
+    if (resolvedImage != null) {
+      try {
+        await precacheImage(NetworkImage(resolvedImage), context);
+      } catch (_) {}
+      if (!mounted) return;
+      if (_selectedVariant?.productItemId != currentVariantId) return;
+      setState(() {
+        _selectedVariantImageUrl = resolvedImage;
+        _isImageLoading = false;
+      });
+    } else {
+      setState(() {
+        _selectedVariantImageUrl = null;
+        _isImageLoading = false;
+      });
+    }
+
+    // Update view history
+    if (!mounted) return;
+    final productId = widget.summary.productId ?? widget.summary.productItemId ?? 0;
+    await context.read<ProductViewHistoryProvider>().recordView(
+          ViewHistoryEntry.fromVariant(
+            variant,
+            widget.summary.name,
+            productId: productId,
+            summaryImageUrl: widget.summary.mainImageUrl,
+          ),
+        );
   }
 
   int _maxStock(ProductItemDetail? detail) {
@@ -142,9 +246,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     setState(() => _isAdding = true);
     final ok = await context.read<CartProvider>().addToCart(
-      productItemId: productItemId,
-      quantity: _quantity,
-    );
+          productItemId: productItemId,
+          quantity: _quantity,
+        );
     if (!mounted) return false;
     setState(() => _isAdding = false);
 
@@ -152,22 +256,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       // Ensure the global cart state is reloaded so UI badges update in other screens.
       // ignore: unawaited_futures
       context.read<CartProvider>().loadCart(silent: true);
-      
+
       if (navigateToCart) {
-        // Show success message first
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Đã thêm $_quantity sản phẩm vào giỏ')),
         );
-        
-        // Wait for snackbar to show, then navigate
+
         await Future.delayed(const Duration(milliseconds: 300));
-        
+
         if (!mounted) return false;
-        
-        // Set the tab index BEFORE popping to ensure the listener catches it
+
         navigateToTabNotifier.value = 2;
-        
-        // Pop back to root - this will trigger the main shell to switch tabs
+
         Navigator.of(context).popUntil((route) => route.isFirst);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -212,58 +312,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
   }
 
-  Future<List<ProductItemSummary>> _loadRelatedProducts() async {
-    try {
-      final response = await ApiService.getProductItems(page: 1, size: 24);
-      if (!response.success) {
-        return const [];
-      }
-
-      final currentId = widget.summary.id;
-      final categoryName = widget.summary.category?.name?.trim().toLowerCase();
-      final brandName = widget.summary.brand?.name?.trim().toLowerCase();
-
-      final items = response.data ?? const <ProductItemSummary>[];
-      final related = items.where((item) {
-        if (item.id == null || item.id == currentId) {
-          return false;
-        }
-        if (!isActiveProductStatus(item.status)) {
-          return false;
-        }
-
-        final itemCategory = item.category?.name?.trim().toLowerCase();
-        final itemBrand = item.brand?.name?.trim().toLowerCase();
-        final sameCategory =
-            categoryName != null &&
-            categoryName.isNotEmpty &&
-            itemCategory == categoryName;
-        final sameBrand =
-            brandName != null && brandName.isNotEmpty && itemBrand == brandName;
-
-        return sameCategory || sameBrand;
-      }).toList();
-
-      related.sort((left, right) {
-        final leftSameCategory =
-            left.category?.name?.trim().toLowerCase() == categoryName;
-        final rightSameCategory =
-            right.category?.name?.trim().toLowerCase() == categoryName;
-        if (leftSameCategory != rightSameCategory) {
-          return leftSameCategory ? -1 : 1;
-        }
-
-        final leftPrice = left.salePrice ?? left.price ?? 0;
-        final rightPrice = right.salePrice ?? right.price ?? 0;
-        return rightPrice.compareTo(leftPrice);
-      });
-
-      return related.take(6).toList();
-    } catch (_) {
-      return const [];
-    }
-  }
-
   Future<List<ProductItemVariantSummary>> _loadVariants() async {
     final productId = widget.summary.productId;
     if (productId == null) {
@@ -284,7 +332,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Future<void> _refresh() async {
     setState(() {
       _detailFuture = _loadDetail();
-      _relatedProductsFuture = _loadRelatedProducts();
       _variantsFuture = _loadVariants();
     });
     await _detailFuture;
@@ -330,15 +377,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   summary: widget.summary,
                   detail: detail,
                   selectedVariant: _selectedVariant,
+                  selectedVariantImageUrl: _selectedVariantImageUrl,
+                  isImageLoading: _isImageLoading,
+                  imagePendingVariantId: _imagePendingVariantId,
                 ),
                 const SizedBox(height: 16),
                 FutureBuilder<List<ProductItemVariantSummary>>(
                   future: _variantsFuture,
                   builder: (context, vsnap) {
-                    final variants = vsnap.data ?? const <ProductItemVariantSummary>[];
+                    final variants = vsnap.data ?? const [];
                     if (_selectedVariant == null && variants.isNotEmpty) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) setState(() => _selectedVariant = variants.first);
+                        if (mounted) _selectVariant(variants.first);
                       });
                     }
                     return _SectionCard(
@@ -419,10 +469,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ),
                 ),
                 const SizedBox(height: 16),
-                _RelatedProductsSection(
-                  future: _relatedProductsFuture,
-                  currentSummary: widget.summary,
-                ),
+                const _ViewHistorySection(),
               ],
             );
           },
@@ -522,7 +569,232 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 }
 
-class _VariantSelector extends StatefulWidget {
+// ─── View History Section ─────────────────────────────────────────────────────
+
+class _ViewHistorySection extends StatelessWidget {
+  const _ViewHistorySection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ProductViewHistoryProvider>(
+      builder: (context, history, _) {
+        final items = history.recentHistory;
+        if (items.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return _SectionCard(
+          title: 'Đã xem gần đây',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: 200,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: items.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    return SizedBox(
+                      width: 160,
+                      child: _ViewHistoryCard(
+                        entry: item,
+                        onTap: () {
+                          // Navigate to product detail using the summary from context
+                          final summary = ProductItemSummary(
+                            productItemId: item.productId,
+                            productId: item.productId,
+                            productName: item.name,
+                            mainImageUrl: item.mainImageUrl,
+                            salePrice: item.salePrice,
+                            price: item.price,
+                          );
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ProductDetailScreen(summary: summary),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => _confirmClearHistory(context, history),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF6B7893),
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    'Xóa lịch sử',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _confirmClearHistory(
+    BuildContext context,
+    ProductViewHistoryProvider history,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xóa lịch sử xem?'),
+        content: const Text('Hành động này không thể hoàn tác.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () {
+              history.clearHistory();
+              Navigator.pop(ctx);
+            },
+            child: const Text(
+              'Xóa',
+              style: TextStyle(color: Color(0xFFE60023)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ViewHistoryCard extends StatelessWidget {
+  const _ViewHistoryCard({required this.entry, required this.onTap});
+
+  final ViewHistoryEntry entry;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentPrice = entry.salePrice ?? entry.price;
+    final originalPrice = entry.salePrice != null ? entry.price : null;
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFE3EAF5)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 96,
+                decoration: const BoxDecoration(
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(18),
+                    topRight: Radius.circular(18),
+                  ),
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFEAF4FF), Color(0xFFF8FBFF)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: _HistoryProductImage(url: entry.mainImageUrl),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        entry.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF17243D),
+                          fontSize: 13,
+                          height: 1.2,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (currentPrice != null) ...[
+                        Text(
+                          formatCurrency(currentPrice),
+                          style: const TextStyle(
+                            color: Color(0xFF1F67E2),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        if (originalPrice != null)
+                          Text(
+                            formatCurrency(originalPrice),
+                            style: const TextStyle(
+                              color: Color(0xFF91A0B8),
+                              fontSize: 11,
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryProductImage extends StatelessWidget {
+  const _HistoryProductImage({required this.url});
+
+  final String? url;
+
+  @override
+  Widget build(BuildContext context) {
+    if (url == null || url!.isEmpty) {
+      return const Center(
+        child: Icon(Icons.memory_rounded, size: 36, color: Color(0xFF1F67E2)),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(10),
+      child: Image.network(
+        url!,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => const Center(
+          child: Icon(Icons.memory_rounded, size: 36, color: Color(0xFF1F67E2)),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Variant Selector ─────────────────────────────────────────────────────────
+
+class _VariantSelector extends StatelessWidget {
   const _VariantSelector({
     required this.detail,
     required this.variants,
@@ -536,16 +808,10 @@ class _VariantSelector extends StatefulWidget {
   final ValueChanged<ProductItemVariantSummary> onSelectedVariant;
 
   @override
-  State<_VariantSelector> createState() => _VariantSelectorState();
-}
-
-class _VariantSelectorState extends State<_VariantSelector> {
-  @override
   Widget build(BuildContext context) {
-    if (widget.variants.isEmpty) {
-      final sku = widget.detail?.sku ??
-          widget.detail?.productName ??
-          'Phiên bản hiện tại';
+    if (variants.isEmpty) {
+      final sku =
+          detail?.sku ?? detail?.productName ?? 'Phiên bản hiện tại';
       return _VersionCard(
         label: sku,
         selected: true,
@@ -568,16 +834,16 @@ class _VariantSelectorState extends State<_VariantSelector> {
         Wrap(
           spacing: 12,
           runSpacing: 12,
-          children: List.generate(widget.variants.length, (index) {
-            final variant = widget.variants[index];
-            final selected = widget.selectedVariant?.productItemId ==
+          children: List.generate(variants.length, (index) {
+            final variant = variants[index];
+            final selected = selectedVariant?.productItemId ==
                 variant.productItemId;
             return SizedBox(
               width: 160,
               child: _VersionCard(
                 label: variant.label,
                 selected: selected,
-                onTap: () => widget.onSelectedVariant(variant),
+                onTap: () => onSelectedVariant(variant),
               ),
             );
           }),
@@ -681,6 +947,8 @@ class _VersionCard extends StatelessWidget {
   }
 }
 
+// ─── Spec Table ───────────────────────────────────────────────────────────────
+
 class _SpecTable extends StatelessWidget {
   const _SpecTable({required this.specs});
 
@@ -770,73 +1038,76 @@ String _specValueText(dynamic value) {
   return '$value';
 }
 
-class _QtyBtn extends StatelessWidget {
-  const _QtyBtn({
-    required this.icon,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: enabled ? const Color(0xFFF0F5FC) : const Color(0xFFF5F5F5),
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(10),
-        child: SizedBox(
-          width: 40,
-          height: 40,
-          child: Icon(
-            icon,
-            size: 18,
-            color: enabled ? const Color(0xFF1F67E2) : const Color(0xFFB8C4DA),
-          ),
-        ),
-      ),
-    );
-  }
-}
+// ─── Hero Card ────────────────────────────────────────────────────────────────
 
 class _ProductHeroCard extends StatelessWidget {
   const _ProductHeroCard({
     required this.summary,
     required this.detail,
     required this.selectedVariant,
+    this.selectedVariantImageUrl,
+    required this.isImageLoading,
+    required this.imagePendingVariantId,
   });
 
   final ProductItemSummary summary;
   final ProductItemDetail? detail;
   final ProductItemVariantSummary? selectedVariant;
+  final String? selectedVariantImageUrl;
+  final bool isImageLoading;
+  final int? imagePendingVariantId;
 
-  @override
-  Widget build(BuildContext context) {
-    final imageUrl = selectedVariant?.mainImageUrl ??
-      (selectedVariant?.images.isNotEmpty == true ? selectedVariant?.images.first : null) ??
-      detail?.mainImageUrl ??
-      summary.mainImageUrl;
-    final price = selectedVariant?.salePrice ??
+  String? get _effectiveImage {
+    // While image is being fetched, suppress fallback to avoid showing stale variant image
+    if (this.isImageLoading && this.selectedVariantImageUrl == null) return null;
+    if (selectedVariantImageUrl != null) return selectedVariantImageUrl;
+    if (selectedVariant?.mainImageUrl != null &&
+        selectedVariant!.mainImageUrl!.isNotEmpty) {
+      return selectedVariant!.mainImageUrl;
+    }
+    if (selectedVariant?.images.isNotEmpty == true) {
+      return selectedVariant!.images.first;
+    }
+    if (detail?.mainImageUrl != null && detail!.mainImageUrl!.isNotEmpty) {
+      return detail!.mainImageUrl;
+    }
+    if (detail?.images.isNotEmpty == true) {
+      return detail!.images.first;
+    }
+    return summary.mainImageUrl;
+  }
+
+  double? get _effectivePrice {
+    return selectedVariant?.salePrice ??
         selectedVariant?.price ??
         detail?.salePrice ??
         detail?.price ??
         summary.salePrice ??
         summary.price;
-    final originalPrice = selectedVariant?.hasSalePrice == true
-        ? selectedVariant?.price
-        : detail?.hasSalePrice == true
-            ? detail?.price
-            : summary.hasSalePrice
-                ? summary.price
-                : null;
-    final hasDiscount = selectedVariant?.hasSalePrice == true ||
-        detail?.hasSalePrice == true ||
-        summary.hasSalePrice;
-    final sku = selectedVariant?.sku?.trim() ?? detail?.sku?.trim();
+  }
+
+  double? get _effectiveOriginalPrice {
+    if (selectedVariant?.hasSalePrice == true) {
+      return selectedVariant?.price;
+    }
+    if (detail?.hasSalePrice == true) {
+      return detail?.price;
+    }
+    if (summary.hasSalePrice) {
+      return summary.price;
+    }
+    return null;
+  }
+
+  String? get _effectiveSku {
+    return selectedVariant?.sku?.trim() ?? detail?.sku?.trim();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = _effectiveImage;
+    final price = _effectivePrice;
+    final originalPrice = _effectiveOriginalPrice;
 
     return Container(
       decoration: BoxDecoration(
@@ -853,7 +1124,6 @@ class _ProductHeroCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Full-width image
           ClipRRect(
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(20),
@@ -863,7 +1133,10 @@ class _ProductHeroCard extends StatelessWidget {
               width: double.infinity,
               height: 320,
               color: const Color(0xFFF6F9FD),
-              child: _HeroImage(url: imageUrl),
+              child: _HeroImage(
+                url: _effectiveImage,
+                isLoading: isImageLoading,
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -872,7 +1145,6 @@ class _ProductHeroCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // name and sku only
                 Text(
                   summary.name,
                   style: const TextStyle(
@@ -882,9 +1154,9 @@ class _ProductHeroCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                if (sku != null && sku.isNotEmpty)
+                if (_effectiveSku != null && _effectiveSku!.isNotEmpty)
                   Text(
-                    sku,
+                    _effectiveSku!,
                     style: const TextStyle(
                       color: Color(0xFF6B7893),
                       fontSize: 14,
@@ -892,7 +1164,6 @@ class _ProductHeroCard extends StatelessWidget {
                     ),
                   ),
                 const SizedBox(height: 12),
-                // price row
                 if (price != null)
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
@@ -940,9 +1211,10 @@ class _ProductHeroCard extends StatelessWidget {
 }
 
 class _HeroImage extends StatelessWidget {
-  const _HeroImage({required this.url});
+  const _HeroImage({required this.url, this.isLoading = false});
 
   final String? url;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -952,20 +1224,49 @@ class _HeroImage extends StatelessWidget {
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.all(10),
-      child: Image.network(
-        url!,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) {
-          return const Center(
-            child: Icon(Icons.memory_rounded, size: 74, color: Colors.white),
-          );
-        },
-      ),
+    return Stack(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(10),
+          child: Image.network(
+            url!,
+            fit: BoxFit.contain,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Center(
+                child: CircularProgressIndicator(
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded /
+                          loadingProgress.expectedTotalBytes!
+                      : null,
+                  strokeWidth: 2,
+                  color: const Color(0xFF1F67E2),
+                ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) => const Center(
+              child: Icon(Icons.memory_rounded, size: 74, color: Colors.white),
+            ),
+          ),
+        ),
+        if (isLoading)
+          Positioned.fill(
+            child: Container(
+              color: Colors.white.withValues(alpha: 0.6),
+              child: const Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Color(0xFF1F67E2),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
+
+// ─── Section Card ─────────────────────────────────────────────────────────────
 
 class _SectionCard extends StatelessWidget {
   const _SectionCard({required this.title, required this.child});
@@ -1008,335 +1309,7 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-class _NavItem extends StatelessWidget {
-  const _NavItem({required this.icon, required this.label, required this.onTap});
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 20, color: const Color(0xFF1F67E2)),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Color(0xFF42506A),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RelatedProductsSection extends StatelessWidget {
-  const _RelatedProductsSection({
-    required this.future,
-    required this.currentSummary,
-  });
-
-  final Future<List<ProductItemSummary>> future;
-  final ProductItemSummary currentSummary;
-
-  @override
-  Widget build(BuildContext context) {
-    final categoryName = currentSummary.category?.name;
-    final brandName = currentSummary.brand?.name;
-    final subtitle = categoryName != null && categoryName.isNotEmpty
-        ? 'Cùng danh mục${brandName != null && brandName.isNotEmpty ? ' · $brandName' : ''}'
-        : 'Gợi ý nổi bật';
-
-    return _SectionCard(
-      title: 'Sản phẩm liên quan',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            subtitle,
-            style: const TextStyle(
-              color: Color(0xFF6B7893),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            height: 250,
-            child: FutureBuilder<List<ProductItemSummary>>(
-              future: future,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: Color(0xFF1F67E2),
-                    ),
-                  );
-                }
-
-                final items = snapshot.data ?? const <ProductItemSummary>[];
-                if (items.isEmpty) {
-                  return Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF6F9FD),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFE1E8F4)),
-                    ),
-                    child: const Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.auto_awesome_rounded,
-                          color: Color(0xFF1F67E2),
-                          size: 28,
-                        ),
-                        SizedBox(height: 10),
-                        Text(
-                          'Chưa có sản phẩm liên quan phù hợp.',
-                          style: TextStyle(
-                            color: Color(0xFF17243D),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Thử xem thêm các sản phẩm khác trong danh mục.',
-                          style: TextStyle(
-                            color: Color(0xFF6B7893),
-                            fontSize: 12,
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: items.length,
-                  separatorBuilder: (context, index) => const SizedBox(width: 12),
-                  itemBuilder: (context, index) {
-                    final product = items[index];
-                    return SizedBox(
-                      width: 172,
-                      child: _RelatedProductCard(
-                        summary: product,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => ProductDetailScreen(summary: product),
-                            ),
-                          );
-                        },
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RelatedProductCard extends StatelessWidget {
-  const _RelatedProductCard({required this.summary, required this.onTap});
-
-  final ProductItemSummary summary;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final imageUrl = summary.mainImageUrl;
-    final currentPrice = summary.salePrice ?? summary.price;
-    final originalPrice = summary.hasSalePrice ? summary.price : null;
-
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE3EAF5)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                height: 108,
-                decoration: const BoxDecoration(
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
-                  ),
-                  gradient: LinearGradient(
-                    colors: [Color(0xFFEAF4FF), Color(0xFFF8FBFF)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    Positioned.fill(child: _RelatedProductImage(url: imageUrl)),
-                    Positioned(
-                      left: 10,
-                      top: 10,
-                      child: ProductBadge(
-                        label: productStatusLabel(summary.status),
-                        backgroundColor: const Color(0xFF0C8C71),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      summary.category?.name ?? summary.sku ?? 'Sản phẩm',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF1F67E2),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      summary.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF17243D),
-                        fontSize: 14,
-                        height: 1.25,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (currentPrice != null)
-                      Text(
-                        formatCurrency(currentPrice),
-                        style: const TextStyle(
-                          color: Color(0xFF1F67E2),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      )
-                    else
-                      const Text(
-                        'Giá đang cập nhật',
-                        style: TextStyle(
-                          color: Color(0xFF5F6B82),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    if (originalPrice != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        formatCurrency(originalPrice),
-                        style: const TextStyle(
-                          color: Color(0xFF91A0B8),
-                          fontSize: 12,
-                          decoration: TextDecoration.lineThrough,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.inventory_2_outlined,
-                          size: 14,
-                          color: Color(0xFF5F6B82),
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            summary.stockQuantity != null
-                                ? 'Còn ${summary.stockQuantity} sản phẩm'
-                                : 'Còn hàng',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xFF5F6B82),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RelatedProductImage extends StatelessWidget {
-  const _RelatedProductImage({required this.url});
-
-  final String? url;
-
-  @override
-  Widget build(BuildContext context) {
-    if (url == null || url!.isEmpty) {
-      return const Center(
-        child: Icon(Icons.memory_rounded, size: 40, color: Color(0xFF1F67E2)),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Image.network(
-        url!,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) {
-          return const Center(
-            child: Icon(
-              Icons.memory_rounded,
-              size: 40,
-              color: Color(0xFF1F67E2),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
+// ─── Info Row ─────────────────────────────────────────────────────────────────
 
 class _InfoRow extends StatelessWidget {
   const _InfoRow({required this.label, required this.value});

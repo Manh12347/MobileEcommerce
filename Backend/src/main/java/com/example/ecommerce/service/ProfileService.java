@@ -44,6 +44,24 @@ public class ProfileService {
         if (request.getAvatarUrl() != null) {
             profile.setAvatarUrl(request.getAvatarUrl());
         }
+        if (request.getProvinceId() != null) {
+            profile.setProvinceId(request.getProvinceId());
+        }
+        if (request.getProvinceName() != null) {
+            profile.setProvinceName(request.getProvinceName());
+        }
+        if (request.getDistrictId() != null) {
+            profile.setDistrictId(request.getDistrictId());
+        }
+        if (request.getDistrictName() != null) {
+            profile.setDistrictName(request.getDistrictName());
+        }
+        if (request.getWardCode() != null) {
+            profile.setWardCode(request.getWardCode());
+        }
+        if (request.getWardName() != null) {
+            profile.setWardName(request.getWardName());
+        }
 
         profile = profileRepository.save(profile);
         return toDTO(profile);
@@ -87,6 +105,12 @@ public class ProfileService {
         dto.setPhone(profile.getPhone());
         dto.setAddress(profile.getAddress());
         dto.setAvatarUrl(profile.getAvatarUrl());
+        dto.setProvinceId(profile.getProvinceId());
+        dto.setProvinceName(profile.getProvinceName());
+        dto.setDistrictId(profile.getDistrictId());
+        dto.setDistrictName(profile.getDistrictName());
+        dto.setWardCode(profile.getWardCode());
+        dto.setWardName(profile.getWardName());
         dto.setCreatedOn(profile.getCreatedOn() != null ? profile.getCreatedOn().format(DATE_FORMATTER) : null);
         dto.setIs2faEnabled(account != null ? account.getIs2faEnabled() : false);
         return dto;

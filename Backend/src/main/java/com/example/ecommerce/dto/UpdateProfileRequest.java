@@ -14,4 +14,10 @@ public class UpdateProfileRequest {
     private String phone;
     private String address;
     private String avatarUrl;
+    private Integer provinceId;
+    private String provinceName;
+    private Integer districtId;
+    private String districtName;
+    private String wardCode;
+    private String wardName;
 }

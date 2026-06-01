@@ -50,6 +50,7 @@ public class Order extends BaseCreatedEntity {
     private String shippingWardCode;
 
     private java.math.BigDecimal totalPrice;
+    private java.math.BigDecimal shippingFee;
 
     @ManyToOne
     @JoinColumn(name = "account_id")

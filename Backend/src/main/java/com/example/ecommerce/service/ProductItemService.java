@@ -485,6 +485,8 @@ public class ProductItemService {
             dto.setStatus(item.getStatus());
             dto.setPrice(item.getPrice());
             dto.setSalePrice(item.getSalePrice());
+            dto.setImages(item.getImages());
+            dto.setMainImageUrl(item.getMainImageUrl());
             return dto;
         }).toList();
     }

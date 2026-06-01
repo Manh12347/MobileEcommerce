@@ -232,11 +232,20 @@ class ApiService {
   static Future<ApiResponse<List<WarrantyClaim>>> getWarrantyClaimsByAccount(
     int accountId,
   ) async {
-    return ApiResponse<List<WarrantyClaim>>(
-      success: true,
-      message: '',
-      data: [],
-    );
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/warranty-claims/account/$accountId'),
+        headers: _headers(auth: true),
+      );
+      final body = _decodeJsonBody(response.body);
+      return _parseListResponse(body, WarrantyClaim.fromJson);
+    } catch (e) {
+      return ApiResponse<List<WarrantyClaim>>(
+        success: false,
+        message: e.toString(),
+        data: [],
+      );
+    }
   }
 
   static Future<ApiResponse<Warranty>> getWarrantyBySerial(int serialId) async {
@@ -251,15 +260,19 @@ class ApiService {
             headers: _ghnHeaders(),
           )
           .timeout(
-            _requestTimeout,
+            const Duration(seconds: 60),
             onTimeout: () => throw Exception('Request timeout'),
           );
       final body = _decodeJsonBody(response.body);
       if (response.statusCode == 200) {
+        final data = body['data'];
+        if (data is! List) {
+          throw Exception('Dữ liệu GHN không hợp lệ: $body');
+        }
         return _parseGhnList(body, GhnProvince.fromJson);
       }
       throw Exception(
-        _extractMessage(response, fallback: 'Không thể tải tỉnh/thành GHN'),
+        'Lỗi GHN ${response.statusCode}: ${body['message'] ?? body}',
       );
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
@@ -270,22 +283,26 @@ class ApiService {
     try {
       final response = await http
           .get(
-            Uri.parse('$GHN_BASE_URL/master-data/district'),
+            Uri.parse('$GHN_BASE_URL/master-data/district?province_id=$provinceId'),
             headers: _ghnHeaders(),
           )
           .timeout(
-            _requestTimeout,
+            const Duration(seconds: 60),
             onTimeout: () => throw Exception('Request timeout'),
           );
       final body = _decodeJsonBody(response.body);
       if (response.statusCode == 200) {
+        final data = body['data'];
+        if (data is! List) {
+          throw Exception('Dữ liệu GHN không hợp lệ: $body');
+        }
         return _parseGhnList(
           body,
           GhnDistrict.fromJson,
         ).where((district) => district.provinceId == provinceId).toList();
       }
       throw Exception(
-        _extractMessage(response, fallback: 'Không thể tải quận/huyện GHN'),
+        'Lỗi GHN ${response.statusCode}: ${body['message'] ?? body}',
       );
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
@@ -295,13 +312,12 @@ class ApiService {
   static Future<List<GhnWard>> getGhnWards(int districtId) async {
     try {
       final response = await http
-          .post(
+          .get(
             Uri.parse('$GHN_BASE_URL/master-data/ward?district_id=$districtId'),
             headers: _ghnHeaders(),
-            body: jsonEncode({'district_id': districtId}),
           )
           .timeout(
-            _requestTimeout,
+            const Duration(seconds: 60),
             onTimeout: () => throw Exception('Request timeout'),
           );
       final body = _decodeJsonBody(response.body);
@@ -309,7 +325,7 @@ class ApiService {
         return _parseGhnList(body, GhnWard.fromJson);
       }
       throw Exception(
-        _extractMessage(response, fallback: 'Không thể tải phường/xã GHN'),
+        'Lỗi GHN ${response.statusCode}: ${body['message'] ?? body}',
       );
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
@@ -691,6 +707,99 @@ class ApiService {
       }
       throw Exception(
         _extractMessage(response, fallback: 'Không thể tải hồ sơ'),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<Map<String, dynamic>>> updateProfile({
+    String? fullName,
+    String? phone,
+    String? address,
+    int? provinceId,
+    String? provinceName,
+    int? districtId,
+    String? districtName,
+    String? wardCode,
+    String? wardName,
+  }) async {
+    try {
+      final body = <String, dynamic>{};
+      if (fullName != null) body['fullName'] = fullName;
+      if (phone != null) body['phone'] = phone;
+      if (address != null) body['address'] = address;
+      if (provinceId != null) body['provinceId'] = provinceId;
+      if (provinceName != null) body['provinceName'] = provinceName;
+      if (districtId != null) body['districtId'] = districtId;
+      if (districtName != null) body['districtName'] = districtName;
+      if (wardCode != null) body['wardCode'] = wardCode;
+      if (wardName != null) body['wardName'] = wardName;
+
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/profile'),
+            headers: _headers(auth: true, json: true),
+            body: jsonEncode(body),
+          )
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final decoded = _decodeJsonBody(response.body);
+      return ApiResponse<Map<String, dynamic>>(
+        success: decoded['success'] == true,
+        message: decoded['message']?.toString() ?? '',
+        data: decoded['data'] is Map<String, dynamic> ? decoded['data'] : {},
+        statusCode: response.statusCode,
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<void>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/profile/change-password'),
+        headers: _headers(auth: true, json: true),
+        body: jsonEncode({
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        }),
+      );
+      final body = _decodeJsonBody(response.body);
+      return ApiResponse<void>(
+        success: body['success'] == true,
+        message: body['message']?.toString() ?? '',
+        data: null,
+        statusCode: response.statusCode,
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  static Future<ApiResponse<Map<String, dynamic>>> uploadAvatar(
+      String filePath) async {
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/uploads/users'),
+      );
+      request.headers.addAll(_headers(auth: true));
+      request.files.add(await http.MultipartFile.fromPath('file', filePath));
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+      final body = _decodeJsonBody(response.body);
+      return ApiResponse<Map<String, dynamic>>(
+        success: body['success'] == true,
+        message: body['message']?.toString() ?? '',
+        data: body is Map<String, dynamic> ? body : {},
+        statusCode: response.statusCode,
       );
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));

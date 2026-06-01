@@ -28,9 +28,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   void initState() {
     super.initState();
     _order = widget.initialOrder;
-    if (_order == null) {
-      _load();
-    }
+    if (_order == null) _load();
   }
 
   Future<void> _load() async {
@@ -38,9 +36,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     try {
       final response = await ApiService.getOrderDetail(widget.orderId);
       if (!mounted) return;
-      if (response.success) {
-        setState(() => _order = response.data);
-      }
+      if (response.success) setState(() => _order = response.data);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -55,7 +51,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           'Bạn có chắc muốn hủy đơn? Tồn kho sẽ được hoàn lại khi đơn còn trạng thái chờ xử lý.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Không'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Hủy đơn'),
@@ -113,7 +112,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => OrderTrackScreen(orderCode: order.orderCode),
+                    builder: (_) =>
+                        OrderTrackScreen(orderCode: order.orderCode),
                   ),
                 );
               },
@@ -123,18 +123,23 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ],
       ),
       body: _isLoading && order == null
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF1F67E2)))
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF1F67E2)))
           : order == null
               ? const Center(child: Text('Không tải được đơn hàng'))
               : RefreshIndicator(
                   onRefresh: _load,
+                  color: const Color(0xFF1F67E2),
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
                       _InfoCard(order: order),
-                      const SizedBox(height: 16),
-                      _SectionTitle('Sản phẩm'),
+                      const SizedBox(height: 20),
+                      const _SectionTitle('Sản phẩm'),
                       ...order.items.map((item) => _OrderItemTile(item: item)),
+                      const SizedBox(height: 20),
+                      const _SectionTitle('Tổng kết'),
+                      _PriceSummary(order: order),
                       if (order.status == 'pending') ...[
                         const SizedBox(height: 24),
                         OutlinedButton(
@@ -148,7 +153,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                               ? const SizedBox(
                                   height: 20,
                                   width: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
                                 )
                               : const Text('Hủy đơn hàng'),
                         ),
@@ -192,38 +198,52 @@ class _InfoCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   orderStatusLabel(order.status),
-                  style: TextStyle(color: statusColor, fontWeight: FontWeight.w700),
+                  style:
+                      TextStyle(color: statusColor, fontWeight: FontWeight.w700),
                 ),
               ),
             ],
           ),
           const Divider(height: 24),
-          _row('Trạng thái thanh toán', order.paymentStatus ?? '-'),
-          _row('Phương thức', order.paymentMethod ?? '-'),
-          _row('Địa chỉ giao', order.shippingAddress ?? '-'),
-          _row('Điện thoại', order.phone ?? '-'),
-          _row('Tổng tiền', formatCurrency(order.totalPrice)),
-          if (order.createdOn != null) _row('Ngày tạo', order.createdOn!),
+          _infoRow('Trạng thái thanh toán',
+              paymentStatusLabel(order.paymentStatus)),
+          _infoRow('Phương thức thanh toán',
+              paymentMethodLabel(order.paymentMethod)),
+          _infoRow('Người nhận', order.customerName ?? '-'),
+          _infoRow('Số điện thoại', order.phone ?? '-'),
+          _infoRow('Địa chỉ giao hàng', _fullAddress(order), maxLabelWidth: 120),
+          _infoRow('Ngày đặt', formatOrderDate(order.createdOn)),
         ],
       ),
     );
   }
 
-  Widget _row(String label, String value) {
+  String _fullAddress(OrderDetail o) {
+    final parts = [
+      o.shippingAddress,
+      o.wardName,
+      o.districtName,
+      o.provinceName,
+    ].where((p) => p != null && p.isNotEmpty).toList();
+    return parts.isEmpty ? '-' : parts.join(', ');
+  }
+
+  Widget _infoRow(String label, String value, {double maxLabelWidth = 140}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 130,
+            width: maxLabelWidth,
             child: Text(
               label,
               style: const TextStyle(color: Color(0xFF6B7893), fontSize: 13),
@@ -272,54 +292,212 @@ class _OrderItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final imageUrl = item.mainImageUrl;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE3EAF5)),
       ),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            item.productName ?? 'Sản phẩm',
-            style: const TextStyle(fontWeight: FontWeight.w800),
+          // Hình ảnh sản phẩm
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: imageUrl != null && imageUrl.isNotEmpty
+                ? Image.network(
+                    imageUrl,
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => _placeholderImage(),
+                  )
+                : _placeholderImage(),
           ),
-          const SizedBox(height: 4),
-          Text('SKU: ${item.sku ?? '-'} • x${item.quantity}',
-              style: const TextStyle(color: Color(0xFF6B7893), fontSize: 13)),
-          const SizedBox(height: 4),
-          Text(
-            formatCurrency(item.lineTotal ?? item.price),
-            style: const TextStyle(
-              color: Color(0xFF1F67E2),
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          if (item.serials.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            const Text(
-              'Serial number:',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF42506A),
-              ),
-            ),
-            ...item.serials.map(
-              (s) => Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  '• ${s.serialCode ?? '-'} (${s.status ?? ''})',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF6B7893)),
+          const SizedBox(width: 14),
+          // Thông tin sản phẩm
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.productName ?? 'Sản phẩm',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF14213D),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 4),
+                // SKU
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAF4FF),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    item.sku ?? 'Không có SKU',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1F67E2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                // Giá
+                Row(
+                  children: [
+                    Text(
+                      '${formatCurrency(item.lineTotal ?? item.price)} x${item.quantity}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1F67E2),
+                      ),
+                    ),
+                  ],
+                ),
+                // Serial numbers
+                if (item.serials.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  const Divider(height: 1),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Số serial',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF42506A),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  ...item.serials.map((s) => Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.qr_code_2_rounded,
+                              size: 14,
+                              color: Color(0xFF6B7893),
+                            ),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              child: Text(
+                                s.serialCode ?? '-',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF14213D),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                ],
+              ],
             ),
-          ],
+          ),
         ],
       ),
     );
   }
+
+  Widget _placeholderImage() {
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F6FF),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Icon(
+        Icons.memory_rounded,
+        size: 36,
+        color: Color(0xFF1F67E2),
+      ),
+    );
+  }
 }
+
+class _PriceSummary extends StatelessWidget {
+  const _PriceSummary({required this.order});
+
+  final OrderDetail order;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE3EAF5)),
+      ),
+      child: Column(
+        children: [
+          _priceRow('Tổng tiền sản phẩm',
+              formatCurrency(_subtotal), isBold: false),
+          const SizedBox(height: 8),
+          _priceRow('Phí vận chuyển',
+              formatCurrency(_shippingFee), isBold: false),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 10),
+            child: Divider(height: 1),
+          ),
+          if (order.shippingFee != null && order.shippingFee! > 0)
+            _priceRow('Phí vận chuyển', formatCurrency(order.shippingFee)),
+          _priceRow(
+              'Tổng thanh toán', formatCurrency(order.totalPrice),
+              isBold: true, color: const Color(0xFF1F67E2)),
+        ],
+      ),
+    );
+  }
+
+  double get _subtotal =>
+      order.items.fold(0.0, (sum, item) => sum + (item.lineTotal ?? 0.0));
+
+  double get _shippingFee {
+    final total = order.totalPrice ?? 0.0;
+    if (total <= 0) return 0;
+    final subtotal = _subtotal;
+    if (subtotal <= 0) return total;
+    return (total - subtotal).clamp(0, double.infinity);
+  }
+
+  Widget _priceRow(String label, String value,
+      {bool isBold = false, Color? color}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isBold ? FontWeight.w800 : FontWeight.w500,
+            color: const Color(0xFF6B7893),
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: isBold ? 16 : 13,
+            fontWeight: isBold ? FontWeight.w900 : FontWeight.w600,
+            color: color ?? const Color(0xFF14213D),
+          ),
+        ),
+      ],
+    );
+  }
+}
+

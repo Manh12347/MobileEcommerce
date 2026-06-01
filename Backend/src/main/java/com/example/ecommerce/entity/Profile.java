@@ -16,7 +16,7 @@ public class Profile {
     @Column(name = "profile_id")
     private Integer profileId;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "account_id")
     private Account account;
 
@@ -24,6 +24,13 @@ public class Profile {
     private String phone;
     private String address;
     private String avatarUrl;
+
+    private Integer provinceId;
+    private String provinceName;
+    private Integer districtId;
+    private String districtName;
+    private String wardCode;
+    private String wardName;
 
     @Column(name = "created_on", updatable = false)
     private LocalDateTime createdOn;

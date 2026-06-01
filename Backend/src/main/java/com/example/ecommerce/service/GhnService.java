@@ -107,6 +107,13 @@ public class GhnService {
                 if (response.isSuccess()) {
                     log.info("[GhnService] Async: ✅ GHN order created: orderId={}, ghnOrderCode={}",
                             orderId, response.getData().getOrderCode());
+                    // Luu phi ship vao order
+                    int totalFee = response.getData().getTotalFee();
+                    if (totalFee > 0) {
+                        order.setShippingFee(java.math.BigDecimal.valueOf(totalFee));
+                        orderRepository.save(order);
+                        log.info("[GhnService] Async: Saved shipping_fee={} for orderId={}", totalFee, orderId);
+                    }
                 } else {
                     log.warn("[GhnService] Async: ⚠️ GHN failed: orderId={}, code={}, message={}",
                             orderId, response.getCode(), response.getMessage());

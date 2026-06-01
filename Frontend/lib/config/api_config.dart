@@ -3,7 +3,7 @@
 // API Configuration
 // Frontend gọi vào backend server đã deploy
 
-const String API_BASE_URL = 'https://doantrang.online/v1/api';
+const String API_BASE_URL = 'http://localhost:5000/v1/api';
 const String PRODUCTS_ENDPOINT = '/catalogs/products';
 const String CATEGORIES_ENDPOINT = '/catalogs/categories';
 const String PRODUCT_ITEMS_ENDPOINT = '/product-items';

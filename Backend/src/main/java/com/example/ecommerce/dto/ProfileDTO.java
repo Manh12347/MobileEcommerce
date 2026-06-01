@@ -19,4 +19,10 @@ public class ProfileDTO {
     private String avatarUrl;
     private String createdOn;
     private Boolean is2faEnabled;
+    private Integer provinceId;
+    private String provinceName;
+    private Integer districtId;
+    private String districtName;
+    private String wardCode;
+    private String wardName;
 }

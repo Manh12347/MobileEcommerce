@@ -45,3 +45,52 @@ Color orderStatusColor(String? status) {
       return const Color(0xFF6B7893);
   }
 }
+
+String paymentStatusLabel(String? status) {
+  switch (status?.toLowerCase()) {
+    case 'paid':
+    case 'completed':
+    case 'success':
+      return 'Đã thanh toán';
+    case 'pending':
+    case 'waiting':
+      return 'Chờ thanh toán';
+    case 'failed':
+    case 'error':
+      return 'Thanh toán thất bại';
+    case 'refunded':
+      return 'Đã hoàn tiền';
+    default:
+      return status ?? '-';
+  }
+}
+
+String paymentMethodLabel(String? method) {
+  if (method == null || method.isEmpty) return '-';
+  switch (method.toUpperCase()) {
+    case 'COD':
+      return 'Thanh toán khi nhận hàng (COD)';
+    case 'PICKUP':
+    case 'AT_STORE':
+    case 'IN_STORE':
+    case 'STORE':
+      return 'Tại cửa hàng';
+    case 'TRANSFER':
+    case 'BANK_TRANSFER':
+    case 'CHUYEN_KHOAN':
+    case 'INTERNET_BANKING':
+      return 'Chuyển khoản ngân hàng';
+    default:
+      return method;
+  }
+}
+
+String formatOrderDate(String? raw) {
+  if (raw == null || raw.isEmpty) return '-';
+  try {
+    final dt = DateTime.parse(raw);
+    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year} lúc ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  } catch (_) {
+    return raw;
+  }
+}
