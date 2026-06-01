@@ -150,7 +150,9 @@ public class PaymentExpiredService {
     }
 
     private void restoreCartItems(Integer accountId, java.util.List<PaymentCacheInfo.CartSnapshotItem> snapshot) {
-        Cart cart = cartRepository.findByAccountAccountId(accountId)
+        Cart cart = cartRepository.findAllByAccountAccountIdOrderByUpdatedOnDescCartIdDesc(accountId)
+                .stream()
+                .findFirst()
                 .orElseGet(() -> {
                     Cart newCart = new Cart();
                     newCart.setAccount(new com.example.ecommerce.entity.Account());

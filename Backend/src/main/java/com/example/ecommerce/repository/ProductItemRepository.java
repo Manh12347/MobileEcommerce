@@ -39,12 +39,7 @@ public interface ProductItemRepository extends JpaRepository<ProductItem, Intege
            "LEFT JOIN FETCH pi.product " +
            "WHERE pi.product.productId = :productId")
     List<ProductItem> findByProductProductIdWithSerialsAndProduct(@Param("productId") Integer productId);
-    
-           "LEFT JOIN FETCH pi.serials " +
-           "LEFT JOIN FETCH pi.product " +
-           "WHERE pi.product.productId = :productId")
-    List<ProductItem> findByProductProductIdWithSerialsAndProduct(@Param("productId") Integer productId);
-    
+
     // Query cho list view - KHÔNG load serials để tăng performance
     @Query("SELECT pi FROM ProductItem pi " +
            "LEFT JOIN FETCH pi.product " +
