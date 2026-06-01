@@ -40,6 +40,11 @@ public interface ProductItemRepository extends JpaRepository<ProductItem, Intege
            "WHERE pi.product.productId = :productId")
     List<ProductItem> findByProductProductIdWithSerialsAndProduct(@Param("productId") Integer productId);
     
+           "LEFT JOIN FETCH pi.serials " +
+           "LEFT JOIN FETCH pi.product " +
+           "WHERE pi.product.productId = :productId")
+    List<ProductItem> findByProductProductIdWithSerialsAndProduct(@Param("productId") Integer productId);
+    
     // Query cho list view - KHÔNG load serials để tăng performance
     @Query("SELECT pi FROM ProductItem pi " +
            "LEFT JOIN FETCH pi.product " +
@@ -49,6 +54,7 @@ public interface ProductItemRepository extends JpaRepository<ProductItem, Intege
     // Lấy product items cho list view với sold count (1 query thay vì N+1)
     @Query(value = "SELECT pi.product_item_id, pi.sku, pi.stock_quantity, pi.status, pi.price, pi.sale_price, " +
            "pi.created_on, pi.product_id, p.name as product_name, " +
+           "(SELECT COUNT(*) FROM serial_numbers sn WHERE sn.product_item_id = pi.product_item_id AND sn.status = 'sold') as sold_count, " +
            "pi.description, pi.specifications, pi.main_image_url, " +
            "p.brand_id, b.name as brand_name, b.country as brand_country, b.status as brand_status, " +
            "p.category_id, c.name as category_name, c.status as category_status " +
@@ -64,6 +70,7 @@ public interface ProductItemRepository extends JpaRepository<ProductItem, Intege
 
     @Query(value = "SELECT pi.product_item_id, pi.sku, pi.stock_quantity, pi.status, pi.price, pi.sale_price, " +
            "pi.created_on, pi.product_id, p.name as product_name, " +
+           "(SELECT COUNT(*) FROM serial_numbers sn WHERE sn.product_item_id = pi.product_item_id AND sn.status = 'sold') as sold_count, " +
            "pi.description, pi.specifications, pi.main_image_url, " +
            "p.brand_id, b.name as brand_name, b.country as brand_country, b.status as brand_status, " +
            "p.category_id, c.name as category_name, c.status as category_status " +

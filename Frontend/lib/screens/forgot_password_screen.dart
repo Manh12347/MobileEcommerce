@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import 'otp_confirm_screen.dart';
+import '../providers/login_provider.dart';
+import 'reset_password_screen.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -15,6 +17,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   void dispose() {
+    context.read<LoginProvider>().clearError(notify: false);
     _emailController.dispose();
     super.dispose();
   }
@@ -38,17 +41,22 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return true;
   }
 
-  void _openOtpScreen() {
+  Future<void> _sendResetOtp() async {
     if (!_validateEmail()) {
       setState(() {});
       return;
     }
 
+    final email = _emailController.text.trim();
+    final success = await context.read<LoginProvider>().forgotPassword(email);
+
+    if (!mounted || !success) {
+      return;
+    }
+
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => OtpConfirmScreen(email: _emailController.text.trim()),
-      ),
+      MaterialPageRoute(builder: (_) => ResetPasswordScreen(email: email)),
     );
   }
 
@@ -184,14 +192,45 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               ),
                             ),
                           ),
+                        Consumer<LoginProvider>(
+                          builder: (context, provider, _) {
+                            if (provider.errorMessage.isEmpty) {
+                              return const SizedBox.shrink();
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 7),
+                              child: Text(
+                                provider.errorMessage,
+                                style: const TextStyle(
+                                  color: Color(0xFFE5484D),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                         const SizedBox(height: 24),
                         SizedBox(
                           height: 48,
                           child: ElevatedButton.icon(
-                            onPressed: _openOtpScreen,
+                            onPressed: context.watch<LoginProvider>().isLoading
+                                ? null
+                                : _sendResetOtp,
                             iconAlignment: IconAlignment.end,
                             icon: const Icon(Icons.arrow_forward, size: 20),
-                            label: const Text('Gửi liên kết'),
+                            label: context.watch<LoginProvider>().isLoading
+                                ? const SizedBox(
+                                    height: 18,
+                                    width: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                : const Text('Gửi mã OTP'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF0759D8),
                               foregroundColor: Colors.white,
