@@ -237,7 +237,19 @@ public class SepayWebhookController {
                 return ResponseEntity.ok(createResponse(true, "Pending", data));
             }
 
-            // Cache hết hạn → kiểm tra DB
+            // Cache hết hạn hoặc đã được xóa sau khi thành công → kiểm tra DB
+            Optional<Payment> paymentOpt = paymentRepository.findByTransactionId(gencode);
+            if (paymentOpt.isPresent()) {
+                Payment p = paymentOpt.get();
+                Map<String, Object> data = new HashMap<>();
+                data.put("gencode", gencode);
+                data.put("status", p.getStatus().equalsIgnoreCase("success") ? "paid" : p.getStatus());
+                data.put("orderId", p.getOrder() != null ? p.getOrder().getOrderId() : null);
+                data.put("totalAmount", p.getAmount());
+                return ResponseEntity.ok(createResponse(true, "Success", data));
+            }
+
+            // Cache hết hạn và không có trong DB
             Map<String, Object> data = new HashMap<>();
             data.put("gencode", gencode);
             data.put("status", "expired_or_unknown");

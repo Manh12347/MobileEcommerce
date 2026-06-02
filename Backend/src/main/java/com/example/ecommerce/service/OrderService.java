@@ -70,14 +70,30 @@ public class OrderService {
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản"));
 
-        Cart cart = cartRepository.findAllByAccountAccountIdOrderByUpdatedOnDescCartIdDesc(accountId)
-                .stream()
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Giỏ hàng trống, không thể đặt hàng"));
+        List<CartItem> cartItems;
+        Cart cart = null;
+        if (request.getItems() != null && !request.getItems().isEmpty()) {
+            cartItems = new ArrayList<>();
+            for (CreateOrderRequest.CheckoutItem item : request.getItems()) {
+                ProductItem productItem = productItemRepository.findById(item.getProductItemId())
+                        .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm: " + item.getProductItemId()));
 
-        List<CartItem> cartItems = cartItemRepository.findByCartCartId(cart.getCartId());
-        if (cartItems.isEmpty()) {
-            throw new RuntimeException("Giỏ hàng trống, không thể đặt hàng");
+                CartItem cartItem = new CartItem();
+                cartItem.setProductItem(productItem);
+                cartItem.setQuantity(item.getQuantity());
+                cartItem.setPrice(resolveUnitPrice(productItem));
+                cartItems.add(cartItem);
+            }
+        } else {
+            cart = cartRepository.findAllByAccountAccountIdOrderByUpdatedOnDescCartIdDesc(accountId)
+                    .stream()
+                    .findFirst()
+                    .orElseThrow(() -> new RuntimeException("Giỏ hàng trống, không thể đặt hàng"));
+
+            cartItems = cartItemRepository.findByCartCartId(cart.getCartId());
+            if (cartItems.isEmpty()) {
+                throw new RuntimeException("Giỏ hàng trống, không thể đặt hàng");
+            }
         }
 
         for (CartItem cartItem : cartItems) {

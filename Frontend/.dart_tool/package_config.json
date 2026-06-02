@@ -2,6 +2,12 @@
   "configVersion": 2,
   "packages": [
     {
+      "name": "archive",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/archive-4.0.9",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
       "name": "async",
       "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/async-2.13.1",
       "packageUri": "lib/",
@@ -33,13 +39,13 @@
     },
     {
       "name": "cross_file",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/cross_file-0.3.5+2",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/cross_file-0.3.5+2",
       "packageUri": "lib/",
       "languageVersion": "3.8"
     },
     {
       "name": "crypto",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/crypto-3.0.7",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/crypto-3.0.7",
       "packageUri": "lib/",
       "languageVersion": "3.4"
     },
@@ -51,7 +57,7 @@
     },
     {
       "name": "equatable",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/equatable-2.0.8",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/equatable-2.0.8",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     },
@@ -75,31 +81,31 @@
     },
     {
       "name": "file_selector_linux",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/file_selector_linux-0.9.4",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/file_selector_linux-0.9.4",
       "packageUri": "lib/",
       "languageVersion": "3.8"
     },
     {
       "name": "file_selector_macos",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/file_selector_macos-0.9.5",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/file_selector_macos-0.9.5",
       "packageUri": "lib/",
       "languageVersion": "3.9"
     },
     {
       "name": "file_selector_platform_interface",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/file_selector_platform_interface-2.7.0",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/file_selector_platform_interface-2.7.0",
       "packageUri": "lib/",
       "languageVersion": "3.7"
     },
     {
       "name": "file_selector_windows",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/file_selector_windows-0.9.3+5",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/file_selector_windows-0.9.3+5",
       "packageUri": "lib/",
       "languageVersion": "3.8"
     },
     {
       "name": "fl_chart",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/fl_chart-0.70.2",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/fl_chart-0.70.2",
       "packageUri": "lib/",
       "languageVersion": "3.2"
     },
@@ -117,7 +123,7 @@
     },
     {
       "name": "flutter_plugin_android_lifecycle",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/flutter_plugin_android_lifecycle-2.0.34",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/flutter_plugin_android_lifecycle-2.0.34",
       "packageUri": "lib/",
       "languageVersion": "3.9"
     },
@@ -182,50 +188,56 @@
       "languageVersion": "3.4"
     },
     {
+      "name": "image",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/image-4.9.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
       "name": "image_picker",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/image_picker-1.2.2",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/image_picker-1.2.2",
       "packageUri": "lib/",
       "languageVersion": "3.9"
     },
     {
       "name": "image_picker_android",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/image_picker_android-0.8.13+17",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/image_picker_android-0.8.13+17",
       "packageUri": "lib/",
       "languageVersion": "3.9"
     },
     {
       "name": "image_picker_for_web",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/image_picker_for_web-3.1.1",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/image_picker_for_web-3.1.1",
       "packageUri": "lib/",
       "languageVersion": "3.8"
     },
     {
       "name": "image_picker_ios",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/image_picker_ios-0.8.13+6",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/image_picker_ios-0.8.13+6",
       "packageUri": "lib/",
       "languageVersion": "3.10"
     },
     {
       "name": "image_picker_linux",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/image_picker_linux-0.2.2",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/image_picker_linux-0.2.2",
       "packageUri": "lib/",
       "languageVersion": "3.6"
     },
     {
       "name": "image_picker_macos",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/image_picker_macos-0.2.2+1",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/image_picker_macos-0.2.2+1",
       "packageUri": "lib/",
       "languageVersion": "3.9"
     },
     {
       "name": "image_picker_platform_interface",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/image_picker_platform_interface-2.11.1",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/image_picker_platform_interface-2.11.1",
       "packageUri": "lib/",
       "languageVersion": "3.7"
     },
     {
       "name": "image_picker_windows",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/image_picker_windows-0.2.2",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/image_picker_windows-0.2.2",
       "packageUri": "lib/",
       "languageVersion": "3.6"
     },
@@ -273,7 +285,7 @@
     },
     {
       "name": "mime",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/mime-2.0.0",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/mime-2.0.0",
       "packageUri": "lib/",
       "languageVersion": "3.2"
     },
@@ -308,6 +320,12 @@
       "languageVersion": "3.2"
     },
     {
+      "name": "petitparser",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/petitparser-7.0.2",
+      "packageUri": "lib/",
+      "languageVersion": "3.8"
+    },
+    {
       "name": "platform",
       "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/platform-3.1.6",
       "packageUri": "lib/",
@@ -320,6 +338,12 @@
       "languageVersion": "3.0"
     },
     {
+      "name": "posix",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/posix-6.5.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
       "name": "provider",
       "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/provider-6.1.5+1",
       "packageUri": "lib/",
@@ -327,13 +351,13 @@
     },
     {
       "name": "qr",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/qr-3.0.2",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/qr-3.0.2",
       "packageUri": "lib/",
       "languageVersion": "3.4"
     },
     {
       "name": "qr_flutter",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/qr_flutter-4.1.0",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/qr_flutter-4.1.0",
       "packageUri": "lib/",
       "languageVersion": "2.19"
     },
@@ -399,7 +423,7 @@
     },
     {
       "name": "stomp_dart_client",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/stomp_dart_client-2.1.3",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/stomp_dart_client-2.1.3",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     },
@@ -453,13 +477,13 @@
     },
     {
       "name": "web_socket",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/web_socket-1.0.1",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/web_socket-1.0.1",
       "packageUri": "lib/",
       "languageVersion": "3.4"
     },
     {
       "name": "web_socket_channel",
-      "rootUri": "file:///C:/Users/ASUS/AppData/Local/Pub/Cache/hosted/pub.dev/web_socket_channel-3.0.3",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/web_socket_channel-3.0.3",
       "packageUri": "lib/",
       "languageVersion": "3.3"
     },
@@ -468,6 +492,12 @@
       "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/xdg_directories-1.1.0",
       "packageUri": "lib/",
       "languageVersion": "3.3"
+    },
+    {
+      "name": "xml",
+      "rootUri": "file:///C:/Users/Trestifer/AppData/Local/Pub/Cache/hosted/pub.dev/xml-7.0.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.11"
     },
     {
       "name": "mobile_ecommerce",

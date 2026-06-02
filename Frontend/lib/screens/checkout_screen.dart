@@ -19,7 +19,8 @@ import '../utils/format_utils.dart';
 import 'order_detail_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
-  const CheckoutScreen({super.key});
+  final Cart? directBuyCart;
+  const CheckoutScreen({super.key, this.directBuyCart});
 
   @override
   State<CheckoutScreen> createState() => _CheckoutScreenState();
@@ -483,6 +484,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           districtName: isPickup ? null : _selectedDistrict?.districtName,
           wardName: isPickup ? null : _selectedWard?.wardName,
           paymentMethod: _paymentMethod,
+          items: widget.directBuyCart != null
+              ? widget.directBuyCart!.items
+                  .map((i) => CheckoutItemRequest(
+                        productItemId: i.productItemId,
+                        quantity: i.quantity,
+                      ))
+                  .toList()
+              : null,
         ),
       );
 
@@ -1034,7 +1043,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return _buildPaymentScreen();
     }
 
-    final cart = context.watch<CartProvider>().cart;
+    final cart = widget.directBuyCart ?? context.watch<CartProvider>().cart;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F8FC),

@@ -1,7 +1,10 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
@@ -171,6 +174,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 phone: _phone,
                 fullAddress: _fullAddress,
                 onEditTap: () => _showEditProfileSheet(context),
+                onAvatarUpdated: (url) {
+                  setState(() {
+                    _avatarUrl = url;
+                  });
+                },
               ),
                   const SizedBox(height: 24),
 
@@ -358,6 +366,7 @@ class _PersonalInfoCard extends StatelessWidget {
     required this.phone,
     required this.fullAddress,
     required this.onEditTap,
+    this.onAvatarUpdated,
   });
 
   final String? avatarUrl;
@@ -366,6 +375,7 @@ class _PersonalInfoCard extends StatelessWidget {
   final String? phone;
   final String fullAddress;
   final VoidCallback onEditTap;
+  final ValueChanged<String>? onAvatarUpdated;
 
   @override
   Widget build(BuildContext context) {
@@ -470,6 +480,23 @@ class _PersonalInfoCard extends StatelessWidget {
     );
   }
 
+  Future<XFile?> _convertToJpeg(XFile file) async {
+    try {
+      final bytes = await file.readAsBytes();
+      final image = img.decodeImage(bytes);
+      if (image == null) return null;
+      final jpgBytes = img.encodeJpg(image, quality: 85);
+      final newName = file.name.replaceAll(RegExp(r'\.[^.]+$'), '.jpeg');
+      return XFile.fromData(
+        Uint8List.fromList(jpgBytes),
+        mimeType: 'image/jpeg',
+        name: newName,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _pickAndUploadAvatar(BuildContext context) async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
@@ -483,17 +510,30 @@ class _PersonalInfoCard extends StatelessWidget {
     final scaffold = ScaffoldMessenger.of(context);
     scaffold.showSnackBar(
       const SnackBar(
+        content: Text('Đang xử lý ảnh...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    final converted = await _convertToJpeg(picked);
+    final fileToUpload = converted ?? picked;
+
+    scaffold.showSnackBar(
+      const SnackBar(
         content: Text('Đang tải ảnh lên...'),
         duration: Duration(seconds: 2),
       ),
     );
 
     try {
-      final resp = await ApiService.uploadAvatar(picked);
+      final resp = await ApiService.uploadAvatar(fileToUpload);
       if (resp.success) {
         final uploadedUrl = resp.data?['url']?.toString();
         if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
           await ApiService.updateProfile(avatarUrl: uploadedUrl);
+          if (onAvatarUpdated != null) {
+            onAvatarUpdated!(uploadedUrl);
+          }
         }
         scaffold.showSnackBar(
           const SnackBar(
@@ -908,7 +948,25 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
               const SizedBox(height: 20),
               _field('Họ và tên', _nameCtrl, TextInputType.name),
               const SizedBox(height: 14),
-              _field('Số điện thoại', _phoneCtrl, TextInputType.phone),
+              _field(
+                'Số điện thoại',
+                _phoneCtrl,
+                TextInputType.phone,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Vui lòng nhập số điện thoại';
+                  }
+                  final trimmed = v.trim();
+                  if (!RegExp(r'^0\d{9}$').hasMatch(trimmed)) {
+                    return 'Số điện thoại không hợp lệ';
+                  }
+                  return null;
+                },
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(10),
+                ],
+              ),
               const SizedBox(height: 14),
               _field('Số nhà, đường', _houseCtrl, TextInputType.text),
               const SizedBox(height: 14),
@@ -1012,8 +1070,10 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   Widget _field(
     String label,
     TextEditingController ctrl,
-    TextInputType keyboard,
-  ) {
+    TextInputType keyboard, {
+    FormFieldValidator<String>? validator,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1029,6 +1089,8 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
         TextFormField(
           controller: ctrl,
           keyboardType: keyboard,
+          validator: validator,
+          inputFormatters: inputFormatters,
           decoration: InputDecoration(
             hintText: 'Nhập $label',
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
