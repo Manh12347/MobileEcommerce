@@ -1112,7 +1112,6 @@ class ApiService {
     }
   }
 
-<<<<<<< HEAD
   // ─── Chatbot ────────────────────────────────────────────────────────────────
 
   static const String _chatbotBaseUrl = 'https://rag.doantrang.online';
@@ -1139,7 +1138,11 @@ class ApiService {
       } else {
         throw Exception('Server lỗi (${response.statusCode})');
       }
-=======
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
   static Future<ApiResponse<String>> forgotPassword(String email) async {
     try {
       final response = await http
@@ -1172,43 +1175,10 @@ class ApiService {
           fallback: 'Không thể gửi mã khôi phục. Vui lòng thử lại',
         ),
       );
->>>>>>> 6fbd4b6de364c604240e11e98cd09b118eca6cc1
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
-<<<<<<< HEAD
-}
-
-class ChatbotResponse {
-  final String sessionId;
-  final String answer;
-  final List<RetrievedProduct> retrievedProducts;
-  final String? decisionAction;
-  final String? decisionReason;
-
-  ChatbotResponse({
-    required this.sessionId,
-    required this.answer,
-    required this.retrievedProducts,
-    this.decisionAction,
-    this.decisionReason,
-  });
-
-  factory ChatbotResponse.fromJson(Map<String, dynamic> json) {
-    final products = (json['retrieved_products'] as List<dynamic>?)
-            ?.map((e) => RetrievedProduct.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [];
-
-    return ChatbotResponse(
-      sessionId: json['session_id'] as String? ?? '',
-      answer: json['answer'] as String? ?? '',
-      retrievedProducts: products,
-      decisionAction: (json['decision'] as Map<String, dynamic>?)?['action'] as String?,
-      decisionReason: (json['decision'] as Map<String, dynamic>?)?['reason'] as String?,
-    );
-=======
 
   static Future<ApiResponse<String>> resetPassword({
     required String email,
@@ -1253,6 +1223,37 @@ class ChatbotResponse {
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
->>>>>>> 6fbd4b6de364c604240e11e98cd09b118eca6cc1
   }
 }
+
+class ChatbotResponse {
+  final String sessionId;
+  final String answer;
+  final List<RetrievedProduct> retrievedProducts;
+  final String? decisionAction;
+  final String? decisionReason;
+
+  ChatbotResponse({
+    required this.sessionId,
+    required this.answer,
+    required this.retrievedProducts,
+    this.decisionAction,
+    this.decisionReason,
+  });
+
+  factory ChatbotResponse.fromJson(Map<String, dynamic> json) {
+    final products = (json['retrieved_products'] as List<dynamic>?)
+            ?.map((e) => RetrievedProduct.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        [];
+
+    return ChatbotResponse(
+      sessionId: json['session_id'] as String? ?? '',
+      answer: json['answer'] as String? ?? '',
+      retrievedProducts: products,
+      decisionAction: (json['decision'] as Map<String, dynamic>?)?['action'] as String?,
+      decisionReason: (json['decision'] as Map<String, dynamic>?)?['reason'] as String?,
+    );
+  }
+}
+
