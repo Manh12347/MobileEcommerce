@@ -236,6 +236,18 @@ class OrderTrack {
   }
 }
 
+class CheckoutItemRequest {
+  final int productItemId;
+  final int quantity;
+
+  CheckoutItemRequest({required this.productItemId, required this.quantity});
+
+  Map<String, dynamic> toJson() => {
+    'productItemId': productItemId,
+    'quantity': quantity,
+  };
+}
+
 class CreateOrderRequest {
   final String shippingAddress;
   final String phone;
@@ -246,6 +258,7 @@ class CreateOrderRequest {
   final String? districtName;
   final String? wardName;
   final String paymentMethod;
+  final List<CheckoutItemRequest>? items;
 
   CreateOrderRequest({
     required this.shippingAddress,
@@ -257,17 +270,24 @@ class CreateOrderRequest {
     this.districtName,
     this.wardName,
     this.paymentMethod = 'COD',
+    this.items,
   });
 
-  Map<String, dynamic> toJson() => {
-    'shippingAddress': shippingAddress,
-    'phone': phone,
-    'provinceId': provinceId,
-    'districtId': districtId,
-    'wardCode': wardCode,
-    'provinceName': provinceName,
-    'districtName': districtName,
-    'wardName': wardName,
-    'paymentMethod': paymentMethod,
-  };
+  Map<String, dynamic> toJson() {
+    final data = <String, dynamic>{
+      'shippingAddress': shippingAddress,
+      'phone': phone,
+      'provinceId': provinceId,
+      'districtId': districtId,
+      'wardCode': wardCode,
+      'provinceName': provinceName,
+      'districtName': districtName,
+      'wardName': wardName,
+      'paymentMethod': paymentMethod,
+    };
+    if (items != null) {
+      data['items'] = items!.map((i) => i.toJson()).toList();
+    }
+    return data;
+  }
 }

@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -23,4 +24,14 @@ public class CreateOrderRequest {
     private String wardName;
 
     private String paymentMethod = "COD";
+
+    private List<CheckoutItem> items;
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CheckoutItem {
+        private Integer productItemId;
+        private int quantity;
+    }
 }

@@ -50,7 +50,13 @@ public class PaymentExpiredService {
     @Scheduled(fixedDelay = 30_000)
     public void checkExpiredPayments() {
         try {
-            Set<String> keys = redisTemplate.keys(KEY_PATTERN_ORDER);
+            Set<String> keys = null;
+            try {
+                keys = redisTemplate.keys(KEY_PATTERN_ORDER);
+            } catch (Exception e) {
+                log.debug("[PaymentExpired] Redis offline. Checking localPaymentStore.");
+                keys = paymentRedisService.getLocalKeys(KEY_PATTERN_ORDER);
+            }
             if (keys == null || keys.isEmpty()) return;
 
             for (String key : keys) {

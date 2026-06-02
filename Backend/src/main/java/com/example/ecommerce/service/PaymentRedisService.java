@@ -9,9 +9,12 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -24,6 +27,9 @@ public class PaymentRedisService {
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final ObjectMapper objectMapper;
+    private final Map<String, LocalValue> localPaymentStore = new ConcurrentHashMap<>();
+
+    private record LocalValue(String value, Instant expiresAt) {}
 
     public PaymentRedisService(RedisTemplate<String, Object> redisTemplate) {
         this.redisTemplate = redisTemplate;
@@ -31,24 +37,42 @@ public class PaymentRedisService {
         this.objectMapper.registerModule(new JavaTimeModule());
     }
 
+    public java.util.Set<String> getLocalKeys(String pattern) {
+        java.util.Set<String> keys = new java.util.HashSet<>();
+        for (String key : localPaymentStore.keySet()) {
+            if (key.startsWith("sepay:order:")) {
+                keys.add(key);
+            }
+        }
+        return keys;
+    }
+
     public void cacheOrderPaymentInfo(PaymentCacheInfo info) {
         cacheOrderPaymentInfo(info, DEFAULT_TTL_MINUTES);
     }
 
     public void cacheOrderPaymentInfo(PaymentCacheInfo info, int ttlMinutes) {
+        String orderKey = KEY_PREFIX_ORDER + info.getGencode();
+        String gencodeKey = KEY_PREFIX_GENCODE + info.getOrderId();
+        
         try {
-            String orderKey = KEY_PREFIX_ORDER + info.getGencode();
-            String gencodeKey = KEY_PREFIX_GENCODE + info.getOrderId();
-
             String json = objectMapper.writeValueAsString(info);
-
             redisTemplate.opsForValue().set(orderKey, json, Duration.ofMinutes(ttlMinutes));
             redisTemplate.opsForValue().set(gencodeKey, info.getGencode(), Duration.ofMinutes(ttlMinutes));
-
             log.info("[PaymentRedis] Cached order payment: gencode={}, orderId={}, ttl={}min",
                     info.getGencode(), info.getOrderId(), ttlMinutes);
         } catch (JsonProcessingException e) {
             log.error("[PaymentRedis] Failed to serialize PaymentCacheInfo", e);
+        } catch (Exception e) {
+            log.warn("[PaymentRedis] Redis unavailable for caching. Using local store fallback.", e);
+            try {
+                String json = objectMapper.writeValueAsString(info);
+                Instant expiry = Instant.now().plus(Duration.ofMinutes(ttlMinutes));
+                localPaymentStore.put(orderKey, new LocalValue(json, expiry));
+                localPaymentStore.put(gencodeKey, new LocalValue(info.getGencode(), expiry));
+            } catch (Exception ex) {
+                log.error("[PaymentRedis] Failed to save to local store fallback", ex);
+            }
         }
     }
 
@@ -56,7 +80,20 @@ public class PaymentRedisService {
         try {
             for (String candidate : buildGencodeCandidates(gencode)) {
                 String key = KEY_PREFIX_ORDER + candidate;
-                Object raw = redisTemplate.opsForValue().get(key);
+                Object raw = null;
+                try {
+                    raw = redisTemplate.opsForValue().get(key);
+                } catch (Exception e) {
+                    log.warn("[PaymentRedis] Redis unavailable for getByGencode. Falling back to local store.");
+                    LocalValue lv = localPaymentStore.get(key);
+                    if (lv != null) {
+                        if (lv.expiresAt().isBefore(Instant.now())) {
+                            localPaymentStore.remove(key);
+                        } else {
+                            raw = lv.value();
+                        }
+                    }
+                }
                 if (raw == null) {
                     continue;
                 }
@@ -78,7 +115,20 @@ public class PaymentRedisService {
     public Optional<String> getGencodeByOrderId(Integer orderId) {
         try {
             String key = KEY_PREFIX_GENCODE + orderId;
-            Object raw = redisTemplate.opsForValue().get(key);
+            Object raw = null;
+            try {
+                raw = redisTemplate.opsForValue().get(key);
+            } catch (Exception e) {
+                log.warn("[PaymentRedis] Redis unavailable for getGencodeByOrderId. Falling back to local store.");
+                LocalValue lv = localPaymentStore.get(key);
+                if (lv != null) {
+                    if (lv.expiresAt().isBefore(Instant.now())) {
+                        localPaymentStore.remove(key);
+                    } else {
+                        raw = lv.value();
+                    }
+                }
+            }
             if (raw == null) {
                 log.debug("[PaymentRedis] Cache miss for orderId={}", orderId);
                 return Optional.empty();
@@ -97,9 +147,20 @@ public class PaymentRedisService {
         }
         String gencodeKey = KEY_PREFIX_GENCODE + orderId;
 
-        redisTemplate.delete(orderKeys);
-        if (orderId != null) {
-            redisTemplate.delete(gencodeKey);
+        try {
+            redisTemplate.delete(orderKeys);
+            if (orderId != null) {
+                redisTemplate.delete(gencodeKey);
+            }
+        } catch (Exception e) {
+            log.warn("[PaymentRedis] Redis unavailable for delete. Removing from local store.");
+        }
+
+        for (String key : orderKeys) {
+            localPaymentStore.remove(key);
+        }
+        if (gencodeKey != null) {
+            localPaymentStore.remove(gencodeKey);
         }
 
         log.info("[PaymentRedis] Deleted cache: gencode={}, orderId={}", gencode, orderId);
@@ -107,8 +168,17 @@ public class PaymentRedisService {
 
     public boolean exists(String gencode) {
         for (String candidate : buildGencodeCandidates(gencode)) {
-            if (Boolean.TRUE.equals(redisTemplate.hasKey(KEY_PREFIX_ORDER + candidate))) {
-                return true;
+            String key = KEY_PREFIX_ORDER + candidate;
+            try {
+                if (Boolean.TRUE.equals(redisTemplate.hasKey(key))) {
+                    return true;
+                }
+            } catch (Exception e) {
+                log.warn("[PaymentRedis] Redis unavailable for exists lookup. Checking local store.");
+                LocalValue lv = localPaymentStore.get(key);
+                if (lv != null && !lv.expiresAt().isBefore(Instant.now())) {
+                    return true;
+                }
             }
         }
         return false;
@@ -121,11 +191,27 @@ public class PaymentRedisService {
         }
         String gencodeKey = KEY_PREFIX_GENCODE + orderId;
 
-        for (String orderKey : orderKeys) {
-            redisTemplate.expire(orderKey, additionalMinutes, TimeUnit.MINUTES);
+        try {
+            for (String orderKey : orderKeys) {
+                redisTemplate.expire(orderKey, additionalMinutes, TimeUnit.MINUTES);
+            }
+            if (orderId != null) {
+                redisTemplate.expire(gencodeKey, additionalMinutes, TimeUnit.MINUTES);
+            }
+        } catch (Exception e) {
+            log.warn("[PaymentRedis] Redis unavailable for extendTtl. Updating local store TTL.");
         }
-        if (orderId != null) {
-            redisTemplate.expire(gencodeKey, additionalMinutes, TimeUnit.MINUTES);
+
+        Instant newExpiry = Instant.now().plus(Duration.ofMinutes(additionalMinutes));
+        for (String orderKey : orderKeys) {
+            LocalValue lv = localPaymentStore.get(orderKey);
+            if (lv != null) {
+                localPaymentStore.put(orderKey, new LocalValue(lv.value(), newExpiry));
+            }
+        }
+        LocalValue lvGen = localPaymentStore.get(gencodeKey);
+        if (lvGen != null) {
+            localPaymentStore.put(gencodeKey, new LocalValue(lvGen.value(), newExpiry));
         }
 
         log.info("[PaymentRedis] Extended TTL for gencode={} by {}min", gencode, additionalMinutes);

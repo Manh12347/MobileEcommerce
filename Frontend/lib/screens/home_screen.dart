@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/cart.dart';
 import '../models/product_item.dart';
 import '../providers/cart_provider.dart';
 import '../providers/login_provider.dart';
@@ -8,6 +9,7 @@ import '../services/api_service.dart';
 import '../utils/app_globals.dart';
 import '../utils/format_utils.dart';
 import '../widgets/product_badge.dart';
+import 'checkout_screen.dart';
 import 'product_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -306,34 +308,36 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    final cartProvider = context.read<CartProvider>();
-    final ok = await cartProvider.addToCart(
+    final price = summary.price;
+    final salePrice = summary.salePrice;
+    final double unitPrice = salePrice != null && price != null && salePrice < price
+        ? salePrice
+        : (salePrice ?? price ?? 0);
+
+    final cartItem = CartItem(
+      cartItemId: 0,
       productItemId: productItemId,
       quantity: 1,
+      sku: summary.sku,
+      productName: summary.name,
+      mainImageUrl: summary.mainImageUrl,
+      price: price,
+      salePrice: salePrice,
+      lineTotal: unitPrice,
     );
 
-    if (!mounted) return;
+    final directCart = Cart(
+      cartId: 0,
+      accountId: 0,
+      items: [cartItem],
+      totalItems: 1,
+      totalAmount: unitPrice,
+    );
 
-    if (ok) {
-      context.read<CartProvider>().loadCart(silent: true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đã thêm vào giỏ hàng thành công'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      await Future.delayed(const Duration(milliseconds: 300));
-      if (!mounted) return;
-      navigateToTabNotifier.value = 2;
-      return;
-    }
-
-    final errorMessage = cartProvider.errorMessage;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          errorMessage.isNotEmpty ? errorMessage : 'Không thêm được vào giỏ',
-        ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CheckoutScreen(directBuyCart: directCart),
       ),
     );
   }
@@ -521,7 +525,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 SliverToBoxAdapter(
                   child: SizedBox(
-                    height: 210,
+                    height: 255,
                     child: ListView.separated(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       scrollDirection: Axis.horizontal,
@@ -530,11 +534,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       itemBuilder: (context, index) {
                         final p = discountedProducts[index];
                         return SizedBox(
-                          width: 155,
+                          width: 170,
                           child: _DiscountCard(
                             product: p,
                             onTap: () => _openProductDetail(p),
-                            onAddToCart: () => _addToCart(p),
+                            onBuyNow: () => _buyNow(p),
                           ),
                         );
                       },
@@ -1260,12 +1264,12 @@ class _DiscountCard extends StatelessWidget {
   const _DiscountCard({
     required this.product,
     required this.onTap,
-    required this.onAddToCart,
+    required this.onBuyNow,
   });
 
   final _CatalogProduct product;
   final VoidCallback onTap;
-  final VoidCallback onAddToCart;
+  final VoidCallback onBuyNow;
 
   @override
   Widget build(BuildContext context) {
@@ -1298,106 +1302,126 @@ class _DiscountCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Stack(
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(16),
-                          topRight: Radius.circular(16),
-                        ),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFFF3E0), Color(0xFFFFF8F0)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+              Stack(
+                children: [
+                  Container(
+                    height: 130,
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        topRight: Radius.circular(16),
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: _ProductImage(url: imageUrl),
+                      gradient: LinearGradient(
+                        colors: [Color(0xFFFFF3E0), Color(0xFFFFF8F0)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
                     ),
-                    if (discountPct > 0)
-                      Positioned(
-                        left: 6,
-                        top: 6,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFD28A00),
-                            borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: _ProductImage(url: imageUrl),
+                    ),
+                  ),
+                  if (discountPct > 0)
+                    Positioned(
+                      left: 6,
+                      top: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD28A00),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '-$discountPct%',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
                           ),
-                          child: Text(
-                            '-$discountPct%',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEAF4FF),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          variant?.sku ?? summary.sku ?? 'Sản phẩm',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF1F67E2),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${summary.name}${variant?.description != null && variant!.description!.isNotEmpty ? " - ${variant.description}" : ""}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF14213D),
+                          height: 1.15,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (currentPrice != null)
+                        Text(
+                          formatCurrency(currentPrice),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFFD28A00),
+                          ),
+                        ),
+                      if (originalPrice != null)
+                        Text(
+                          formatCurrency(originalPrice),
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF91A0B8),
+                            decoration: TextDecoration.lineThrough,
+                          ),
+                        ),
+                      const SizedBox(height: 4),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 26,
+                        child: OutlinedButton(
+                          onPressed: onBuyNow,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFD28A00),
+                            side: const BorderSide(color: Color(0xFFD28A00)),
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size.fromHeight(26),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      summary.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF14213D),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    if (currentPrice != null)
-                      Text(
-                        formatCurrency(currentPrice),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFFD28A00),
-                        ),
-                      ),
-                    if (originalPrice != null)
-                      Text(
-                        formatCurrency(originalPrice),
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Color(0xFF91A0B8),
-                          decoration: TextDecoration.lineThrough,
-                        ),
-                      ),
-                    const SizedBox(height: 4),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 26,
-                      child: OutlinedButton(
-                        onPressed: onAddToCart,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFD28A00),
-                          side: const BorderSide(color: Color(0xFFD28A00)),
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size.fromHeight(26),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                          child: const Text(
+                            'Mua',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
                           ),
                         ),
-                        child: const Text(
-                          'Mua',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
-                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],

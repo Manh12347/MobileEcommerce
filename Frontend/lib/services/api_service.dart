@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../config/api_config.dart';
@@ -818,10 +819,23 @@ class ApiService {
       );
       request.headers.addAll(_headers(auth: true));
       final bytes = await file.readAsBytes();
+      final extension = file.name.split('.').last.toLowerCase();
+      String mimeType = 'image/jpeg';
+      if (extension == 'png') {
+        mimeType = 'image/png';
+      } else if (extension == 'gif') {
+        mimeType = 'image/gif';
+      } else if (extension == 'webp') {
+        mimeType = 'image/webp';
+      } else if (extension == 'svg') {
+        mimeType = 'image/svg+xml';
+      }
+
       request.files.add(http.MultipartFile.fromBytes(
         'file',
         bytes,
         filename: file.name,
+        contentType: MediaType.parse(mimeType),
       ));
       final streamed = await request.send();
       final response = await http.Response.fromStream(streamed);

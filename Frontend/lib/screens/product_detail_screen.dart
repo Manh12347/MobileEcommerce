@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/cart.dart';
 import '../models/product_item.dart';
 import '../providers/cart_provider.dart';
 import '../providers/product_view_history_provider.dart';
@@ -9,6 +10,7 @@ import '../utils/format_utils.dart';
 import '../widgets/product_badge.dart';
 import '../utils/app_globals.dart';
 import '../widgets/app_bottom_nav.dart';
+import 'checkout_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   const ProductDetailScreen({
@@ -266,9 +268,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
         if (!mounted) return false;
 
-        navigateToTabNotifier.value = 2;
-
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const CheckoutScreen()),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Đã thêm $_quantity sản phẩm vào giỏ')),
@@ -291,7 +294,65 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Future<void> _buyNow(ProductItemDetail? detail) async {
-    await _submitCartAction(detail, navigateToCart: true);
+    final productItemId = _effectiveProductItemId(detail);
+    if (productItemId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không xác định được sản phẩm')),
+      );
+      return;
+    }
+
+    final stock = _maxStock(detail);
+    if (stock <= 0) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Sản phẩm đã hết hàng')));
+      return;
+    }
+
+    if (_quantity > stock) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Chỉ còn $stock sản phẩm trong kho')),
+      );
+      return;
+    }
+
+    final name = detail?.productName ?? widget.summary.name;
+    final description = _effectiveDescription(detail);
+    final String fullName = description != null && description.isNotEmpty
+        ? "$name - $description"
+        : name;
+
+    final price = _effectiveOriginalPrice(detail) ?? _effectivePrice(detail);
+    final salePrice = _effectiveOriginalPrice(detail) != null ? _effectivePrice(detail) : null;
+    final double unitPrice = _effectivePrice(detail) ?? 0;
+
+    final cartItem = CartItem(
+      cartItemId: 0,
+      productItemId: productItemId,
+      quantity: _quantity,
+      sku: _effectiveSku(detail),
+      productName: fullName,
+      mainImageUrl: _selectedVariantImageUrl ?? detail?.mainImageUrl ?? widget.summary.mainImageUrl,
+      price: price,
+      salePrice: salePrice,
+      lineTotal: unitPrice * _quantity,
+    );
+
+    final directCart = Cart(
+      cartId: 0,
+      accountId: 0,
+      items: [cartItem],
+      totalItems: _quantity,
+      totalAmount: unitPrice * _quantity,
+    );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CheckoutScreen(directBuyCart: directCart),
+      ),
+    );
   }
 
   Future<ProductItemDetail?> _loadDetail() async {
