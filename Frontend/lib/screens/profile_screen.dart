@@ -164,14 +164,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   // ── Card 1: Thông tin cá nhân ──────────────────────────────────
                   _buildSectionTitle('Thông tin cá nhân'),
                   const SizedBox(height: 8),
-                  _PersonalInfoCard(
-                    avatarUrl: _avatarUrl,
-                    name: _displayName,
-                    email: _email,
-                    phone: _phone,
-                    fullAddress: _fullAddress,
-                    onEditTap: () => _showEditProfileSheet(context),
-                  ),
+              _PersonalInfoCard(
+                avatarUrl: _avatarUrl,
+                name: _displayName,
+                email: _email,
+                phone: _phone,
+                fullAddress: _fullAddress,
+                onEditTap: () => _showEditProfileSheet(context),
+              ),
                   const SizedBox(height: 24),
 
                   // ── Card 2: Bảo hành ─────────────────────────────────────────
@@ -472,28 +472,49 @@ class _PersonalInfoCard extends StatelessWidget {
 
   Future<void> _pickAndUploadAvatar(BuildContext context) async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 512, maxHeight: 512, imageQuality: 80);
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 80,
+    );
     if (picked == null) return;
 
     final scaffold = ScaffoldMessenger.of(context);
     scaffold.showSnackBar(
-      const SnackBar(content: Text('Đang tải ảnh lên...'), duration: Duration(seconds: 2)),
+      const SnackBar(
+        content: Text('Đang tải ảnh lên...'),
+        duration: Duration(seconds: 2),
+      ),
     );
 
     try {
-      final resp = await ApiService.uploadAvatar(picked.path);
+      final resp = await ApiService.uploadAvatar(picked);
       if (resp.success) {
+        final uploadedUrl = resp.data?['url']?.toString();
+        if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
+          await ApiService.updateProfile(avatarUrl: uploadedUrl);
+        }
         scaffold.showSnackBar(
-          const SnackBar(content: Text('Cập nhật ảnh đại diện thành công!'), backgroundColor: Color(0xFF10B981)),
+          const SnackBar(
+            content: Text('Cập nhật ảnh đại diện thành công!'),
+            backgroundColor: Color(0xFF10B981),
+          ),
         );
       } else {
         scaffold.showSnackBar(
-          SnackBar(content: Text(resp.message), backgroundColor: const Color(0xFFEF4444)),
+          SnackBar(
+            content: Text(resp.message),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
         );
       }
     } catch (e) {
       scaffold.showSnackBar(
-        SnackBar(content: Text('Lỗi: $e'), backgroundColor: const Color(0xFFEF4444)),
+        SnackBar(
+          content: Text('Lỗi: $e'),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
       );
     }
   }

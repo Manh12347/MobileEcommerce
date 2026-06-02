@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 import '../config/api_config.dart';
 import '../models/api_response.dart';
@@ -17,6 +18,7 @@ import '../models/register_request.dart';
 import '../models/register_response.dart';
 import '../models/verify_otp_request.dart';
 import '../models/warranty.dart';
+import '../models/chat_message.dart';
 
 class ApiService {
   static const String baseUrl = API_BASE_URL;
@@ -723,6 +725,7 @@ class ApiService {
     String? districtName,
     String? wardCode,
     String? wardName,
+    String? avatarUrl,
   }) async {
     try {
       final body = <String, dynamic>{};
@@ -735,6 +738,7 @@ class ApiService {
       if (districtName != null) body['districtName'] = districtName;
       if (wardCode != null) body['wardCode'] = wardCode;
       if (wardName != null) body['wardName'] = wardName;
+      if (avatarUrl != null) body['avatarUrl'] = avatarUrl;
 
       final response = await http
           .put(
@@ -784,14 +788,19 @@ class ApiService {
   }
 
   static Future<ApiResponse<Map<String, dynamic>>> uploadAvatar(
-      String filePath) async {
+      XFile file) async {
     try {
       final request = http.MultipartRequest(
         'POST',
         Uri.parse('$baseUrl/uploads/users'),
       );
       request.headers.addAll(_headers(auth: true));
-      request.files.add(await http.MultipartFile.fromPath('file', filePath));
+      final bytes = await file.readAsBytes();
+      request.files.add(http.MultipartFile.fromBytes(
+        'file',
+        bytes,
+        filename: file.name,
+      ));
       final streamed = await request.send();
       final response = await http.Response.fromStream(streamed);
       final body = _decodeJsonBody(response.body);
@@ -1066,5 +1075,67 @@ class ApiService {
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
+  }
+
+  // ─── Chatbot ────────────────────────────────────────────────────────────────
+
+  static const String _chatbotBaseUrl = 'https://rag.doantrang.online';
+
+  static Future<ChatbotResponse> sendChat({
+    required String text,
+    required String sessionId,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_chatbotBaseUrl/chat'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'text': text,
+              'session_id': sessionId,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        return ChatbotResponse.fromJson(body);
+      } else {
+        throw Exception('Server lỗi (${response.statusCode})');
+      }
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+}
+
+class ChatbotResponse {
+  final String sessionId;
+  final String answer;
+  final List<RetrievedProduct> retrievedProducts;
+  final String? decisionAction;
+  final String? decisionReason;
+
+  ChatbotResponse({
+    required this.sessionId,
+    required this.answer,
+    required this.retrievedProducts,
+    this.decisionAction,
+    this.decisionReason,
+  });
+
+  factory ChatbotResponse.fromJson(Map<String, dynamic> json) {
+    final products = (json['retrieved_products'] as List<dynamic>?)
+            ?.map((e) => RetrievedProduct.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        [];
+
+    return ChatbotResponse(
+      sessionId: json['session_id'] as String? ?? '',
+      answer: json['answer'] as String? ?? '',
+      retrievedProducts: products,
+      decisionAction: (json['decision'] as Map<String, dynamic>?)?['action'] as String?,
+      decisionReason: (json['decision'] as Map<String, dynamic>?)?['reason'] as String?,
+    );
   }
 }

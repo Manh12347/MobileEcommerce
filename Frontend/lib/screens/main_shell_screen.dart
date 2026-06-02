@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/cart_provider.dart';
 import '../utils/app_globals.dart';
 import '../widgets/app_bottom_nav.dart';
+import '../widgets/chat_bubble.dart';
 import 'cart_screen.dart';
 import 'categories_screen.dart';
 import 'home_screen.dart';
@@ -90,6 +91,11 @@ class MainShellScreenState extends State<MainShellScreen> {
           }
         },
       ),
+      floatingActionButton: _shouldShowChatbot
+          ? const ChatBubbleButton()
+          : null,
     );
   }
+
+  bool get _shouldShowChatbot => _currentIndex == 0 || _currentIndex == 1;
 }

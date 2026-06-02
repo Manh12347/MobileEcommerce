@@ -46,12 +46,16 @@ app = FastAPI(lifespan=lifespan)
 
 origins = [
     "https://rag.doantrang.online",
-    "http://localhost:8000"
+    "http://localhost:8000",
+    "http://localhost:55863",
+    "http://127.0.0.1:55863",
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    # Allow the production origin plus any localhost origin with any port.
+    allow_origins=["https://rag.doantrang.online"],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
