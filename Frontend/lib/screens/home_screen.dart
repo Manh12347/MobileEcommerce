@@ -1199,7 +1199,7 @@ class _ProductCardState extends State<_ProductCard> {
                                 ),
                               ),
                               child: Text(
-                                canBuy ? 'Mua ngay' : 'Hết hàng',
+                                canBuy ? 'Mua' : 'Hết hàng',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -1392,7 +1392,7 @@ class _DiscountCard extends StatelessWidget {
                           ),
                         ),
                         child: const Text(
-                          'Mua ngay',
+                          'Mua',
                           style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
                         ),
                       ),
