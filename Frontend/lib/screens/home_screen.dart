@@ -648,7 +648,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisCount: 2,
                         mainAxisSpacing: 14 * scale,
                         crossAxisSpacing: 14 * scale,
-                        childAspectRatio: 0.72 / scale,
+                        childAspectRatio: 0.52 / scale,
                       ),
                       delegate: SliverChildBuilderDelegate((context, index) {
                         final product = visibleProducts[index];
@@ -856,7 +856,7 @@ class _HeroBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 220,
+      height: 240,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         gradient: const LinearGradient(

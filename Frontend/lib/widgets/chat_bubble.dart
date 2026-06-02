@@ -294,34 +294,37 @@ class _ChatWindow extends StatelessWidget {
     final maxH = MediaQuery.of(context).size.height * 0.9;
     return Align(
       alignment: Alignment.centerRight,
-      child: Container(
-        width: screenW > 480 ? 380 : screenW - 32,
-        height: math.min(520, maxH),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.18),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            _ChatHeader(onClose: onClose),
-            Expanded(child: _MessageList(
-              messages: messages,
-              isLoading: isLoading,
-              scrollController: scrollController,
-            )),
-            _ChatInputBar(
-              controller: textController,
-              isLoading: isLoading,
-              onSend: onSend,
-            ),
-          ],
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          width: screenW > 480 ? 380 : screenW - 32,
+          height: math.min(520, maxH),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              _ChatHeader(onClose: onClose),
+              Expanded(child: _MessageList(
+                messages: messages,
+                isLoading: isLoading,
+                scrollController: scrollController,
+              )),
+              _ChatInputBar(
+                controller: textController,
+                isLoading: isLoading,
+                onSend: onSend,
+              ),
+            ],
+          ),
         ),
       ),
     );
