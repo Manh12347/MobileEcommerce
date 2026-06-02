@@ -199,7 +199,9 @@ class ProductItemSummary {
           : null,
       category: categoryJson is Map<String, dynamic>
           ? ProductCategory.fromJson(categoryJson)
-          : null,
+          : json['categoryName'] != null
+              ? ProductCategory(name: json['categoryName'].toString())
+              : null,
     );
   }
 }
@@ -236,6 +238,7 @@ class ProductItemDetail {
   final String? embeddingText;
   final int? productId;
   final String? productName;
+  final String? categoryName;
   final List<ProductSerial> serials;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -254,6 +257,7 @@ class ProductItemDetail {
     this.embeddingText,
     this.productId,
     this.productName,
+    this.categoryName,
     required this.serials,
     this.createdAt,
     this.updatedAt,
@@ -286,6 +290,7 @@ class ProductItemDetail {
       embeddingText: json['embeddingText']?.toString(),
       productId: _toInt(json['productId']),
       productName: json['productName']?.toString(),
+      categoryName: json['categoryName']?.toString(),
       serials: serialJson is List
           ? serialJson
                 .whereType<Map<String, dynamic>>()

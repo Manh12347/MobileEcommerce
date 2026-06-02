@@ -23,6 +23,7 @@ public class ProductItemDTO {
     private String embeddingText;
     private Integer productId;
     private String productName;
+    private String categoryName;
     private List<SerialDTO> serials;
     private String createdAt;
     private String updatedAt;

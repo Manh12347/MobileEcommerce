@@ -27,4 +27,5 @@ public class ProductItemListDTO {
     private String createdAt;
     private String specifications;
     private String mainImageUrl;
+    private String categoryName;
 }

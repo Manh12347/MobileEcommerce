@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/cart_provider.dart';
+import '../providers/login_provider.dart';
 import '../utils/app_globals.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/chat_bubble.dart';
@@ -56,6 +57,12 @@ class MainShellScreenState extends State<MainShellScreen> {
 
   void goToTab(int index) {
     if (index < 0 || index > 4) return;
+    _switchTab(index);
+  }
+
+  void _switchTab(int index) {
+    context.read<LoginProvider>().clearError();
+    context.read<CartProvider>().clearError();
     setState(() => _currentIndex = index);
     if (index == 2) {
       // Ensure cart is loaded when switching to Cart tab programmatically
@@ -84,12 +91,7 @@ class MainShellScreenState extends State<MainShellScreen> {
       bottomNavigationBar: AppBottomNav(
         currentIndex: _currentIndex,
         cartBadgeCount: cartCount,
-        onTap: (index) {
-          setState(() => _currentIndex = index);
-          if (index == 2) {
-            context.read<CartProvider>().loadCart(silent: true);
-          }
-        },
+        onTap: _switchTab,
       ),
       floatingActionButton: _shouldShowChatbot
           ? const ChatBubbleButton()

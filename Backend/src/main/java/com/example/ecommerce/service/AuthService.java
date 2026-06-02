@@ -7,6 +7,7 @@ import com.example.ecommerce.exception.AuthenticationException;
 import com.example.ecommerce.repository.AccountRepository;
 import com.example.ecommerce.repository.ProfileRepository;
 import com.example.ecommerce.security.JwtTokenProvider;
+import com.example.ecommerce.util.ValidationUtil;
 import org.mindrot.jbcrypt.BCrypt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -271,6 +272,76 @@ public class AuthService {
         }
 
         return new ApiResponse<>(true, "Xác minh OTP thành công. Tài khoản đã được kích hoạt", null);
+    }
+
+    public ApiResponse<String> forgotPassword(ForgotPasswordRequest request) {
+        String email = request.getEmail();
+
+        if (email == null || email.isBlank()) {
+            throw new AuthenticationException("Email is required");
+        }
+
+        Account account = accountRepository.findByEmail(email.trim())
+                .orElseThrow(() -> new AuthenticationException("Email does not exist"));
+
+        if ("disabled".equals(account.getStatus())) {
+            throw new AuthenticationException("Account is disabled");
+        }
+        if ("admin".equals(account.getRole())) {
+            throw new AuthenticationException("Admin accounts cannot use password reset");
+        }
+
+        try {
+            otpService.generateAndSendOtp(account.getEmail());
+        } catch (IllegalArgumentException e) {
+            throw new AuthenticationException(e.getMessage());
+        }
+
+        return new ApiResponse<>(true, "OTP has been sent to your email", null);
+    }
+
+    public ApiResponse<String> resetPassword(ResetPasswordRequest request) {
+        String email = request.getEmail();
+        String otp = request.getOtp();
+        String newPassword = request.getNewPassword();
+
+        if (email == null || email.isBlank()) {
+            throw new AuthenticationException("Email is required");
+        }
+        if (otp == null || otp.isBlank()) {
+            throw new AuthenticationException("OTP is required");
+        }
+        ValidationUtil.ValidationResult passwordValidation = ValidationUtil.validatePassword(newPassword);
+        if (!passwordValidation.isValid()) {
+            throw new AuthenticationException(passwordValidation.getMessage());
+        }
+
+        Account account = accountRepository.findByEmail(email.trim())
+                .orElseThrow(() -> new AuthenticationException("Email does not exist"));
+
+        if ("disabled".equals(account.getStatus())) {
+            throw new AuthenticationException("Account is disabled");
+        }
+        if ("admin".equals(account.getRole())) {
+            throw new AuthenticationException("Admin accounts cannot use password reset");
+        }
+
+        try {
+            otpService.verifyOtp(account.getEmail(), otp);
+        } catch (IllegalArgumentException e) {
+            throw new AuthenticationException(e.getMessage());
+        }
+
+        account.setPasswordHash(BCrypt.hashpw(newPassword, BCrypt.gensalt(12)));
+        account.setEmailConfirm(true);
+        account.setFailedLoginAttempts(0);
+        account.setLastFailedLogin(null);
+        if ("locked".equals(account.getStatus()) || "pending".equals(account.getStatus())) {
+            account.setStatus("active");
+        }
+        accountRepository.save(account);
+
+        return new ApiResponse<>(true, "Password has been reset successfully", null);
     }
 
     private void recordFailedLogin(Account account) {

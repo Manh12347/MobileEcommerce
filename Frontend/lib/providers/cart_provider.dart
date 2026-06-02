@@ -26,8 +26,9 @@ class CartProvider extends ChangeNotifier {
         _cart = response.data;
         _errorMessage = '';
       } else {
-        _errorMessage =
-            response.message.isNotEmpty ? response.message : 'Không tải được giỏ hàng';
+        _errorMessage = response.message.isNotEmpty
+            ? response.message
+            : 'Không tải được giỏ hàng';
       }
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
@@ -56,8 +57,9 @@ class CartProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       }
-      _errorMessage =
-          response.message.isNotEmpty ? response.message : 'Không thêm được vào giỏ';
+      _errorMessage = response.message.isNotEmpty
+          ? response.message
+          : 'Không thêm được vào giỏ';
       _isLoading = false;
       notifyListeners();
       return false;
@@ -87,8 +89,9 @@ class CartProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       }
-      _errorMessage =
-          response.message.isNotEmpty ? response.message : 'Cập nhật thất bại';
+      _errorMessage = response.message.isNotEmpty
+          ? response.message
+          : 'Cập nhật thất bại';
       notifyListeners();
       return false;
     } catch (e) {
@@ -115,7 +118,6 @@ class CartProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       }
-
       _errorMessage = response.message.isNotEmpty ? response.message : 'Xóa thất bại';
       _isLoading = false;
       notifyListeners();
@@ -130,6 +132,12 @@ class CartProvider extends ChangeNotifier {
 
   void clearLocal() {
     _cart = null;
+    _errorMessage = '';
+    notifyListeners();
+  }
+
+  void clearError() {
+    if (_errorMessage.isEmpty) return;
     _errorMessage = '';
     notifyListeners();
   }
