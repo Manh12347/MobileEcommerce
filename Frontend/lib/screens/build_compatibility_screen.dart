@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
+import '../utils/format_utils.dart';
 
 import '../models/cart.dart';
 import '../models/product_item.dart';
@@ -106,6 +108,53 @@ class _BuildCompatibilityScreenState extends State<BuildCompatibilityScreen> {
         });
       }
     } catch (_) {}
+  }
+
+  Future<void> _exportBuildQuotation() async {
+    try {
+      final data = await _future;
+      if (data.entries.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vui lòng chọn ít nhất một linh kiện để xuất cấu hình.')),
+        );
+        return;
+      }
+      
+      final buffer = StringBuffer();
+      buffer.writeln('=== BÁO GIÁ CẤU HÌNH PC TECHSHOP ===');
+      double total = 0;
+      for (final entry in data.entries) {
+        final category = entry.category;
+        final name = entry.detail?.productName ?? entry.cartItem.productName ?? 'Chưa chọn';
+        final price = entry.detail?.salePrice ?? entry.detail?.price ?? entry.cartItem.price ?? 0.0;
+        total += price;
+        buffer.writeln('- $category: $name - ${FormatUtils.formatMoney(price)}');
+      }
+      
+      double assemblyFee = total > 15000000 ? 0 : 200000;
+      if (assemblyFee > 0) {
+        buffer.writeln('- Phí lắp ráp & cài đặt: ${FormatUtils.formatMoney(assemblyFee)}');
+        total += assemblyFee;
+      } else {
+        buffer.writeln('- Phí lắp ráp & cài đặt: Miễn phí (Đơn hàng > 15 triệu)');
+      }
+      
+      buffer.writeln('-----------------------------------');
+      buffer.writeln('TỔNG CỘNG: ${FormatUtils.formatMoney(total)}');
+      
+      await Clipboard.setData(ClipboardData(text: buffer.toString()));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã sao chép cấu hình PC vào bộ nhớ tạm!'),
+          backgroundColor: Color(0xFF10B981),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi xuất cấu hình: $e')),
+      );
+    }
   }
 
   Future<_BuildCompatibilityViewData> _loadBuildData() async {
@@ -590,6 +639,11 @@ class _BuildCompatibilityScreenState extends State<BuildCompatibilityScreen> {
         ),
         actions: [
           IconButton(
+            onPressed: _exportBuildQuotation,
+            icon: const Icon(Icons.share_outlined),
+            tooltip: 'Chia sẻ cấu hình',
+          ),
+          IconButton(
             onPressed: () {
               setState(() {
                 _future = _loadBuildData();
@@ -639,6 +693,8 @@ class _BuildCompatibilityScreenState extends State<BuildCompatibilityScreen> {
                   onRemoveProduct: _removeProductFromCart,
                 ),
                 const SizedBox(height: 6),
+                _BuildSummaryCard(entries: data.entries),
+                const SizedBox(height: 12),
                 _MessageSection(
                   title: 'Lỗi cần sửa',
                   emptyText: 'Không có lỗi tương thích.',
@@ -1995,4 +2051,118 @@ Object? _nested(Map<String, dynamic> obj, String path) {
     current = current[key];
   }
   return current;
+}
+
+class _BuildSummaryCard extends StatelessWidget {
+  const _BuildSummaryCard({required this.entries});
+
+  final List<_BuildPartEntry> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    if (entries.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    double totalComponents = 0;
+    for (final entry in entries) {
+      final price = entry.detail?.salePrice ?? entry.detail?.price ?? entry.cartItem.price ?? 0.0;
+      totalComponents += price;
+    }
+
+    double assemblyFee = totalComponents > 15000000 ? 0 : 200000;
+    double grandTotal = totalComponents + assemblyFee;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE3EAF5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Tóm tắt chi phí',
+            style: TextStyle(
+              color: Color(0xFF14213D),
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.between,
+            children: [
+              const Text(
+                'Tổng tiền linh kiện:',
+                style: TextStyle(color: Color(0xFF6B7893), fontSize: 14),
+              ),
+              Text(
+                FormatUtils.formatMoney(totalComponents),
+                style: const TextStyle(
+                  color: Color(0xFF14213D),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.between,
+            children: [
+              const Text(
+                'Phí lắp ráp & cài đặt:',
+                style: TextStyle(color: Color(0xFF6B7893), fontSize: 14),
+              ),
+              Text(
+                assemblyFee > 0 ? FormatUtils.formatMoney(assemblyFee) : 'Miễn phí',
+                style: TextStyle(
+                  color: assemblyFee > 0 ? const Color(0xFF14213D) : const Color(0xFF16A34A),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          if (assemblyFee == 0) ...[
+            const SizedBox(height: 4),
+            const Text(
+              '(*) Miễn phí lắp ráp cho đơn hàng trên 15 triệu VNĐ',
+              style: TextStyle(
+                color: Color(0xFF16A34A),
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+          const Divider(height: 24, color: Color(0xFFE3EAF5)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.between,
+            children: [
+              const Text(
+                'Tổng cộng:',
+                style: TextStyle(
+                  color: Color(0xFF14213D),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Text(
+                FormatUtils.formatMoney(grandTotal),
+                style: const TextStyle(
+                  color: Color(0xFF1F67E2),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
