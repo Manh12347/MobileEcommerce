@@ -16,6 +16,8 @@ import '../models/payment_models.dart';
 import '../providers/cart_provider.dart';
 import '../services/api_service.dart';
 import '../utils/format_utils.dart';
+import '../utils/app_globals.dart';
+import '../widgets/chat_bubble.dart';
 import 'order_detail_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -94,6 +96,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   void dispose() {
+    if (ChatbotContext.activeScreen == 'Checkout') {
+      ChatbotContext.activeScreen = 'Home';
+    }
     _countdownTimer?.cancel();
     _paymentStompClient?.deactivate();
     _addressController.dispose();
@@ -757,6 +762,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         : (_secondsLeft <= 120 ? Colors.orange : const Color(0xFF10B981));
 
     return Scaffold(
+      floatingActionButton: const ChatBubbleButton(),
       backgroundColor: const Color(0xFFF4F8FC),
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -1044,6 +1050,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   // ─────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ChatbotContext.activeScreen = 'Checkout';
+    });
     if (_showPayment) {
       return _buildPaymentScreen();
     }
@@ -1051,6 +1060,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final cart = widget.directBuyCart ?? context.watch<CartProvider>().cart;
 
     return Scaffold(
+      floatingActionButton: const ChatBubbleButton(),
       backgroundColor: const Color(0xFFF4F8FC),
       appBar: AppBar(
         backgroundColor: Colors.white,

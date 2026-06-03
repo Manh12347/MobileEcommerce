@@ -1133,6 +1133,9 @@ class ApiService {
   static Future<ChatbotResponse> sendChat({
     required String text,
     required String sessionId,
+    String? activeScreen,
+    int? activeProductId,
+    String? activeProductDetails,
   }) async {
     try {
       final response = await http
@@ -1142,6 +1145,9 @@ class ApiService {
             body: jsonEncode({
               'text': text,
               'session_id': sessionId,
+              'active_screen': activeScreen,
+              'active_product_id': activeProductId,
+              'active_product_details': activeProductDetails,
             }),
           )
           .timeout(const Duration(seconds: 30));

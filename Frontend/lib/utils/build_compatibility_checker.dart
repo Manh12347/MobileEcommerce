@@ -461,6 +461,8 @@ BuildCompatibilityResult checkBuildCompatibility(List<BuildPart> build) {
     }
   }
 
+  _evaluateBuildStrengths(result, build);
+
   return result;
 }
 
@@ -674,4 +676,69 @@ int _estimateBuildWattage(List<BuildPart> build) {
   total += storageCount * 8;
 
   return total;
+}
+
+void _evaluateBuildStrengths(BuildCompatibilityResult result, List<BuildPart> build) {
+  final cpu = _findPart(build, 'CPU');
+  final gpu = _findPart(build, 'GPU') ?? _findPart(build, 'VGA');
+  final ramItems = _findParts(build, 'RAM');
+
+  // Sum RAM capacity
+  var totalRamGb = 0;
+  for (final ram in ramItems) {
+    totalRamGb += _toInt(_get(ram.specifications, 'compatibility.total_capacity_gb'));
+  }
+  if (totalRamGb == 0) {
+    for (final ram in ramItems) {
+      final name = ram.name.toLowerCase();
+      if (name.contains('16gb')) totalRamGb += 16;
+      else if (name.contains('32gb')) totalRamGb += 32;
+      else if (name.contains('8gb')) totalRamGb += 8;
+      else if (name.contains('64gb')) totalRamGb += 64;
+    }
+  }
+
+  var isHighEndGpu = false;
+  var isMidRangeGpu = false;
+  var isGpuPresent = gpu != null;
+
+  if (gpu != null) {
+    final name = gpu.name.toLowerCase();
+    if (name.contains('4070 ti') ||
+        name.contains('4080') ||
+        name.contains('4090') ||
+        name.contains('7800') ||
+        name.contains('7900') ||
+        name.contains('3080') ||
+        name.contains('3090') ||
+        name.contains('4070 super') ||
+        name.contains('4070')) {
+      isHighEndGpu = true;
+    } else if (name.contains('4060') ||
+               name.contains('3060') ||
+               name.contains('3070') ||
+               name.contains('7600') ||
+               name.contains('6600') ||
+               name.contains('6700')) {
+      isMidRangeGpu = true;
+    }
+  }
+
+  // We construct the capability list
+  final capabilities = <String>[];
+  
+  // Base status description
+  String text = "Bộ Pc của bạn đang rất tốt cho việc: ";
+  
+  if (isHighEndGpu) {
+    text += "chơi các thể loại AAA games (2k setting), FPS game ở mức fps cực cao, thiết kế Đồ họa chuyên nghiệp và các tác vụ Văn phòng hiệu năng cao.";
+  } else if (isMidRangeGpu) {
+    text += "chơi các thể loại FPS game mượt mà, chơi tốt các game AAA games (FHD setting), làm thiết kế Đồ họa và các tác vụ Văn phòng trơn tru.";
+  } else if (isGpuPresent) {
+    text += "chơi tốt các tựa game FPS game phổ thông (FHD setting), chơi một số AAA games ở mức cấu hình thấp, làm Đồ họa cơ bản và tác vụ Văn phòng.";
+  } else {
+    text += "làm việc Văn phòng, học tập, giải trí cơ bản và xem phim FHD.";
+  }
+
+  result.info.add(text);
 }

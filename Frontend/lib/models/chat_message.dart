@@ -23,6 +23,10 @@ class RetrievedProduct {
   final int stock;
   final int? warrantyMonths;
   final double similarity;
+  final String? sku;
+  final String? description;
+  final String? mainImageUrl;
+  final String? categoryName;
 
   RetrievedProduct({
     required this.productItemId,
@@ -32,6 +36,10 @@ class RetrievedProduct {
     required this.stock,
     this.warrantyMonths,
     required this.similarity,
+    this.sku,
+    this.description,
+    this.mainImageUrl,
+    this.categoryName,
   });
 
   factory RetrievedProduct.fromJson(Map<String, dynamic> json) {
@@ -51,6 +59,10 @@ class RetrievedProduct {
       similarity: (json['similarity'] is num)
           ? (json['similarity'] as num).toDouble()
           : 0.0,
+      sku: json['sku'] as String?,
+      description: json['description'] as String?,
+      mainImageUrl: json['main_image_url'] as String?,
+      categoryName: json['category_name'] as String?,
     );
   }
 }

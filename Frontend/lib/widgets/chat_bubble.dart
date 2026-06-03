@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math' as math;
 
 import '../models/chat_message.dart';
 import '../services/api_service.dart';
 import '../utils/format_utils.dart';
+import '../utils/app_globals.dart';
 
 class ChatBubbleButton extends StatefulWidget {
   const ChatBubbleButton({super.key});
@@ -204,13 +207,20 @@ class _ChatWindowOverlayState extends State<ChatWindowOverlay>
     _scrollToBottom();
 
     try {
-      final resp = await ApiService.sendChat(text: text, sessionId: _sessionId);
+      final resp = await ApiService.sendChat(
+        text: text,
+        sessionId: _sessionId,
+        activeScreen: ChatbotContext.activeScreen,
+        activeProductId: ChatbotContext.activeProductId,
+        activeProductDetails: ChatbotContext.activeProductDetails,
+      );
       if (!mounted) return;
       setState(() {
         _messages.add(ChatMessageVM(
           role: 'assistant',
           text: resp.answer,
           products: resp.retrievedProducts,
+          decisionAction: resp.decisionAction,
         ));
         _sessionId = resp.sessionId;
         _isLoading = false;
@@ -428,7 +438,11 @@ class _MessageList extends StatelessWidget {
           final msg = messages[index];
           return msg.isUser
               ? _UserBubble(text: msg.text)
-              : _AssistantBubble(text: msg.text, products: msg.products);
+              : _AssistantBubble(
+                  text: msg.text, 
+                  products: msg.products,
+                  decisionAction: msg.decisionAction,
+                );
         },
       ),
     );
@@ -471,13 +485,115 @@ class _UserBubble extends StatelessWidget {
 }
 
 class _AssistantBubble extends StatelessWidget {
-  const _AssistantBubble({required this.text, this.products});
+  const _AssistantBubble({
+    required this.text,
+    this.products,
+    this.decisionAction,
+  });
 
   final String text;
   final List<RetrievedProduct>? products;
+  final String? decisionAction;
+
+  String _normalizeBuildCategory(String value) {
+    const marks = 'àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ';
+    const replacements = 'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd';
+    var text = value.toLowerCase();
+    for (var i = 0; i < marks.length; i++) {
+      text = text.replaceAll(marks[i], replacements[i]);
+    }
+    return text.trim();
+  }
+
+  String _resolveCategory(RetrievedProduct p) {
+    final cat = p.categoryName?.trim().toLowerCase() ?? '';
+    if (cat.contains('mainboard') || cat.contains('bo mach chu') || cat.contains('motherboard')) return 'mainboard';
+    if (cat.contains('cpu') || cat.contains('vi xu ly') || cat.contains('processor')) return 'cpu';
+    if (cat.contains('ram') || cat.contains('bo nho trong') || cat.contains('memory')) return 'ram';
+    if (cat.contains('gpu') || cat.contains('vga') || cat.contains('card man hinh') || cat.contains('card do hoa')) return 'gpu';
+    if (cat.contains('psu') || cat.contains('nguon')) return 'psu';
+    if (cat.contains('case') || cat.contains('vo may') || cat.contains('thung may')) return 'case';
+    if (cat.contains('tan nhiet') || cat.contains('cooler') || cat.contains('quat')) return 'tan nhiet';
+    if (cat.contains('ssd') || cat.contains('hdd') || cat.contains('o cung') || cat.contains('storage')) return 'ssd/hdd';
+
+    // Fallback to name-based classification
+    final name = p.productName.toLowerCase();
+    if (name.contains('mainboard') || name.contains('h610') || name.contains('b760') || name.contains('z790')) return 'mainboard';
+    if (name.contains('cpu') || name.contains('intel core') || name.contains('ryzen')) return 'cpu';
+    if (name.contains('ram') || name.contains('ddr4') || name.contains('ddr5')) return 'ram';
+    if (name.contains('rtx') || name.contains('gtx') || name.contains('radeon') || name.contains('vga') || name.contains('geforce')) return 'gpu';
+    if (name.contains('psu') || name.contains('nguon') || name.contains('msi mag a650bn') || name.contains('corsair rm850e')) return 'psu';
+    if (name.contains('case') || name.contains('vo may') || name.contains('thung may')) return 'case';
+    if (name.contains('tan nhiet') || name.contains('cooler') || name.contains('thermalright') || name.contains('kraken')) return 'tan nhiet';
+    if (name.contains('ssd') || name.contains('hdd') || name.contains('samsung 990') || name.contains('kingston nv2') || name.contains('seagate')) return 'ssd/hdd';
+
+    return 'unknown';
+  }
+
+  Future<void> _applyBuild(BuildContext context, List<RetrievedProduct> products) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      final existingJson = prefs.getString('build_selected_new_products');
+      final data = <String, dynamic>{};
+      if (existingJson != null && existingJson.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(existingJson);
+          if (decoded is Map<String, dynamic>) {
+            data.addAll(decoded);
+          }
+        } catch (_) {}
+      }
+
+      int appliedCount = 0;
+      for (final p in products) {
+        final categoryKey = _resolveCategory(p);
+        if (categoryKey == 'unknown') continue;
+
+        data[categoryKey] = {
+          'productItemId': p.productItemId,
+          'productId': p.productItemId,
+          'sku': p.sku ?? 'SKU-${p.productItemId}',
+          'description': p.description ?? '',
+          'stockQuantity': p.stock,
+          'soldQuantity': 0,
+          'status': 'active',
+          'price': p.price,
+          'salePrice': p.salePrice,
+          'mainImageUrl': p.mainImageUrl ?? '',
+          'productName': p.productName,
+          'categoryName': p.categoryName ?? categoryKey.toUpperCase(),
+        };
+        appliedCount++;
+      }
+
+      await prefs.setString('build_selected_new_products', jsonEncode(data));
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã áp dụng cấu hình ($appliedCount linh kiện) thành công! Hãy vào trang Xây dựng cấu hình để kiểm tra.'),
+            backgroundColor: const Color(0xFF16A34A),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi khi áp dụng cấu hình: $e'),
+            backgroundColor: const Color(0xFFDC2626),
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isBuildRecommendation = decisionAction == 'pc_build' && products != null && products!.isNotEmpty;
+
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
@@ -528,12 +644,35 @@ class _AssistantBubble extends StatelessWidget {
                 ),
               ],
             ),
+            if (isBuildRecommendation) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _applyBuild(context, products!),
+                  icon: const Icon(Icons.build_circle_outlined, size: 18),
+                  label: const Text(
+                    'Áp dụng cấu hình vào Trình dựng PC',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1F67E2),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ),
+            ],
             if (products != null && products!.isNotEmpty) ...[
               const SizedBox(height: 10),
               const Divider(height: 1, color: Color(0xFFE3EAF5)),
               const SizedBox(height: 8),
               Text(
-                'Sản phẩm gợi ý:',
+                isBuildRecommendation ? 'Linh kiện được đề xuất:' : 'Sản phẩm gợi ý:',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -774,11 +913,13 @@ class ChatMessageVM {
   final String role;
   final String text;
   final List<RetrievedProduct>? products;
+  final String? decisionAction;
 
   ChatMessageVM({
     required this.role,
     required this.text,
     this.products,
+    this.decisionAction,
   });
 
   bool get isUser => role == 'user';
