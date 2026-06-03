@@ -465,8 +465,13 @@ public class OrderService {
         return gencode;
     }
 
-    private BigDecimal resolveUnitPrice(ProductItem productItem) {
-        return productItem.getSalePrice() != null ? productItem.getSalePrice() : productItem.getPrice();
+    private BigDecimal resolveUnitPrice(ProductItem item) {
+        if (item.getSalePrice() != null
+                && item.getSalePrice().compareTo(BigDecimal.ZERO) > 0
+                && (item.getPrice() == null || item.getSalePrice().compareTo(item.getPrice()) < 0)) {
+            return item.getSalePrice();
+        }
+        return item.getPrice() != null ? item.getPrice() : BigDecimal.ZERO;
     }
 
     private OrderDTO toOrderDTO(Order order) {
