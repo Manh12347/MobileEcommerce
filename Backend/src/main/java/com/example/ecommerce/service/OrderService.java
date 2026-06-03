@@ -66,6 +66,9 @@ public class OrderService {
     @Autowired
     private GhnService ghnService;
 
+    @Autowired
+    private WarrantyRepository warrantyRepository;
+
     public OrderDTO checkout(Integer accountId, CreateOrderRequest request) {
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản"));
@@ -550,15 +553,80 @@ public class OrderService {
                 .mapToInt(OrderItem::getQuantity)
                 .sum();
 
-        return new OrderSummaryDTO(
-                order.getOrderId(),
-                order.getOrderCode(),
-                order.getStatus(),
-                order.getPaymentStatus(),
-                order.getTotalPrice(),
-                order.getCreatedOn() != null ? order.getCreatedOn().toString() : null,
-                itemCount
-        );
+        OrderSummaryDTO dto = new OrderSummaryDTO();
+        dto.setOrderId(order.getOrderId());
+        dto.setOrderCode(order.getOrderCode());
+        dto.setStatus(order.getStatus());
+        dto.setPaymentStatus(order.getPaymentStatus());
+        dto.setTotalPrice(order.getTotalPrice());
+        dto.setCreatedOn(order.getCreatedOn() != null ? order.getCreatedOn().toString() : null);
+        dto.setItemCount(itemCount);
+
+        populateWarrantyInfo(order, dto);
+
+        return dto;
+    }
+
+    private void populateWarrantyInfo(Order order, OrderSummaryDTO dto) {
+        List<SoldSerial> soldSerials = soldSerialRepository.findByOrderIdWithSerial(order.getOrderId());
+        
+        if (soldSerials.isEmpty()) {
+            dto.setWarrantyEndDate(null);
+            dto.setIsWarrantyExpired(false);
+            dto.setWarrantyRemainingText(null);
+            return;
+        }
+        
+        java.time.LocalDate maxEndDate = null;
+        for (SoldSerial ss : soldSerials) {
+            SerialNumber sn = ss.getSerialNumber();
+            if (sn == null) continue;
+            Warranty w = warrantyRepository.findBySerialNumber_SerialId(sn.getSerialId()).orElse(null);
+            java.time.LocalDate endDate = null;
+            if (w != null && w.getEndDate() != null) {
+                endDate = w.getEndDate();
+            } else {
+                LocalDateTime orderDate = order.getCreatedOn() != null ? order.getCreatedOn() : LocalDateTime.now();
+                endDate = orderDate.toLocalDate().plusMonths(12);
+            }
+            
+            if (maxEndDate == null || endDate.isAfter(maxEndDate)) {
+                maxEndDate = endDate;
+            }
+        }
+        
+        if (maxEndDate != null) {
+            dto.setWarrantyEndDate(maxEndDate.toString());
+            java.time.LocalDate today = java.time.LocalDate.now();
+            boolean expired = maxEndDate.isBefore(today);
+            dto.setIsWarrantyExpired(expired);
+            
+            if (expired) {
+                dto.setWarrantyRemainingText("Hết hạn");
+            } else {
+                dto.setWarrantyRemainingText(formatRemainingTime(today, maxEndDate));
+            }
+        }
+    }
+
+    private String formatRemainingTime(java.time.LocalDate today, java.time.LocalDate endDate) {
+        long days = java.time.temporal.ChronoUnit.DAYS.between(today, endDate);
+        if (days <= 0) {
+            return "Hết hạn";
+        }
+        if (days >= 365) {
+            long years = days / 365;
+            return "Còn " + years + " năm";
+        }
+        if (days >= 30) {
+            long months = days / 30;
+            return "Còn " + months + " tháng";
+        }
+        if (days >= 7) {
+            long weeks = days / 7;
+            return "Còn " + weeks + " tuần";
+        }
+        return "Còn " + days + " ngày";
     }
 
     private OrderTrackDTO buildTrackDTO(Order order) {

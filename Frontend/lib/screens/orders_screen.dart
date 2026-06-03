@@ -8,6 +8,7 @@ import '../utils/format_utils.dart';
 import 'order_detail_screen.dart';
 import 'order_track_screen.dart';
 import 'staff_orders_screen.dart';
+import 'warranty_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -19,7 +20,7 @@ class OrdersScreen extends StatefulWidget {
 class _OrdersScreenState extends State<OrdersScreen> {
   final _searchController = TextEditingController();
   String _query = '';
-  String? _selectedStatus;
+  String? _selectedStatus = 'completed';
 
   bool _isLoading = true;
   String? _error;
@@ -27,10 +28,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
   List<OrderSummary> _filteredOrders = const [];
 
   static const _statusFilters = [
-    (null, 'Tất cả'),
+    ('completed', 'Hoàn thành'),
+    ('warranty_expired', 'Hết hạn bảo hành'),
     ('pending', 'Chờ xử lý'),
     ('shipping', 'Đang giao'),
-    ('completed', 'Hoàn thành'),
     ('cancelled', 'Đã hủy'),
   ];
 
@@ -49,13 +50,33 @@ class _OrdersScreenState extends State<OrdersScreen> {
   void _applyFilter() {
     setState(() {
       _filteredOrders = _allOrders.where((order) {
-        final matchesStatus =
-            _selectedStatus == null || order.status == _selectedStatus;
+        bool matchesStatus;
+        if (_selectedStatus == 'completed') {
+          matchesStatus = order.status == 'completed' && order.isWarrantyExpired != true;
+        } else if (_selectedStatus == 'warranty_expired') {
+          matchesStatus = order.status == 'completed' && order.isWarrantyExpired == true;
+        } else {
+          matchesStatus = order.status == _selectedStatus;
+        }
+
         if (_query.isEmpty) return matchesStatus;
         return matchesStatus &&
             (order.orderCode.toLowerCase().contains(_query) ||
                 order.paymentStatus?.toLowerCase().contains(_query) == true);
       }).toList();
+
+      // Sort by valid warranty first, then latest buy (createdOn DESC)
+      _filteredOrders.sort((a, b) {
+        final aExpired = a.isWarrantyExpired == true;
+        final bExpired = b.isWarrantyExpired == true;
+        if (aExpired != bExpired) {
+          return aExpired ? 1 : -1;
+        }
+
+        final aDate = a.createdOn ?? '';
+        final bDate = b.createdOn ?? '';
+        return bDate.compareTo(aDate);
+      });
     });
   }
 
@@ -106,6 +127,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Lịch sử bảo hành',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const WarrantyScreen()),
+              );
+            },
+            icon: const Icon(Icons.verified_user_outlined, color: Color(0xFF1F67E2)),
+          ),
           if (isStaff)
             IconButton(
               tooltip: 'Quản lý đơn (Staff)',
@@ -343,6 +374,45 @@ class _OrderCard extends StatelessWidget {
                     color: Color(0xFF6B7893),
                     fontSize: 12,
                   ),
+                ),
+              ],
+              if (order.status == 'completed' && order.warrantyRemainingText != null) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(
+                      order.isWarrantyExpired == true
+                          ? Icons.gpp_bad_rounded
+                          : Icons.verified_user_rounded,
+                      size: 16,
+                      color: order.isWarrantyExpired == true
+                          ? Colors.red.shade600
+                          : const Color(0xFF10B981),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      order.isWarrantyExpired == true
+                          ? 'Bảo hành: Hết hạn'
+                          : 'Bảo hành: ${order.warrantyRemainingText}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: order.isWarrantyExpired == true
+                            ? Colors.red.shade600
+                            : const Color(0xFF10B981),
+                      ),
+                    ),
+                    if (order.warrantyEndDate != null && order.isWarrantyExpired != true) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        '(${order.warrantyEndDate})',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
               if (order.createdOn != null) ...[

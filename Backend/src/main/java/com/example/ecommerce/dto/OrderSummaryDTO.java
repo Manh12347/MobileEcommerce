@@ -17,4 +17,7 @@ public class OrderSummaryDTO {
     private BigDecimal totalPrice;
     private String createdOn;
     private Integer itemCount;
+    private String warrantyEndDate;
+    private Boolean isWarrantyExpired;
+    private String warrantyRemainingText;
 }
