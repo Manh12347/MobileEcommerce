@@ -46,6 +46,10 @@ def retrieve_products(user_input: str, top_k: int = 5) -> list[dict]:
     stocks = data["stocks"]
     specifications = data["specifications"]
     warranties = data["warranties"]
+    skus = data["skus"]
+    main_image_urls = data["main_image_urls"]
+    category_names = data["category_names"]
+    descriptions = data["descriptions"]
     vectors = data["vectors"]
 
     try:
@@ -79,7 +83,11 @@ def retrieve_products(user_input: str, top_k: int = 5) -> list[dict]:
             "stock": stocks[idx] if stocks[idx] is not None else 0,
             "specifications": specs,
             "warranty_months": warranties[idx] if warranties[idx] else 0,
-            "similarity": float(sims[idx])
+            "similarity": float(sims[idx]),
+            "sku": skus[idx],
+            "description": descriptions[idx],
+            "main_image_url": main_image_urls[idx],
+            "category_name": category_names[idx]
         })
 
     return results

@@ -8,6 +8,8 @@ import '../models/product_item.dart';
 import '../providers/cart_provider.dart';
 import '../services/api_service.dart';
 import '../utils/build_compatibility_checker.dart';
+import '../utils/app_globals.dart';
+import '../widgets/chat_bubble.dart';
 
 class BuildCompatibilityScreen extends StatefulWidget {
   const BuildCompatibilityScreen({super.key, this.cart});
@@ -28,6 +30,14 @@ class _BuildCompatibilityScreenState extends State<BuildCompatibilityScreen> {
   void initState() {
     super.initState();
     _future = _loadInitialData();
+  }
+
+  @override
+  void dispose() {
+    if (ChatbotContext.activeScreen == 'PCBuild') {
+      ChatbotContext.activeScreen = 'Home';
+    }
+    super.dispose();
   }
 
   Future<_BuildCompatibilityViewData> _loadInitialData() async {
@@ -554,6 +564,9 @@ class _BuildCompatibilityScreenState extends State<BuildCompatibilityScreen> {
 
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ChatbotContext.activeScreen = 'PCBuild';
+    });
     final cartProvider = context.watch<CartProvider>();
     final cartItems = cartProvider.cart?.items ?? [];
     final newProductsCount = _newSelectedProducts.values.where((product) {
@@ -563,6 +576,7 @@ class _BuildCompatibilityScreenState extends State<BuildCompatibilityScreen> {
     }).length;
 
     return Scaffold(
+      floatingActionButton: const ChatBubbleButton(),
       backgroundColor: const Color(0xFFF4F8FC),
       appBar: AppBar(
         backgroundColor: Colors.white,

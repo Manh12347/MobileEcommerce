@@ -57,9 +57,13 @@ def load_product_data(limit=1000):
             COALESCE(
                 MAX(((w.end_date - w.start_date)::INT) / 30),
                 0
-            ) AS warranty_months
+            ) AS warranty_months,
+            pi.sku,
+            pi.main_image_url,
+            c.name AS category_name
         FROM product_items pi
         JOIN products p ON pi.product_id = p.product_id
+        JOIN categories c ON p.category_id = c.category_id
         LEFT JOIN serial_numbers sn ON pi.product_item_id = sn.product_item_id
         LEFT JOIN warranties w ON sn.serial_id = w.serial_id
         WHERE pi.embedding IS NOT NULL
@@ -73,11 +77,63 @@ def load_product_data(limit=1000):
             pi.price,
             pi.sale_price,
             pi.stock_quantity,
-            pi.specifications
+            pi.specifications,
+            pi.sku,
+            pi.main_image_url,
+            c.name
         LIMIT %s
     """
 
     cursor.execute(query, (limit,))
+    data = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return data
+
+
+def load_all_active_products():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    query = """
+        SELECT
+            pi.product_item_id,
+            pi.description,
+            pi.price,
+            pi.sale_price,
+            pi.stock_quantity,
+            p.name,
+            pi.specifications,
+            COALESCE(
+                MAX(((w.end_date - w.start_date)::INT) / 30),
+                0
+            ) AS warranty_months,
+            pi.sku,
+            pi.main_image_url,
+            c.name AS category_name
+        FROM product_items pi
+        JOIN products p ON pi.product_id = p.product_id
+        JOIN categories c ON p.category_id = c.category_id
+        LEFT JOIN serial_numbers sn ON pi.product_item_id = sn.product_item_id
+        LEFT JOIN warranties w ON sn.serial_id = w.serial_id
+        WHERE pi.status = 'active'
+        GROUP BY
+            pi.product_item_id,
+            p.product_id,
+            p.name,
+            pi.description,
+            pi.price,
+            pi.sale_price,
+            pi.stock_quantity,
+            pi.specifications,
+            pi.sku,
+            pi.main_image_url,
+            c.name
+    """
+
+    cursor.execute(query)
     data = cursor.fetchall()
 
     cursor.close()
@@ -98,6 +154,9 @@ def build_rag_data(data):
     stocks = [d[6] for d in data]
     specifications = [d[8] for d in data]
     warranties = [d[9] if d[9] else 0 for d in data]
+    skus = [d[10] for d in data]
+    main_image_urls = [d[11] for d in data]
+    category_names = [d[12] for d in data]
 
     vectors = np.array([
         np.array(ast.literal_eval(d[3]), dtype=float) if d[3] else np.zeros(768)
@@ -113,6 +172,9 @@ def build_rag_data(data):
         "stocks": stocks,
         "specifications": specifications,
         "warranties": warranties,
+        "skus": skus,
+        "main_image_urls": main_image_urls,
+        "category_names": category_names,
         "vectors": vectors
     }
 

@@ -10,6 +10,7 @@ import '../utils/format_utils.dart';
 import '../widgets/product_badge.dart';
 import '../utils/app_globals.dart';
 import '../widgets/app_bottom_nav.dart';
+import '../widgets/chat_bubble.dart';
 import 'checkout_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
@@ -43,6 +44,28 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     super.initState();
     _detailFuture = _loadDetail();
     _variantsFuture = _loadVariants();
+  }
+
+  @override
+  void dispose() {
+    if (ChatbotContext.activeScreen == 'ProductDetail') {
+      ChatbotContext.activeScreen = 'Home';
+      ChatbotContext.activeProductId = null;
+      ChatbotContext.activeProductDetails = null;
+    }
+    super.dispose();
+  }
+
+  void _updateChatbotContext(ProductItemDetail? detail) {
+    ChatbotContext.activeScreen = 'ProductDetail';
+    ChatbotContext.activeProductId = widget.summary.productItemId ?? widget.summary.productId;
+    final specsList = <String>[];
+    if (detail != null) {
+      detail.specifications.forEach((k, v) {
+        specsList.add('$k: $v');
+      });
+    }
+    ChatbotContext.activeProductDetails = 'Name: ${widget.summary.name}, Specs: ${specsList.join(", ")}';
   }
 
   @override
@@ -401,6 +424,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: const ChatBubbleButton(),
       backgroundColor: const Color(0xFFF4F8FC),
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -430,6 +454,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             }
 
             final detail = snapshot.data;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _updateChatbotContext(detail);
+            });
             return ListView(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
