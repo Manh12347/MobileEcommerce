@@ -1,6 +1,3 @@
-import 'dart:io';
-import 'dart:typed_data';
-
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,7 +7,6 @@ import 'package:provider/provider.dart';
 
 import '../models/order.dart';
 import '../models/ghn_location.dart';
-import '../models/warranty.dart';
 import '../providers/cart_provider.dart';
 import '../providers/login_provider.dart';
 import '../services/api_service.dart';
@@ -37,9 +33,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _wardName;
   String? _avatarUrl;
 
-  List<WarrantyClaim> _warrantyClaims = [];
-  bool _isLoadingWarranty = true;
-
   List<OrderSummary> _orders = [];
   double _totalSpent = 0;
   int _totalOrders = 0;
@@ -54,7 +47,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadAll() async {
     await Future.wait([
       _loadProfile(),
-      _loadWarrantyClaims(),
       _loadSpendingStats(),
     ]);
     if (mounted) setState(() => _isLoading = false);
@@ -76,24 +68,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _avatarUrl = d['avatarUrl']?.toString();
       });
     } catch (_) {}
-  }
-
-  Future<void> _loadWarrantyClaims() async {
-    final accountId = context.read<LoginProvider>().loginResponse?.accountId;
-    if (accountId == null) {
-      if (mounted) setState(() => _isLoadingWarranty = false);
-      return;
-    }
-    try {
-      final resp = await ApiService.getWarrantyClaimsByAccount(accountId);
-      if (!mounted) return;
-      setState(() {
-        _warrantyClaims = resp.data ?? [];
-        _isLoadingWarranty = false;
-      });
-    } catch (_) {
-      if (mounted) setState(() => _isLoadingWarranty = false);
-    }
   }
 
   Future<void> _loadSpendingStats() async {
@@ -180,16 +154,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   });
                 },
               ),
-                  const SizedBox(height: 24),
-
-                  // ── Card 2: Bảo hành ─────────────────────────────────────────
-                  _buildSectionTitle('Phiếu bảo hành'),
-                  const SizedBox(height: 8),
-                  _WarrantyCard(
-                    claims: _warrantyClaims,
-                    isLoading: _isLoadingWarranty,
-                  ),
-                  const SizedBox(height: 24),
+              const SizedBox(height: 24),
 
                   // ── Card 3: Chi tiêu ──────────────────────────────────────────
                   _buildSectionTitle('Chi tiêu'),
@@ -1388,242 +1353,6 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
     );
   }
 }
-
-// ─── Card 2: Bảo hành ────────────────────────────────────────────────────────
-
-class _WarrantyCard extends StatelessWidget {
-  const _WarrantyCard({required this.claims, required this.isLoading});
-
-  final List<WarrantyClaim> claims;
-  final bool isLoading;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE3EAF5)),
-      ),
-      child: isLoading
-          ? const Center(
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            )
-          : claims.isEmpty
-              ? _emptyState()
-              : Column(
-                  children: [
-                    Row(
-                      children: [
-                        _summaryChip(
-                          label: 'Tổng phiếu',
-                          value: claims.length.toString(),
-                          color: const Color(0xFF1F67E2),
-                        ),
-                        const SizedBox(width: 8),
-                        _summaryChip(
-                          label: 'Đang xử lý',
-                          value: claims
-                              .where((c) =>
-                                  c.status?.toLowerCase() == 'processing' ||
-                                  c.status?.toLowerCase() == 'pending')
-                              .length
-                              .toString(),
-                          color: const Color(0xFFF59E0B),
-                        ),
-                        const SizedBox(width: 8),
-                        _summaryChip(
-                          label: 'Hoàn thành',
-                          value: claims
-                              .where((c) => c.status?.toLowerCase() == 'completed')
-                              .length
-                              .toString(),
-                          color: const Color(0xFF10B981),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    const Divider(height: 1),
-                    const SizedBox(height: 8),
-                    ...claims.take(3).map((claim) => _WarrantyClaimItem(claim: claim)),
-                    if (claims.length > 3)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          '+${claims.length - 3} phiếu khác',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF91A0B8),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-    );
-  }
-
-  Widget _emptyState() {
-    return const Row(
-      children: [
-        Icon(Icons.verified_user_outlined, size: 36, color: Color(0xFF91A0B8)),
-        SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Chưa có phiếu bảo hành',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF14213D),
-                ),
-              ),
-              SizedBox(height: 2),
-              Text(
-                'Bảo hành sẽ xuất hiện khi bạn mua sản phẩm.',
-                style: TextStyle(fontSize: 12, color: Color(0xFF6B7893)),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _summaryChip(
-      {required String label, required String value, required Color color}) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                color: color,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(label, style: TextStyle(fontSize: 11, color: color)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _WarrantyClaimItem extends StatelessWidget {
-  const _WarrantyClaimItem({required this.claim});
-
-  final WarrantyClaim claim;
-
-  Color get _statusColor {
-    switch (claim.status?.toLowerCase()) {
-      case 'completed':
-        return const Color(0xFF10B981);
-      case 'processing':
-      case 'pending':
-        return const Color(0xFFF59E0B);
-      case 'rejected':
-        return const Color(0xFFEF4444);
-      default:
-        return const Color(0xFF6B7893);
-    }
-  }
-
-  String get _statusLabel {
-    switch (claim.status?.toLowerCase()) {
-      case 'completed':
-        return 'Hoàn thành';
-      case 'processing':
-        return 'Đang xử lý';
-      case 'pending':
-        return 'Chờ duyệt';
-      case 'rejected':
-        return 'Từ chối';
-      default:
-        return claim.status ?? '-';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: _statusColor,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  claim.productName ?? claim.serialCode ?? 'Phiếu bảo hành',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: Color(0xFF14213D),
-                  ),
-                ),
-                if (claim.issueDescription != null &&
-                    claim.issueDescription!.isNotEmpty)
-                  Text(
-                    claim.issueDescription!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF6B7893),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: _statusColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              _statusLabel,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: _statusColor,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ─── Card 3: Chi tiêu ───────────────────────────────────────────────────────
 
 class _SpendingCard extends StatelessWidget {

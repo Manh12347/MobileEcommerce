@@ -77,6 +77,9 @@ class OrderSummary {
   final double? totalPrice;
   final String? createdOn;
   final int itemCount;
+  final String? warrantyEndDate;
+  final bool? isWarrantyExpired;
+  final String? warrantyRemainingText;
 
   OrderSummary({
     required this.orderId,
@@ -86,6 +89,9 @@ class OrderSummary {
     this.totalPrice,
     this.createdOn,
     required this.itemCount,
+    this.warrantyEndDate,
+    this.isWarrantyExpired,
+    this.warrantyRemainingText,
   });
 
   factory OrderSummary.fromJson(Map<String, dynamic> json) {
@@ -97,6 +103,9 @@ class OrderSummary {
       totalPrice: _toDouble(json['totalPrice']),
       createdOn: json['createdOn']?.toString(),
       itemCount: _toInt(json['itemCount']) ?? 0,
+      warrantyEndDate: json['warrantyEndDate']?.toString(),
+      isWarrantyExpired: json['isWarrantyExpired'] == true,
+      warrantyRemainingText: json['warrantyRemainingText']?.toString(),
     );
   }
 }
