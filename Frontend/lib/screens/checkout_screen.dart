@@ -667,11 +667,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.check_circle, color: Color(0xFF10B981), size: 28),
-            SizedBox(width: 10),
-            Text('Thanh toán thành công'),
+            const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 28),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'Thanh toán thành công',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         content: const Text('Đơn hàng của bạn đã được xác nhận.'),
