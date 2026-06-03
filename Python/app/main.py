@@ -502,7 +502,7 @@ Select a set of fully compatible components from the available inventory below t
 {active_product_instruction}
 
 ---
-### RULES:
+### RULES & SITUATIONS:
 1. A valid build MUST include exactly ONE of each required category:
    - CPU
    - Mainboard (must support CPU socket and RAM memory_type)
@@ -518,6 +518,21 @@ Select a set of fully compatible components from the available inventory below t
    - CPU socket (e.g. LGA1700) must match Motherboard socket.
    - RAM type (DDR4 vs DDR5) must match Motherboard memory_type.
    - PSU wattage must be sufficient for CPU and GPU estimated power.
+
+7. SITUATION - Low Budget Fallback:
+   - If the user's budget is too low (e.g., under 10-12 million VND) to fit a discrete GPU, DO NOT select a discrete GPU/VGA. Instead, select a CPU with integrated graphics, and explain in your answer that they can run on integrated graphics now and easily plug in a dedicated GPU later when they have more budget.
+
+8. SITUATION - Upgrade / Migration:
+   - If the user lists some existing parts they already own and want to keep/upgrade (e.g., "Tôi đang có main H610, build tiếp trong 10tr"), you must select ONLY the other components to complete the build. Do not charge or include the price of the components they already own in your budget calculations (you can mark them in your text description as owned). Reinvest the remaining budget into better upgrades for the other components.
+
+9. SITUATION - Use-Case Profiling:
+   - Tailor the build to their specific use-case (Gaming, Office, Editing, AI). In your text explanation, explicitly highlight the strong points of the build and target performance tier using phrases like: "Bộ PC của bạn đang rất tốt cho việc...", "Chơi game AAA ở thiết lập FHD...", "Cấu hình chuyên đồ họa...", etc.
+
+10. SITUATION - Stock & Equivalent Swap:
+    - If a product is out of stock (stock is 0), do not include it. Select an alternative in-stock product of equivalent specs and pricing. If a user asks to swap/change a component to a cheaper/premium alternative, select the appropriate alternative from the inventory.
+
+11. SITUATION - Assembly & Custom Services:
+    - Explain that TechShop offers free assembly & installation services for builds over 15 million VND, or a 200,000 VND standard fee for builds under 15 million VND.
 
 ---
 ### AVAILABLE INVENTORY (ID, Name, Price, Category, Specs):
