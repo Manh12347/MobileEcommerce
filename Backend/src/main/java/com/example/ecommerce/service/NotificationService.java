@@ -36,17 +36,28 @@ public class NotificationService {
         return notificationRepository.findByAccountAccountIdAndIsReadFalse(accountId);
     }
 
-    public Notification markAsRead(Integer notificationId) {
-        Notification notification = notificationRepository.findById(notificationId).orElse(null);
-        if (notification != null) {
-            notification.setIsRead(true);
-            return notificationRepository.save(notification);
-        }
-        return null;
+    public long countUnreadNotifications(Integer accountId) {
+        return notificationRepository.countByAccountAccountIdAndIsReadFalse(accountId);
     }
 
-    public void deleteNotification(Integer notificationId) {
-        notificationRepository.deleteById(notificationId);
+    public Notification markAsRead(Integer notificationId, Integer accountId) {
+        return notificationRepository
+                .findByNotificationIdAndAccountAccountId(notificationId, accountId)
+                .map(notification -> {
+                    notification.setIsRead(true);
+                    return notificationRepository.save(notification);
+                })
+                .orElse(null);
+    }
+
+    public boolean deleteNotification(Integer notificationId, Integer accountId) {
+        return notificationRepository
+                .findByNotificationIdAndAccountAccountId(notificationId, accountId)
+                .map(notification -> {
+                    notificationRepository.delete(notification);
+                    return true;
+                })
+                .orElse(false);
     }
 
     public void markAllAsRead(Integer accountId) {

@@ -15,6 +15,14 @@ class NotificationProvider extends ChangeNotifier {
 
   bool get hasUnread => _unreadCount > 0;
 
+  void clear() {
+    _notifications = [];
+    _unreadCount = 0;
+    _isLoading = false;
+    _error = null;
+    notifyListeners();
+  }
+
   Future<void> loadNotifications() async {
     _isLoading = true;
     _error = null;
@@ -26,7 +34,11 @@ class NotificationProvider extends ChangeNotifier {
         _notifications = resp.data!;
         _unreadCount = _notifications.where((n) => !n.isRead).length;
       } else {
-        _error = resp.message;
+        _notifications = [];
+        _unreadCount = 0;
+        _error = resp.message.isNotEmpty
+            ? resp.message
+            : 'Khong the tai thong bao';
       }
     } catch (e) {
       _error = e.toString();
@@ -41,6 +53,9 @@ class NotificationProvider extends ChangeNotifier {
       final resp = await ApiService.getUnreadCount();
       if (resp.success) {
         _unreadCount = resp.data ?? 0;
+        notifyListeners();
+      } else if (resp.message.isNotEmpty) {
+        _error = resp.message;
         notifyListeners();
       }
     } catch (_) {}
@@ -69,15 +84,19 @@ class NotificationProvider extends ChangeNotifier {
   Future<void> markAllAsRead() async {
     final resp = await ApiService.markAllNotificationsRead();
     if (resp.success) {
-      _notifications = _notifications.map((n) => AppNotification(
-        notificationId: n.notificationId,
-        accountId: n.accountId,
-        title: n.title,
-        message: n.message,
-        type: n.type,
-        isRead: true,
-        createdOn: n.createdOn,
-      )).toList();
+      _notifications = _notifications
+          .map(
+            (n) => AppNotification(
+              notificationId: n.notificationId,
+              accountId: n.accountId,
+              title: n.title,
+              message: n.message,
+              type: n.type,
+              isRead: true,
+              createdOn: n.createdOn,
+            ),
+          )
+          .toList();
       _unreadCount = 0;
       notifyListeners();
     }

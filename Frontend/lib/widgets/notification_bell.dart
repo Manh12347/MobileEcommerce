@@ -17,7 +17,11 @@ class NotificationBell extends StatelessWidget {
           icon: Stack(
             clipBehavior: Clip.none,
             children: [
-              const Icon(Icons.notifications_outlined, color: Colors.white, size: 26),
+              const Icon(
+                Icons.notifications_outlined,
+                color: Colors.white,
+                size: 26,
+              ),
               if (hasUnread)
                 Positioned(
                   right: -2,
@@ -28,9 +32,14 @@ class NotificationBell extends StatelessWidget {
                       color: Color(0xFFEF4444),
                       shape: BoxShape.circle,
                     ),
-                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
                     child: Text(
-                      provider.unreadCount > 9 ? '9+' : provider.unreadCount.toString(),
+                      provider.unreadCount > 9
+                          ? '9+'
+                          : provider.unreadCount.toString(),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 9,
@@ -135,19 +144,23 @@ class _NotificationPanelState extends State<NotificationPanel> {
               Expanded(
                 child: provider.isLoading
                     ? const Center(
-                        child: CircularProgressIndicator(color: Color(0xFF1F67E2)),
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF1F67E2),
+                        ),
                       )
+                    : provider.error != null
+                    ? _buildError(provider.error!, provider)
                     : notifications.isEmpty
-                        ? _buildEmpty()
-                        : ListView.builder(
-                            controller: scrollController,
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            itemCount: notifications.length,
-                            itemBuilder: (context, index) {
-                              final n = notifications[index];
-                              return _NotificationTile(notification: n);
-                            },
-                          ),
+                    ? _buildEmpty()
+                    : ListView.builder(
+                        controller: scrollController,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: notifications.length,
+                        itemBuilder: (context, index) {
+                          final n = notifications[index];
+                          return _NotificationTile(notification: n);
+                        },
+                      ),
               ),
             ],
           ),
@@ -161,7 +174,11 @@ class _NotificationPanelState extends State<NotificationPanel> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.notifications_off_outlined, size: 64, color: Colors.grey.shade300),
+          Icon(
+            Icons.notifications_off_outlined,
+            size: 64,
+            color: Colors.grey.shade300,
+          ),
           const SizedBox(height: 16),
           Text(
             'Chưa có thông báo nào',
@@ -172,6 +189,35 @@ class _NotificationPanelState extends State<NotificationPanel> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildError(String message, NotificationProvider provider) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 56, color: Colors.red.shade300),
+            const SizedBox(height: 14),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Color(0xFF596274),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton(
+              onPressed: provider.loadNotifications,
+              child: const Text('Thu lai'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -254,21 +300,23 @@ class _NotificationTile extends StatelessWidget {
         child: const Icon(Icons.delete_outline, color: Colors.white),
       ),
       onDismissed: (_) {
-        context.read<NotificationProvider>().deleteNotification(notif.notificationId);
+        context.read<NotificationProvider>().deleteNotification(
+          notif.notificationId,
+        );
       },
       child: InkWell(
         onTap: () {
           if (!notif.isRead) {
-            context.read<NotificationProvider>().markAsRead(notif.notificationId);
+            context.read<NotificationProvider>().markAsRead(
+              notif.notificationId,
+            );
           }
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: _bgColor,
-            border: Border(
-              bottom: BorderSide(color: Colors.grey.shade100),
-            ),
+            border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,7 +344,9 @@ class _NotificationTile extends StatelessWidget {
                             notif.title,
                             style: TextStyle(
                               fontSize: 14,
-                              fontWeight: notif.isRead ? FontWeight.w600 : FontWeight.bold,
+                              fontWeight: notif.isRead
+                                  ? FontWeight.w600
+                                  : FontWeight.bold,
                               color: const Color(0xFF14213D),
                             ),
                           ),
@@ -319,7 +369,9 @@ class _NotificationTile extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.grey.shade600,
-                        fontWeight: notif.isRead ? FontWeight.normal : FontWeight.w500,
+                        fontWeight: notif.isRead
+                            ? FontWeight.normal
+                            : FontWeight.w500,
                       ),
                     ),
                   ],
