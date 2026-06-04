@@ -27,6 +27,8 @@ public class CreateOrderRequest {
 
     private List<CheckoutItem> items;
 
+    private Boolean directBuy = false;
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

@@ -43,6 +43,7 @@ Your goal: decide whether the chatbot should use **RAG** (retrieve data), **CHAT
 
 Choose **"pc_build"** if:
 - The user is asking for a custom PC recommendation or build advice under a budget or for specific uses (e.g. "build pc", "tư vấn cấu hình máy tính", "pc chơi game", "pc 20tr", "dựng cấu hình").
+- The user asks to build a full PC from components and expects a complete list of parts such as PSU, CPU, GPU, RAM, SSD/HDD, Mainboard, and Case.
 - The message implies recommending a set of compatible components (CPU, GPU, RAM, Motherboard, etc.) rather than a single prebuilt system or individual product list.
 - The user is on the "ProductDetail" or "PCBuild" screen and types a budget limit (e.g., "20 tr", "20 triệu", "15tr").
 
@@ -50,6 +51,7 @@ Choose **"rag"** if:
 - The user asks for general information, individual products, or new data (but not a full PC build specification).
 - The user applies filters for a specific search (e.g., "dưới 500k", "màu đen", "size L").
 - The user requests details or comparisons between individual products.
+- The user asks about a single product category only, such as RAM, CPU, GPU/card đồ họa, PSU/nguồn, case, SSD/HDD, or mainboard, and expects recommendations from that category only.
 - The user is asking to compare the active product they are viewing with cheaper alternatives (e.g. "Có sản phẩm nào cùng thông số hay tốt hơn nhưng giá rẻ hơn không").
 
 Choose **"chat"** if:

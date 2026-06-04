@@ -3,8 +3,10 @@ import 'package:provider/provider.dart';
 
 import '../models/order.dart';
 import '../providers/login_provider.dart';
+import '../providers/notification_provider.dart';
 import '../services/api_service.dart';
 import '../utils/format_utils.dart';
+import '../widgets/notification_bell.dart';
 import 'order_detail_screen.dart';
 import 'order_track_screen.dart';
 import 'staff_orders_screen.dart';
@@ -127,6 +129,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
           ),
         ),
         actions: [
+          const NotificationBell(),
           IconButton(
             tooltip: 'Lịch sử bảo hành',
             onPressed: () {

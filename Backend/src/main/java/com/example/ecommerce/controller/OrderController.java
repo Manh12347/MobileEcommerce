@@ -156,6 +156,22 @@ public class OrderController {
         }
     }
 
+    @GetMapping("/staff/stats")
+    public ResponseEntity<ApiResponse<DashboardStatsDTO>> getDashboardStats() {
+        try {
+            requireStaff();
+            DashboardStatsDTO stats = orderService.getDashboardStats();
+            return ResponseEntity.ok(new ApiResponse<>(true, "Lấy thống kê thành công", stats));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (Exception e) {
+            log.error("Lỗi khi lấy thống kê dashboard:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
+        }
+    }
+
     private Integer requireAccountId() {
         Integer accountId = SecurityUtil.getCurrentAccountId();
         if (accountId == null) {

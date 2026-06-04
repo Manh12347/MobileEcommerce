@@ -268,6 +268,7 @@ class CreateOrderRequest {
   final String? wardName;
   final String paymentMethod;
   final List<CheckoutItemRequest>? items;
+  final bool directBuy;
 
   CreateOrderRequest({
     required this.shippingAddress,
@@ -280,6 +281,7 @@ class CreateOrderRequest {
     this.wardName,
     this.paymentMethod = 'COD',
     this.items,
+    this.directBuy = false,
   });
 
   Map<String, dynamic> toJson() {
@@ -296,6 +298,9 @@ class CreateOrderRequest {
     };
     if (items != null) {
       data['items'] = items!.map((i) => i.toJson()).toList();
+    }
+    if (directBuy) {
+      data['directBuy'] = true;
     }
     return data;
   }

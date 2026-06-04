@@ -214,9 +214,14 @@ public class OrderService {
         }
 
         // Xoa cart items (da chuyen thanh order items roi)
-        cartItemRepository.deleteAll(cartItems);
-        cart.setUpdatedOn(LocalDateTime.now());
-        cartRepository.save(cart);
+        if (Boolean.TRUE.equals(request.getDirectBuy())) {
+            // directBuy: khong xoa cart, chi xoa cac item da duoc chon
+            // (cac item trong cartItems la fake objects, khong co trong DB)
+        } else if (cart != null) {
+            cartItemRepository.deleteAll(cartItems);
+            cart.setUpdatedOn(LocalDateTime.now());
+            cartRepository.save(cart);
+        }
 
         logAudit(account, "CREATE_ORDER", savedOrder.getOrderId());
 
@@ -250,6 +255,14 @@ public class OrderService {
 
             allocateSerials(item, productItem, item.getQuantity());
         }
+
+        // Gửi thông báo cho khách sau khi thanh toán chuyển khoản thành công
+        notificationService.createNotification(
+                order.getAccount(),
+                "Thanh toán thành công",
+                "Đơn hàng " + order.getOrderCode() + " đã được thanh toán thành công và đang được xử lý.",
+                "order"
+        );
     }
 
     public List<OrderSummaryDTO> getMyOrders(Integer accountId) {
@@ -326,6 +339,19 @@ public class OrderService {
             orders = orderRepository.findAllByOrderByCreatedOnDesc();
         }
         return orders.stream().map(this::toSummaryDTO).collect(Collectors.toList());
+    }
+
+    public DashboardStatsDTO getDashboardStats() {
+        DashboardStatsDTO stats = new DashboardStatsDTO();
+        stats.setTotalUsers(accountRepository.countByRole("customer"));
+        stats.setTotalOrders(orderRepository.count());
+        stats.setTotalProducts(productItemRepository.count());
+        stats.setTotalRevenue(orderRepository.sumTotalPriceByPaymentStatus("paid"));
+        stats.setPendingOrders(orderRepository.countByStatus("pending"));
+        stats.setShippingOrders(orderRepository.countByStatus("shipping"));
+        stats.setCompletedOrders(orderRepository.countByStatus("completed"));
+        stats.setCancelledOrders(orderRepository.countByStatus("cancelled"));
+        return stats;
     }
 
     public OrderDTO getOrderDetailForStaff(Integer orderId) {
@@ -560,9 +586,26 @@ public class OrderService {
         dto.setOrderCode(order.getOrderCode());
         dto.setStatus(order.getStatus());
         dto.setPaymentStatus(order.getPaymentStatus());
+        dto.setPaymentMethod(order.getPaymentMethod());
         dto.setTotalPrice(order.getTotalPrice());
         dto.setCreatedOn(order.getCreatedOn() != null ? order.getCreatedOn().toString() : null);
         dto.setItemCount(itemCount);
+
+        // Populate customer info
+        if (order.getAccount() != null) {
+            String customerName = null;
+            String email = order.getAccount().getEmail();
+            if (order.getAccount().getProfile() != null) {
+                customerName = order.getAccount().getProfile().getFullName();
+            }
+            if (customerName == null || customerName.isBlank()) {
+                customerName = email;
+            }
+            dto.setCustomerName(customerName);
+            dto.setEmail(email);
+        }
+        dto.setPhone(order.getPhone());
+        dto.setShippingAddress(order.getShippingAddress());
 
         populateWarrantyInfo(order, dto);
 

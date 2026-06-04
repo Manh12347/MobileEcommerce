@@ -33,7 +33,7 @@ const int GHN_PICK_SHIFT = 2;
 
 const String GOOGLE_OAUTH_SERVER_CLIENT_ID = String.fromEnvironment(
   'GOOGLE_OAUTH_SERVER_CLIENT_ID',
-  defaultValue: '',
+  defaultValue: '544267804712-qpk19baak8p638kkvkthkb0gk2qfarqj.apps.googleusercontent.com',
 );
 
 // Nếu cần đổi môi trường, cập nhật base URL tại đây.

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/cart_provider.dart';
 import '../providers/login_provider.dart';
+import '../providers/notification_provider.dart';
 import '../utils/app_globals.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/chat_bubble.dart';
@@ -30,6 +31,7 @@ class MainShellScreenState extends State<MainShellScreen> {
     _currentIndex = widget.initialIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<CartProvider>().loadCart(silent: true);
+      context.read<NotificationProvider>().loadUnreadCount();
     });
     // Listen for external requests to switch tabs (e.g., Buy Now actions)
     navigateToTabNotifier.addListener(_handleTabNavigation);
