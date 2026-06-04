@@ -1033,6 +1033,43 @@ class _VersionCard extends StatelessWidget {
 
 // ─── Spec Table ───────────────────────────────────────────────────────────────
 
+String _formatSpecKey(String key) {
+  final Map<String, String> translations = {
+    'wifi': 'Wi-Fi',
+    'bluetooth': 'Bluetooth',
+    'wifi_standard': 'Chuẩn Wi-Fi',
+    'm2_slots': 'Số khe M.2',
+    'ram_slots': 'Số khe RAM',
+    'cpu_socket': 'Socket CPU',
+    'max_ram_gb': 'Dung lượng RAM tối đa',
+    'sata_ports': 'Cổng SATA',
+    'form_factor': 'Kích thước (Form Factor)',
+    'memory_type': 'Loại RAM hỗ trợ',
+    'expansion_slots': 'Khe cắm mở rộng',
+    'ram_form_factor': 'Chuẩn RAM',
+    'max_ram_speed_mhz': 'Tốc độ RAM tối đa (MHz)',
+    'pcie_x16_generation': 'Thế hệ PCIe x16',
+    'supported_cpu_brands': 'Hãng CPU hỗ trợ',
+    'm2_supported_interfaces': 'Chuẩn M.2 hỗ trợ',
+    'required_psu_connectors': 'Cổng nguồn yêu cầu',
+    'supported_cpu_generations': 'Các thế hệ CPU hỗ trợ',
+    'type': 'Loại đầu cắm',
+    'count': 'Số lượng',
+    'chipset': 'Chipset',
+    'platform': 'Nền tảng',
+    'wireless': 'Kết nối không dây',
+    'compatibility': 'Khả năng tương thích',
+  };
+  
+  if (translations.containsKey(key)) {
+    return translations[key]!;
+  }
+  
+  final cleaned = key.replaceAll('_', ' ');
+  if (cleaned.isEmpty) return '';
+  return cleaned[0].toUpperCase() + cleaned.substring(1);
+}
+
 class _SpecTable extends StatelessWidget {
   const _SpecTable({required this.specs});
 
@@ -1072,9 +1109,9 @@ class _SpecTable extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       SizedBox(
-                        width: 120,
+                        width: 130,
                         child: Text(
-                          entry.key,
+                          _formatSpecKey(entry.key),
                           style: const TextStyle(
                             color: Color(0xFF6B7893),
                             fontSize: 13,
@@ -1088,9 +1125,9 @@ class _SpecTable extends StatelessWidget {
                           _specValueText(entry.value),
                           style: const TextStyle(
                             color: Color(0xFF17243D),
-                            fontSize: 14,
-                            height: 1.35,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            height: 1.45,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -1116,8 +1153,29 @@ String _specValueText(dynamic value) {
   if (value == null) {
     return '-';
   }
+  if (value is bool) {
+    return value ? 'Có' : 'Không';
+  }
+  if (value is Map) {
+    if (value.isEmpty) return '-';
+    return value.entries
+        .map((e) => '• ${_formatSpecKey(e.key)}: ${_specValueText(e.value)}')
+        .join('\n');
+  }
   if (value is Iterable) {
-    return value.map((item) => '$item').join(', ');
+    if (value.isEmpty) return '-';
+    final items = value.map((item) {
+      if (item is Map) {
+        return item.entries
+            .map((e) => '${_formatSpecKey(e.key)}: ${_specValueText(e.value)}')
+            .join(', ');
+      }
+      return '$item';
+    });
+    if (value.any((item) => item is Map)) {
+      return items.map((i) => '• $i').join('\n');
+    }
+    return items.join(', ');
   }
   return '$value';
 }
