@@ -1152,6 +1152,17 @@ String _formatSpecKey(String key) {
     'requires_usb_header': 'Yêu cầu USB Header',
     'rgb': 'Hỗ trợ RGB',
     'rgb_type': 'Loại RGB',
+    
+    // New keys found in database
+    'architecture': 'Kiến trúc',
+    'component_type': 'Loại linh kiện',
+    'height_mm': 'Chiều cao (mm)',
+    'length_mm': 'Chiều dài (mm)',
+    'required_pcie_slot': 'Khe cắm PCIe yêu cầu',
+    'sata_2_5': 'Khay SATA 2.5"',
+    'sata_3_5': 'Khay SATA 3.5"',
+    'Màn': 'Màn hình',
+    'đă': 'Đặc tính',
   };
   
   if (translations.containsKey(key)) {
