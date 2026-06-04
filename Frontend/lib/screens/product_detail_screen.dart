@@ -7,7 +7,6 @@ import '../providers/cart_provider.dart';
 import '../providers/product_view_history_provider.dart';
 import '../services/api_service.dart';
 import '../utils/format_utils.dart';
-import '../widgets/product_badge.dart';
 import '../utils/app_globals.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/chat_bubble.dart';
@@ -188,12 +187,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   double? _effectivePrice(ProductItemDetail? detail) {
-    return _selectedVariant?.salePrice ??
-        _selectedVariant?.price ??
-        detail?.salePrice ??
-        detail?.price ??
-        widget.summary.salePrice ??
-        widget.summary.price;
+    return _selectedVariant?.effectivePrice ??
+        detail?.effectivePrice ??
+        widget.summary.effectivePrice;
   }
 
   double? _effectiveOriginalPrice(ProductItemDetail? detail) {

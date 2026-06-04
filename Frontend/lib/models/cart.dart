@@ -33,12 +33,12 @@ class CartItem {
   });
 
   double get unitPrice =>
-      salePrice != null && price != null && salePrice! < price!
+      salePrice != null && salePrice! > 0 && price != null && salePrice! < price!
           ? salePrice!
-          : (salePrice ?? price ?? 0);
+          : (price ?? salePrice ?? 0);
 
   bool get hasPromotion =>
-      salePrice != null && price != null && salePrice! < price!;
+      salePrice != null && salePrice! > 0 && price != null && salePrice! < price!;
 
   factory CartItem.fromJson(Map<String, dynamic> json) {
     return CartItem(

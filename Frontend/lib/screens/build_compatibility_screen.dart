@@ -128,19 +128,19 @@ class _BuildCompatibilityScreenState extends State<BuildCompatibilityScreen> {
         final name = entry.detail?.productName ?? entry.cartItem.productName ?? 'Chưa chọn';
         final price = entry.detail?.salePrice ?? entry.detail?.price ?? entry.cartItem.price ?? 0.0;
         total += price;
-        buffer.writeln('- $category: $name - ${FormatUtils.formatMoney(price)}');
+        buffer.writeln('- $category: $name - ${formatCurrency(price)}');
       }
       
       double assemblyFee = total > 15000000 ? 0 : 200000;
       if (assemblyFee > 0) {
-        buffer.writeln('- Phí lắp ráp & cài đặt: ${FormatUtils.formatMoney(assemblyFee)}');
+        buffer.writeln('- Phí lắp ráp & cài đặt: ${formatCurrency(assemblyFee)}');
         total += assemblyFee;
       } else {
         buffer.writeln('- Phí lắp ráp & cài đặt: Miễn phí (Đơn hàng > 15 triệu)');
       }
       
       buffer.writeln('-----------------------------------');
-      buffer.writeln('TỔNG CỘNG: ${FormatUtils.formatMoney(total)}');
+      buffer.writeln('TỔNG CỘNG: ${formatCurrency(total)}');
       
       await Clipboard.setData(ClipboardData(text: buffer.toString()));
       if (!mounted) return;
@@ -2094,14 +2094,14 @@ class _BuildSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Row(
-            mainAxisAlignment: MainAxisAlignment.between,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
                 'Tổng tiền linh kiện:',
                 style: TextStyle(color: Color(0xFF6B7893), fontSize: 14),
               ),
               Text(
-                FormatUtils.formatMoney(totalComponents),
+                formatCurrency(totalComponents),
                 style: const TextStyle(
                   color: Color(0xFF14213D),
                   fontSize: 14,
@@ -2112,14 +2112,14 @@ class _BuildSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Row(
-            mainAxisAlignment: MainAxisAlignment.between,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
                 'Phí lắp ráp & cài đặt:',
                 style: TextStyle(color: Color(0xFF6B7893), fontSize: 14),
               ),
               Text(
-                assemblyFee > 0 ? FormatUtils.formatMoney(assemblyFee) : 'Miễn phí',
+                assemblyFee > 0 ? formatCurrency(assemblyFee) : 'Miễn phí',
                 style: TextStyle(
                   color: assemblyFee > 0 ? const Color(0xFF14213D) : const Color(0xFF16A34A),
                   fontSize: 14,
@@ -2141,7 +2141,7 @@ class _BuildSummaryCard extends StatelessWidget {
           ],
           const Divider(height: 24, color: Color(0xFFE3EAF5)),
           Row(
-            mainAxisAlignment: MainAxisAlignment.between,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
                 'Tổng cộng:',
@@ -2152,7 +2152,7 @@ class _BuildSummaryCard extends StatelessWidget {
                 ),
               ),
               Text(
-                FormatUtils.formatMoney(grandTotal),
+                formatCurrency(grandTotal),
                 style: const TextStyle(
                   color: Color(0xFF1F67E2),
                   fontSize: 18,

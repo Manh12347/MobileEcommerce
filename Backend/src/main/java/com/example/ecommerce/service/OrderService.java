@@ -131,7 +131,9 @@ public class OrderService {
                     .findByIdWithSerialsAndProduct(cartItem.getProductItem().getProductItemId())
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm"));
 
-            BigDecimal unitPrice = resolveUnitPrice(productItem);
+            BigDecimal unitPrice = (cartItem.getPrice() != null && cartItem.getPrice().compareTo(BigDecimal.ZERO) > 0)
+                    ? cartItem.getPrice()
+                    : resolveUnitPrice(productItem);
 
             OrderItem orderItem = new OrderItem();
             orderItem.setOrder(savedOrder);

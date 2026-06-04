@@ -175,7 +175,14 @@ class ProductItemSummary {
   String get name => productName ?? 'Sản phẩm';
 
   bool get hasSalePrice =>
-      salePrice != null && price != null && salePrice! < price!;
+      salePrice != null && salePrice! > 0 && price != null && salePrice! < price!;
+
+  double? get effectivePrice {
+    if (salePrice != null && salePrice! > 0 && price != null && salePrice! < price!) {
+      return salePrice!;
+    }
+    return price ?? salePrice;
+  }
 
   factory ProductItemSummary.fromJson(Map<String, dynamic> json) {
     final brandJson = json['brand'];
@@ -266,7 +273,14 @@ class ProductItemDetail {
   int? get id => productItemId ?? productId;
 
   bool get hasSalePrice =>
-      salePrice != null && price != null && salePrice! < price!;
+      salePrice != null && salePrice! > 0 && price != null && salePrice! < price!;
+
+  double? get effectivePrice {
+    if (salePrice != null && salePrice! > 0 && price != null && salePrice! < price!) {
+      return salePrice!;
+    }
+    return price ?? salePrice;
+  }
 
   Map<String, dynamic> get specifications {
     return _decodeMapValue(specificationsRaw) ?? const {};
@@ -340,7 +354,14 @@ class ProductItemVariantSummary {
     );
   }
 
-  bool get hasSalePrice => salePrice != null && price != null && salePrice! < price!;
+  bool get hasSalePrice => salePrice != null && salePrice! > 0 && price != null && salePrice! < price!;
+
+  double? get effectivePrice {
+    if (salePrice != null && salePrice! > 0 && price != null && salePrice! < price!) {
+      return salePrice!;
+    }
+    return price ?? salePrice;
+  }
 
   String get label {
     final code = sku?.trim();

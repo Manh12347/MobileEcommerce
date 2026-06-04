@@ -6,7 +6,6 @@ import '../models/product_item.dart';
 import '../providers/cart_provider.dart';
 import '../providers/login_provider.dart';
 import '../services/api_service.dart';
-import '../utils/app_globals.dart';
 import '../utils/format_utils.dart';
 import '../widgets/product_badge.dart';
 import 'checkout_screen.dart';
@@ -1036,7 +1035,7 @@ class _ProductCardState extends State<_ProductCard> {
     final variant = widget.product.firstVariant;
     final variantImage = variant?.mainImageUrl ?? (variant?.images.isNotEmpty == true ? variant!.images.first : null);
     final imageUrl = variantImage ?? summary.mainImageUrl;
-    final currentPrice = variant?.salePrice ?? variant?.price ?? summary.salePrice ?? summary.price;
+    final currentPrice = variant?.effectivePrice ?? summary.effectivePrice;
     final originalPrice = variant?.hasSalePrice == true
         ? variant!.price
         : (summary.hasSalePrice ? summary.price : null);
@@ -1280,7 +1279,7 @@ class _DiscountCard extends StatelessWidget {
         (variant?.images.isNotEmpty == true ? variant!.images.first : null) ??
         summary.mainImageUrl;
     final currentPrice =
-        variant?.salePrice ?? variant?.price ?? summary.salePrice ?? summary.price;
+        variant?.effectivePrice ?? summary.effectivePrice;
     final originalPrice = variant?.hasSalePrice == true
         ? variant!.price
         : (summary.hasSalePrice ? summary.price : null);
