@@ -292,7 +292,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _buyNow(_CatalogProduct product) async {
     final summary = product.summary;
-    final productItemId = summary.id;
+    var productItemId = product.firstVariant?.productItemId ?? summary.id;
 
     if (productItemId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -308,8 +308,9 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    final price = summary.price;
-    final salePrice = summary.salePrice;
+    final variant = product.firstVariant;
+    final price = variant?.price ?? summary.price;
+    final salePrice = variant?.salePrice ?? summary.salePrice;
     final double unitPrice = salePrice != null && price != null && salePrice < price
         ? salePrice
         : (salePrice ?? price ?? 0);
@@ -318,9 +319,9 @@ class _HomeScreenState extends State<HomeScreen> {
       cartItemId: 0,
       productItemId: productItemId,
       quantity: 1,
-      sku: summary.sku,
+      sku: variant?.sku ?? summary.sku,
       productName: summary.name,
-      mainImageUrl: summary.mainImageUrl,
+      mainImageUrl: variant?.mainImageUrl ?? summary.mainImageUrl,
       price: price,
       salePrice: salePrice,
       lineTotal: unitPrice,
@@ -344,7 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _addToCart(_CatalogProduct product) async {
     final summary = product.summary;
-    final productItemId = summary.id;
+    final productItemId = product.firstVariant?.productItemId ?? summary.id;
 
     if (productItemId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1090,10 +1091,7 @@ class _ProductCardState extends State<_ProductCard> {
                         ),
                       ],
                     ),
-                    child: Padding(
-                      padding: EdgeInsets.all(8 * scale),
-                      child: _ProductImage(url: imageUrl, fit: BoxFit.contain),
-                    ),
+                    child: _ProductImage(url: imageUrl, fit: BoxFit.cover),
                   ),
                   if (badges.isNotEmpty)
                     Positioned(left: 12, top: 12, child: Row(children: badges)),
@@ -1241,8 +1239,8 @@ class _ProductImage extends StatelessWidget {
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.all(14),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
       child: Image.network(
         url!,
         fit: fit,

@@ -169,6 +169,48 @@ class UpdateEmbeddingRequest(BaseModel):
     product_item_id: int
 
 
+def _try_parse_json(text: str) -> dict | None:
+    """Try to parse JSON from text, handling markdown code blocks."""
+    text = text.strip()
+    # Strip markdown code fences (e.g. ```json ... ``` or ``` ... ```)
+    import re
+    text = re.sub(r'^```(?:json)?\s*', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\s*```$', '', text)
+    text = text.strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return None
+
+
+def _call_chat_with_retry(prompt: str, max_retries: int = 2) -> str:
+    """Call chat_model with retry on JSON parse failure."""
+    for attempt in range(max_retries + 1):
+        response = chat_model.generate_content(prompt)
+        result = _try_parse_json(response.text)
+        if result is not None:
+            return json.dumps(result)
+        if attempt < max_retries:
+            print(f"JSON parse failed (attempt {attempt + 1}), retrying...")
+    # Last resort: return raw text wrapped in a minimal JSON envelope
+    return json.dumps({
+        "answer": response.text[:500] if response.text else "Xin lỗi, phản hồi không hợp lệ.",
+        "build_item_ids": []
+    })
+
+
+def _extract_build_result(raw_response: str) -> tuple[str, list]:
+    """Extract answer and build_item_ids from LLM JSON response."""
+    result = _try_parse_json(raw_response)
+    if result is None:
+        return "Xin lỗi, tôi gặp sự cố khi thiết lập cấu hình. Bạn có thể tự chọn linh kiện trong mục 'Xây dựng cấu hình' nhé!", []
+    answer = result.get("answer", "")
+    build_ids = result.get("build_item_ids", [])
+    if not isinstance(build_ids, list):
+        build_ids = []
+    return answer, build_ids
+
+
 def infer_requested_category(user_text: str) -> str | None:
     text = user_text.lower()
     category_patterns = [
@@ -596,21 +638,10 @@ You MUST respond with a valid JSON object in this format:
   "build_item_ids": [id1, id2, id3, ...]
 }}
 """
-        try:
-            response = chat_model.generate_content(
-                build_prompt,
-                generation_config={
-                    "temperature": 0.2,
-                    "response_mime_type": "application/json"
-                }
-            )
-            build_result = json.loads(response.text)
-            answer = build_result["answer"]
-            build_item_ids = build_result["build_item_ids"]
-        except Exception as e:
-            print("Gemini PC Builder error:", e)
-            answer = "Rất tiếc, tôi gặp sự cố khi thiết lập cấu hình. Bạn có thể tự chọn linh kiện trong mục 'Xây dựng cấu hình' nhé!"
-            build_item_ids = []
+        raw_response = _call_chat_with_retry(build_prompt)
+        answer, build_item_ids = _extract_build_result(raw_response)
+        if not build_item_ids:
+            answer = "Xin lỗi, tôi gặp sự cố khi thiết lập cấu hình. Bạn có thể tự chọn linh kiện trong mục 'Xây dựng cấu hình' nhé!"
 
         top_products = []
         for item_id in build_item_ids:

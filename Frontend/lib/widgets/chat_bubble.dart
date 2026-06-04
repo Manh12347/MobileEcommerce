@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -146,6 +147,9 @@ class _ChatWindowOverlayState extends State<ChatWindowOverlay>
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
   String _sessionId = DateTime.now().millisecondsSinceEpoch.toString();
+  Timer? _sessionTimer;
+  DateTime _sessionStartTime = DateTime.now();
+  final ValueNotifier<int> _sessionVersion = ValueNotifier(0);
 
   static final _botWelcome = ChatMessageVM(
     role: 'assistant',
@@ -173,10 +177,25 @@ class _ChatWindowOverlayState extends State<ChatWindowOverlay>
       CurvedAnimation(parent: _slideController, curve: Curves.easeOut),
     );
     _slideController.forward();
+
+    // Auto-clear session after 30 minutes
+    _sessionTimer = Timer(const Duration(minutes: 30), () {
+      if (mounted) {
+        _clearSession();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Phiên chat đã kết thúc. Tin nhắn đã được xóa.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    });
   }
 
   @override
   void dispose() {
+    _sessionTimer?.cancel();
+    _sessionVersion.dispose();
     _slideController.dispose();
     _textController.dispose();
     _scrollController.dispose();
@@ -264,6 +283,8 @@ class _ChatWindowOverlayState extends State<ChatWindowOverlay>
                 scrollController: _scrollController,
                 onSend: _sendMessage,
                 onClose: () => _dismiss(),
+                onClear: _clearSession,
+                sessionVersion: _sessionVersion,
               ),
             ),
           ),
@@ -275,6 +296,28 @@ class _ChatWindowOverlayState extends State<ChatWindowOverlay>
   void _dismiss() {
     _slideController.reverse().then((_) {
       if (mounted) Navigator.of(context).pop();
+    });
+  }
+
+  void _clearSession() {
+    _sessionTimer?.cancel();
+    _sessionVersion.value++;
+    setState(() {
+      _messages.clear();
+      _sessionId = DateTime.now().millisecondsSinceEpoch.toString();
+      _sessionStartTime = DateTime.now();
+    });
+    // Restart 30-minute timer
+    _sessionTimer = Timer(const Duration(minutes: 30), () {
+      if (mounted) {
+        _clearSession();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Phiên chat đã kết thúc. Tin nhắn đã được xóa.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     });
   }
 }
@@ -289,6 +332,8 @@ class _ChatWindow extends StatelessWidget {
     required this.scrollController,
     required this.onSend,
     required this.onClose,
+    required this.onClear,
+    required this.sessionVersion,
   });
 
   final List<ChatMessageVM> messages;
@@ -297,6 +342,8 @@ class _ChatWindow extends StatelessWidget {
   final ScrollController scrollController;
   final VoidCallback onSend;
   final VoidCallback onClose;
+  final VoidCallback onClear;
+  final ValueNotifier<int> sessionVersion;
 
   @override
   Widget build(BuildContext context) {
@@ -320,9 +367,13 @@ class _ChatWindow extends StatelessWidget {
               ),
             ],
           ),
-          child: Column(
+            child: Column(
             children: [
-              _ChatHeader(onClose: onClose),
+              _ChatHeader(
+                onClose: onClose,
+                onClear: onClear,
+                sessionVersion: sessionVersion,
+              ),
               Expanded(child: _MessageList(
                 messages: messages,
                 isLoading: isLoading,
@@ -341,10 +392,62 @@ class _ChatWindow extends StatelessWidget {
   }
 }
 
-class _ChatHeader extends StatelessWidget {
-  const _ChatHeader({required this.onClose});
+class _ChatHeader extends StatefulWidget {
+  const _ChatHeader({
+    required this.onClose,
+    required this.onClear,
+    required this.sessionVersion,
+  });
 
   final VoidCallback onClose;
+  final VoidCallback onClear;
+  final ValueNotifier<int> sessionVersion;
+
+  @override
+  State<_ChatHeader> createState() => _ChatHeaderState();
+}
+
+class _ChatHeaderState extends State<_ChatHeader> {
+  Timer? _countdownTimer;
+  int _remainingSeconds = 30 * 60;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+    widget.sessionVersion.addListener(_onSessionVersionChanged);
+  }
+
+  void _onSessionVersionChanged() {
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _countdownTimer?.cancel();
+    if (!mounted) return;
+    setState(() => _remainingSeconds = 30 * 60);
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {
+        if (_remainingSeconds > 0) {
+          _remainingSeconds--;
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    widget.sessionVersion.removeListener(_onSessionVersionChanged);
+    super.dispose();
+  }
+
+  String get _timeLabel {
+    final m = _remainingSeconds ~/ 60;
+    final s = _remainingSeconds % 60;
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -379,11 +482,11 @@ class _ChatHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Trợ lý TechShop',
                   style: TextStyle(
                     color: Colors.white,
@@ -391,18 +494,30 @@ class _ChatHeader extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                Text(
-                  'Luôn sẵn sàng hỗ trợ bạn',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11,
-                  ),
+                Row(
+                  children: [
+                    const Icon(Icons.timer_outlined, color: Colors.white54, size: 11),
+                    const SizedBox(width: 3),
+                    Text(
+                      _timeLabel,
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           IconButton(
-            onPressed: onClose,
+            onPressed: widget.onClear,
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white70),
+            iconSize: 20,
+            tooltip: 'Xóa tin nhắn & reset 30p',
+          ),
+          IconButton(
+            onPressed: widget.onClose,
             icon: const Icon(Icons.close_rounded, color: Colors.white70),
             iconSize: 22,
           ),
