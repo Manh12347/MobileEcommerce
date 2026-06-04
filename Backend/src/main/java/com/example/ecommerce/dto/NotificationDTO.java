@@ -6,8 +6,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
-
 @Getter
 @Setter
 @NoArgsConstructor
@@ -19,7 +17,7 @@ public class NotificationDTO {
     private String message;
     private String type;
     private Boolean isRead;
-    private LocalDateTime createdOn;
+    private String createdOn;
 
     public static NotificationDTO fromEntity(Notification notification) {
         Integer accountId = notification.getAccount() != null
@@ -36,7 +34,9 @@ public class NotificationDTO {
                 notification.getMessage(),
                 notification.getType(),
                 notification.getIsRead(),
-                notification.getCreatedOn()
+                notification.getCreatedOn() != null
+                        ? notification.getCreatedOn().toString()
+                        : null
         );
     }
 }
