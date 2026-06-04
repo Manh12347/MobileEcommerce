@@ -1,3 +1,4 @@
+import time
 import json
 from functools import lru_cache
 
@@ -7,21 +8,32 @@ from sklearn.metrics.pairwise import cosine_similarity
 from app.api_key import get_embedding
 from app.database import load_all
 
+_last_load_time = 0.0
 
 @lru_cache(maxsize=1)
 def _get_rag_data_cached():
-    """
-    Lazy loading of RAG data - cached after first call.
-    This avoids loading DB at import time.
-    """
+    global _last_load_time
+    _last_load_time = time.time()
     return load_all()
+
+
+def clear_rag_cache():
+    """
+    Manually clear the cached RAG data.
+    """
+    global _last_load_time
+    _get_rag_data_cached.cache_clear()
+    _last_load_time = 0.0
 
 
 def get_rag_data():
     """
     Get RAG data with lazy loading.
     Caches the result to avoid repeated DB queries.
+    Refreshes automatically if cache is older than 5 minutes.
     """
+    if time.time() - _last_load_time > 300:
+        clear_rag_cache()
     return _get_rag_data_cached()
 
 

@@ -12,10 +12,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+import time
 from app.api_key import chat_model
 from app.chat import chat_with_gemini
 from app.database import load_all_active_products
-from app.retriever import get_rag_data, generate_product_embedding, retrieve_products
+from app.retriever import get_rag_data, generate_product_embedding, retrieve_products, clear_rag_cache
 from app.decision import decide_chat
 
 repo_root = Path(__file__).resolve().parents[2]
@@ -150,6 +151,7 @@ def get_product_by_id(product_item_id: int):
 # Session Storage
 # ============================
 
+# Format: {session_id: {"last_activity": float, "history": list}}
 session_histories = {}
 
 
@@ -334,11 +336,31 @@ def get_all_components_inventory():
 @app.post("/chat")
 def chat_api(msg: Message):
     session_id = msg.session_id or str(uuid4())
+    current_time = time.time()
 
-    if session_id not in session_histories:
-        session_histories[session_id] = []
+    # Clean up expired sessions (> 1 hour) to avoid memory leak
+    expired_ids = [
+        sid for sid, data in session_histories.items()
+        if current_time - data["last_activity"] > 3600
+    ]
+    for sid in expired_ids:
+        try:
+            del session_histories[sid]
+        except KeyError:
+            pass
 
-    conversation_history = session_histories[session_id]
+    if session_id in session_histories:
+        session_data = session_histories[session_id]
+        if current_time - session_data["last_activity"] > 3600:
+            session_data["history"] = []
+        session_data["last_activity"] = current_time
+    else:
+        session_histories[session_id] = {
+            "last_activity": current_time,
+            "history": []
+        }
+
+    conversation_history = session_histories[session_id]["history"]
 
     decision = decide_chat(msg.text, conversation_history, msg.active_screen)
 
@@ -615,7 +637,9 @@ You MUST respond with a valid JSON object in this format:
         answer = chat_with_gemini(msg.text)
 
     conversation_history.append((msg.text, answer))
-    session_histories[session_id] = conversation_history
+    if session_id in session_histories:
+        session_histories[session_id]["history"] = conversation_history
+        session_histories[session_id]["last_activity"] = time.time()
 
     return {
         "session_id": session_id,
@@ -630,6 +654,32 @@ You MUST respond with a valid JSON object in this format:
 # Update Embedding API
 # ============================
 
+def build_rich_embedding_text(name: str | None, category: str | None, specifications: str | dict | None, description: str | None) -> str:
+    parts = []
+    if name:
+        parts.append(f"Name: {name}")
+    if category:
+        parts.append(f"Category: {category}")
+    if specifications:
+        specs_dict = {}
+        if isinstance(specifications, str):
+            try:
+                specs_dict = json.loads(specifications)
+            except:
+                pass
+        elif isinstance(specifications, dict):
+            specs_dict = specifications
+        if specs_dict:
+            specs_parts = [f"{k}: {v}" for k, v in specs_dict.items()]
+            parts.append(f"Specifications: {', '.join(specs_parts)}")
+    if description:
+        parts.append(f"Description: {description}")
+    
+    if not parts:
+        return "Unknown Product"
+    return " | ".join(parts)
+
+
 @app.post("/update-vector-by-product-id")
 def update_vector(req: UpdateEmbeddingRequest):
     product_item_id = req.product_item_id
@@ -638,27 +688,29 @@ def update_vector(req: UpdateEmbeddingRequest):
     try:
         with get_connection() as conn:
             with conn.cursor() as cursor:
-                cursor.execute(
-                    "SELECT description FROM product_items WHERE product_item_id = %s",
-                    (product_item_id,)
-                )
+                cursor.execute("""
+                    SELECT pi.description, p.name, pi.specifications, c.name AS category_name
+                    FROM product_items pi
+                    JOIN products p ON pi.product_id = p.product_id
+                    JOIN categories c ON p.category_id = c.category_id
+                    WHERE pi.product_item_id = %s
+                """, (product_item_id,))
                 row = cursor.fetchone()
 
                 if not row:
                     raise HTTPException(status_code=404, detail="Product Item not found")
 
-                description = row[0]
-                logging.info(f"Description length: {len(description) if description else 0}")
+                description, name, specifications, category_name = row
+                logging.info(f"Found product: {name}, category: {category_name}")
 
-        if not description:
-            raise HTTPException(status_code=400, detail="Description is empty")
+        rich_text = build_rich_embedding_text(name, category_name, specifications, description)
+        logging.info(f"Rich embedding text: {rich_text}")
 
         logging.info("Calling generate_product_embedding...")
-        embedding_vector = generate_product_embedding(description)
+        embedding_vector = generate_product_embedding(rich_text)
         logging.info(f"Embedding generated, length: {len(embedding_vector)}")
 
         embedding_str = "[" + ",".join(map(str, embedding_vector)) + "]"
-        logging.info(f"Embedding string format prepared, length: {len(embedding_str)}")
 
         with get_connection() as conn:
             with conn.cursor() as cursor:
@@ -668,7 +720,10 @@ def update_vector(req: UpdateEmbeddingRequest):
                 )
                 conn.commit()
 
-        logging.info("Embedding updated successfully")
+        # Invalidate RAG cache so updates take effect immediately
+        clear_rag_cache()
+        logging.info("Embedding updated and cache cleared successfully")
+
         return {
             "status": "success",
             "product_item_id": product_item_id,
