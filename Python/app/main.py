@@ -15,7 +15,7 @@ from pydantic import BaseModel
 import time
 from app.api_key import chat_model
 from app.chat import chat_with_gemini
-from app.database import load_all_active_products
+from app.database import load_all_active_products, VIRTUAL_PRODUCTS
 from app.retriever import get_rag_data, generate_product_embedding, retrieve_products, clear_rag_cache
 from app.decision import decide_chat
 
@@ -175,118 +175,7 @@ class UpdateEmbeddingRequest(BaseModel):
 # PC Builder Constants & Helpers
 # ============================
 
-VIRTUAL_PRODUCTS = [
-    {
-        "product_item_id": 99901,
-        "product_name": "Nguồn MSI MAG A650BN 650W",
-        "price": 1450000.0,
-        "sale_price": None,
-        "stock": 10,
-        "warranty_months": 36,
-        "sku": "PSU-MSI-A650BN",
-        "description": "Nguồn MSI MAG A650BN 650W 80 Plus Bronze",
-        "main_image_url": "https://doantrang.online/v1/api/uploads/products/msi_mag_a650bn.webp",
-        "category_name": "PSU",
-        "specifications": {
-            "compatibility": {
-                "wattage_w": 650,
-                "form_factor": "ATX",
-                "efficiency": "80 Plus Bronze",
-                "power_connectors": [
-                    {"type": "24-pin", "count": 1},
-                    {"type": "8-pin CPU", "count": 2},
-                    {"type": "6+2-pin PCIe", "count": 2},
-                    {"type": "SATA", "count": 5}
-                ]
-            }
-        }
-    },
-    {
-        "product_item_id": 99902,
-        "product_name": "Nguồn Corsair RM850e 850W Gold",
-        "price": 2990000.0,
-        "sale_price": None,
-        "stock": 5,
-        "warranty_months": 36,
-        "sku": "PSU-CORSAIR-RM850E",
-        "description": "Nguồn Corsair RM850e 850W Gold Fully Modular",
-        "main_image_url": "https://doantrang.online/v1/api/uploads/products/corsair_rm850e.webp",
-        "category_name": "PSU",
-        "specifications": {
-            "compatibility": {
-                "wattage_w": 850,
-                "form_factor": "ATX",
-                "efficiency": "80 Plus Gold",
-                "power_connectors": [
-                    {"type": "24-pin", "count": 1},
-                    {"type": "8-pin CPU", "count": 2},
-                    {"type": "6+2-pin PCIe", "count": 4},
-                    {"type": "SATA", "count": 7}
-                ]
-            }
-        }
-    },
-    {
-        "product_item_id": 99903,
-        "product_name": "SSD Samsung 990 Pro 1TB M.2 NVMe",
-        "price": 2490000.0,
-        "sale_price": None,
-        "stock": 15,
-        "warranty_months": 60,
-        "sku": "SSD-SAMSUNG-990PRO-1TB",
-        "description": "SSD Samsung 990 Pro 1TB M.2 NVMe PCIe Gen 4.0",
-        "main_image_url": "https://doantrang.online/v1/api/uploads/products/samsung_990pro.webp",
-        "category_name": "SSD/HDD",
-        "specifications": {
-            "compatibility": {
-                "requires_m2_slot": True,
-                "form_factor": "M.2 2280",
-                "requires_pcie_generation": "Gen 4",
-                "capacity_gb": 1000
-            }
-        }
-    },
-    {
-        "product_item_id": 99904,
-        "product_name": "SSD Kingston NV2 500GB M.2",
-        "price": 990000.0,
-        "sale_price": None,
-        "stock": 20,
-        "warranty_months": 36,
-        "sku": "SSD-KINGSTON-NV2-500GB",
-        "description": "SSD Kingston NV2 500GB M.2 NVMe PCIe Gen 4.0",
-        "main_image_url": "https://doantrang.online/v1/api/uploads/products/kingston_nv2.webp",
-        "category_name": "SSD/HDD",
-        "specifications": {
-            "compatibility": {
-                "requires_m2_slot": True,
-                "form_factor": "M.2 2280",
-                "requires_pcie_generation": "Gen 4",
-                "capacity_gb": 500
-            }
-        }
-    },
-    {
-        "product_item_id": 99905,
-        "product_name": "HDD Seagate BarraCuda 2TB 3.5\"",
-        "price": 1590000.0,
-        "sale_price": None,
-        "stock": 8,
-        "warranty_months": 24,
-        "sku": "HDD-SEAGATE-2TB",
-        "description": "HDD Seagate BarraCuda 2TB 3.5 inch SATA 3",
-        "main_image_url": "https://doantrang.online/v1/api/uploads/products/seagate_2tb.webp",
-        "category_name": "SSD/HDD",
-        "specifications": {
-            "compatibility": {
-                "requires_sata_port": 1,
-                "requires_sata_power": 1,
-                "form_factor": "3.5 inch",
-                "capacity_gb": 2000
-            }
-        }
-    }
-]
+# VIRTUAL_PRODUCTS imported from database.py
 
 
 def get_all_components_inventory():

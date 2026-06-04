@@ -141,11 +141,17 @@ class _ChatWindowOverlayState extends State<ChatWindowOverlay>
   late Animation<Offset> _slideAnim;
   late Animation<double> _fadeAnim;
 
-  final List<ChatMessageVM> _messages = [];
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
-  String _sessionId = DateTime.now().millisecondsSinceEpoch.toString();
+
+  // Static cache for persisting chat session
+  static String? _cachedSessionId;
+  static List<ChatMessageVM>? _cachedMessages;
+  static DateTime? _cachedSessionLastActivity;
+
+  late String _sessionId;
+  late List<ChatMessageVM> _messages;
 
   static final _botWelcome = ChatMessageVM(
     role: 'assistant',
@@ -156,7 +162,23 @@ class _ChatWindowOverlayState extends State<ChatWindowOverlay>
   @override
   void initState() {
     super.initState();
-    _messages.add(_botWelcome);
+
+    final now = DateTime.now();
+    // Check if we have a cached session active within the last hour
+    if (_cachedSessionId != null &&
+        _cachedMessages != null &&
+        _cachedSessionLastActivity != null &&
+        now.difference(_cachedSessionLastActivity!).inHours < 1) {
+      _sessionId = _cachedSessionId!;
+      _messages = _cachedMessages!;
+      _cachedSessionLastActivity = now; // update activity
+    } else {
+      _sessionId = now.millisecondsSinceEpoch.toString();
+      _messages = [_botWelcome];
+      _cachedSessionId = _sessionId;
+      _cachedMessages = _messages;
+      _cachedSessionLastActivity = now;
+    }
 
     _slideController = AnimationController(
       duration: const Duration(milliseconds: 320),
@@ -173,6 +195,9 @@ class _ChatWindowOverlayState extends State<ChatWindowOverlay>
       CurvedAnimation(parent: _slideController, curve: Curves.easeOut),
     );
     _slideController.forward();
+    
+    // Auto scroll to bottom when opening existing chat history
+    _scrollToBottom();
   }
 
   @override
@@ -202,6 +227,7 @@ class _ChatWindowOverlayState extends State<ChatWindowOverlay>
     _textController.clear();
     setState(() {
       _messages.add(ChatMessageVM(role: 'user', text: text));
+      _cachedSessionLastActivity = DateTime.now();
       _isLoading = true;
     });
     _scrollToBottom();
@@ -223,6 +249,8 @@ class _ChatWindowOverlayState extends State<ChatWindowOverlay>
           decisionAction: resp.decisionAction,
         ));
         _sessionId = resp.sessionId;
+        _cachedSessionId = _sessionId;
+        _cachedSessionLastActivity = DateTime.now();
         _isLoading = false;
       });
       _scrollToBottom();
@@ -714,10 +742,23 @@ class _ProductChip extends StatelessWidget {
               color: const Color(0xFFE8F4FF),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(
-              Icons.inventory_2_outlined,
-              size: 18,
-              color: Color(0xFF1F67E2),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: (product.mainImageUrl != null && product.mainImageUrl!.isNotEmpty)
+                  ? Image.network(
+                      product.mainImageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => const Icon(
+                        Icons.inventory_2_outlined,
+                        size: 18,
+                        color: Color(0xFF1F67E2),
+                      ),
+                    )
+                  : const Icon(
+                      Icons.inventory_2_outlined,
+                      size: 18,
+                      color: Color(0xFF1F67E2),
+                    ),
             ),
           ),
           const SizedBox(width: 8),
