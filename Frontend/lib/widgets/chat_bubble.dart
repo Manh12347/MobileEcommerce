@@ -881,10 +881,14 @@ class _ProductChip extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    // Price row with optional discount badge
-                    Row(
+                    // Price + discount + original stacked, then stock badge
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      runSpacing: 3,
                       children: [
                         Flexible(
+                          fit: FlexFit.tight,
                           child: Text(
                             formatCurrency(price),
                             style: const TextStyle(
@@ -892,19 +896,22 @@ class _ProductChip extends StatelessWidget {
                               fontWeight: FontWeight.w900,
                               color: Color(0xFFD28A00),
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         if (hasDiscount) ...[
-                          const SizedBox(width: 6),
-                          Text(
-                            formatCurrency(product.price),
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF91A0B8),
-                              decoration: TextDecoration.lineThrough,
+                          Flexible(
+                            fit: FlexFit.tight,
+                            child: Text(
+                              formatCurrency(product.price),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF91A0B8),
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                             decoration: BoxDecoration(

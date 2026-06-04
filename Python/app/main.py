@@ -572,7 +572,7 @@ Evaluate compatibility of the active product based on its category and specific 
             )
         inventory_text = "\n".join(inventory_items_desc)
 
-        # In PC build recommendation flow, check if there is an active product we should force/incorporate
+        # In PC build recommendation flow, include active product if on ProductDetail screen
         active_product_instruction = ""
         if msg.active_screen == "ProductDetail" and active_product:
             active_product_instruction = f"""
@@ -583,7 +583,7 @@ The user is currently viewing the following active product:
 If the active product category belongs to any of the standard build components (CPU, Mainboard, RAM, GPU, PSU, SSD/HDD, Case), you MUST include this EXACT product item in the recommended PC build, unless its price alone exceeds the budget or it is technically impossible to build a compatible PC around it. If it doesn't fit the budget or is incompatible, explain why in your answer.
 """
 
-            build_prompt = f"""
+        build_prompt = f"""
 You are an expert PC Builder chatbot on TechShop.
 The user requested a PC build with the following query:
 "{msg.text}"
