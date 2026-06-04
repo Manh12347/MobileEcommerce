@@ -71,6 +71,8 @@ class MainShellScreenState extends State<MainShellScreen> {
       try {
         context.read<CartProvider>().loadCart(silent: true);
       } catch (_) {}
+    } else if (index == 3) {
+      refreshOrdersNotifier.value++;
     }
   }
 

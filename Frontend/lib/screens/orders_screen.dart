@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../models/order.dart';
 import '../providers/login_provider.dart';
-import '../providers/notification_provider.dart';
 import '../services/api_service.dart';
+import '../utils/app_globals.dart';
 import '../utils/format_utils.dart';
 import '../widgets/notification_bell.dart';
 import 'order_detail_screen.dart';
@@ -40,13 +40,21 @@ class _OrdersScreenState extends State<OrdersScreen> {
   @override
   void initState() {
     super.initState();
+    refreshOrdersNotifier.addListener(_handleRefreshRequest);
     _load();
   }
 
   @override
   void dispose() {
+    refreshOrdersNotifier.removeListener(_handleRefreshRequest);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _handleRefreshRequest() {
+    if (mounted) {
+      _load();
+    }
   }
 
   void _applyFilter() {
@@ -54,9 +62,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
       _filteredOrders = _allOrders.where((order) {
         bool matchesStatus;
         if (_selectedStatus == 'completed') {
-          matchesStatus = order.status == 'completed' && order.isWarrantyExpired != true;
+          matchesStatus =
+              order.status == 'completed' && order.isWarrantyExpired != true;
         } else if (_selectedStatus == 'warranty_expired') {
-          matchesStatus = order.status == 'completed' && order.isWarrantyExpired == true;
+          matchesStatus =
+              order.status == 'completed' && order.isWarrantyExpired == true;
         } else {
           matchesStatus = order.status == _selectedStatus;
         }
@@ -98,8 +108,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
         });
       } else {
         setState(() {
-          _error =
-              response.message.isNotEmpty ? response.message : 'Lỗi tải đơn';
+          _error = response.message.isNotEmpty
+              ? response.message
+              : 'Lỗi tải đơn';
           _isLoading = false;
         });
       }
@@ -138,7 +149,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 MaterialPageRoute(builder: (_) => const WarrantyScreen()),
               );
             },
-            icon: const Icon(Icons.verified_user_outlined, color: Color(0xFF1F67E2)),
+            icon: const Icon(
+              Icons.verified_user_outlined,
+              color: Color(0xFF1F67E2),
+            ),
           ),
           if (isStaff)
             IconButton(
@@ -186,7 +200,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
             SizedBox(
               height: 50,
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 scrollDirection: Axis.horizontal,
                 itemCount: _statusFilters.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 8),
@@ -379,7 +396,8 @@ class _OrderCard extends StatelessWidget {
                   ),
                 ),
               ],
-              if (order.status == 'completed' && order.warrantyRemainingText != null) ...[
+              if (order.status == 'completed' &&
+                  order.warrantyRemainingText != null) ...[
                 const SizedBox(height: 6),
                 Row(
                   children: [
@@ -405,7 +423,8 @@ class _OrderCard extends StatelessWidget {
                             : const Color(0xFF10B981),
                       ),
                     ),
-                    if (order.warrantyEndDate != null && order.isWarrantyExpired != true) ...[
+                    if (order.warrantyEndDate != null &&
+                        order.isWarrantyExpired != true) ...[
                       const SizedBox(width: 4),
                       Text(
                         '(${order.warrantyEndDate})',

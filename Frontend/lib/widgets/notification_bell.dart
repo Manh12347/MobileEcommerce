@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/notification.dart';
 import '../providers/notification_provider.dart';
+import '../services/api_service.dart';
+import '../utils/app_globals.dart';
+import '../screens/order_detail_screen.dart';
 
 class NotificationBell extends StatelessWidget {
   const NotificationBell({super.key});
@@ -305,12 +308,15 @@ class _NotificationTile extends StatelessWidget {
         );
       },
       child: InkWell(
-        onTap: () {
+        onTap: () async {
+          final provider = context.read<NotificationProvider>();
+          final navigator = Navigator.of(context);
+          final messenger = ScaffoldMessenger.maybeOf(context);
+
           if (!notif.isRead) {
-            context.read<NotificationProvider>().markAsRead(
-              notif.notificationId,
-            );
+            await provider.markAsRead(notif.notificationId);
           }
+          await _openRelatedContent(navigator, messenger, notif);
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -393,5 +399,52 @@ class _NotificationTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _openRelatedContent(
+    NavigatorState navigator,
+    ScaffoldMessengerState? messenger,
+    AppNotification notification,
+  ) async {
+    if (notification.type == 'order') {
+      final orderCode = _extractOrderCode(notification.message);
+      if (orderCode != null) {
+        try {
+          final response = await ApiService.trackOrder(orderCode);
+          if (response.success && response.data != null) {
+            navigator.pop();
+            navigator.push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    OrderDetailScreen(orderId: response.data!.orderId),
+              ),
+            );
+            return;
+          }
+          messenger?.showSnackBar(
+            SnackBar(
+              content: Text(
+                response.message.isNotEmpty
+                    ? response.message
+                    : 'Khong tim thay don hang',
+              ),
+            ),
+          );
+        } catch (e) {
+          messenger?.showSnackBar(
+            SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))),
+          );
+        }
+      }
+
+      navigator.pop();
+      refreshOrdersNotifier.value++;
+      navigateToTabNotifier.value = 3;
+    }
+  }
+
+  String? _extractOrderCode(String message) {
+    final match = RegExp(r'ORDER_[0-9_]+').firstMatch(message);
+    return match?.group(0);
   }
 }
