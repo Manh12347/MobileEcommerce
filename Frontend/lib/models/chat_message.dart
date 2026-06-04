@@ -15,6 +15,23 @@ class ChatMessage {
   bool get isAssistant => role == 'assistant';
 }
 
+class ChatMessageVM {
+  final String role;
+  final String text;
+  final List<RetrievedProduct>? products;
+  final String? decisionAction;
+
+  ChatMessageVM({
+    required this.role,
+    required this.text,
+    this.products,
+    this.decisionAction,
+  });
+
+  bool get isUser => role == 'user';
+  bool get isAssistant => role == 'assistant';
+}
+
 class RetrievedProduct {
   final int productItemId;
   final String productName;

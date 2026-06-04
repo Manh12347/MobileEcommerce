@@ -1285,6 +1285,7 @@ class _DiscountCard extends StatelessWidget {
     final discountPct = (originalPrice != null && currentPrice != null && originalPrice > 0)
         ? (((originalPrice - currentPrice) / originalPrice) * 100).round()
         : 0;
+    final hasStock = (variant?.stockQuantity ?? summary.stockQuantity ?? 0) > 0;
 
     return Material(
       color: Colors.white,
@@ -1301,6 +1302,7 @@ class _DiscountCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Stack(
+                clipBehavior: Clip.none,
                 children: [
                   Container(
                     height: 130,
@@ -1379,42 +1381,81 @@ class _DiscountCard extends StatelessWidget {
                         ),
                       ),
                       const Spacer(),
-                      if (currentPrice != null)
-                        Text(
-                          formatCurrency(currentPrice),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFFD28A00),
-                          ),
+                      // Price row with stock badge
+                      if (currentPrice != null) ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    formatCurrency(currentPrice),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w900,
+                                      color: Color(0xFFD28A00),
+                                    ),
+                                  ),
+                                  if (originalPrice != null)
+                                    Text(
+                                      formatCurrency(originalPrice),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Color(0xFF91A0B8),
+                                        decoration: TextDecoration.lineThrough,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: hasStock
+                                    ? const Color(0xFF16A34A).withValues(alpha: 0.12)
+                                    : const Color(0xFFEF4444).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                hasStock ? 'Còn hàng' : 'Hết hàng',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: hasStock
+                                      ? const Color(0xFF16A34A)
+                                      : const Color(0xFFEF4444),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      if (originalPrice != null)
-                        Text(
-                          formatCurrency(originalPrice),
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: Color(0xFF91A0B8),
-                            decoration: TextDecoration.lineThrough,
-                          ),
-                        ),
-                      const SizedBox(height: 4),
+                        const SizedBox(height: 4),
+                      ],
                       SizedBox(
                         width: double.infinity,
                         height: 26,
                         child: OutlinedButton(
-                          onPressed: onBuyNow,
+                          onPressed: hasStock ? onBuyNow : null,
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFFD28A00),
-                            side: const BorderSide(color: Color(0xFFD28A00)),
+                            foregroundColor: hasStock ? const Color(0xFFD28A00) : const Color(0xFF91A0B8),
+                            side: BorderSide(
+                              color: hasStock ? const Color(0xFFD28A00) : const Color(0xFFB0BEC5),
+                            ),
                             padding: EdgeInsets.zero,
                             minimumSize: const Size.fromHeight(26),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          child: const Text(
-                            'Mua',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+                          child: Text(
+                            hasStock ? 'Mua' : 'Hết hàng',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
                           ),
                         ),
                       ),

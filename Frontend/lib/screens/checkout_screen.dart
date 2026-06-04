@@ -497,6 +497,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ))
                   .toList()
               : null,
+          directBuy: widget.directBuyCart != null,
         ),
       );
 

@@ -1,10 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math' as math;
 
 import '../models/chat_message.dart';
+import '../models/product_item.dart';
+import '../providers/chat_session_provider.dart';
+import '../screens/product_detail_screen.dart';
 import '../services/api_service.dart';
 import '../utils/format_utils.dart';
 import '../utils/app_globals.dart';
@@ -142,25 +146,18 @@ class _ChatWindowOverlayState extends State<ChatWindowOverlay>
   late Animation<Offset> _slideAnim;
   late Animation<double> _fadeAnim;
 
-  final List<ChatMessageVM> _messages = [];
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
-  String _sessionId = DateTime.now().millisecondsSinceEpoch.toString();
-  Timer? _sessionTimer;
-  DateTime _sessionStartTime = DateTime.now();
   final ValueNotifier<int> _sessionVersion = ValueNotifier(0);
-
-  static final _botWelcome = ChatMessageVM(
-    role: 'assistant',
-    text:
-        'Xin chào! Mình là trợ lý ảo của TechShop. Bạn cần mình tư vấn sản phẩm công nghệ gì không? Mình có thể giúp bạn tìm linh kiện PC, điện thoại, phụ kiện...',
-  );
 
   @override
   void initState() {
     super.initState();
-    _messages.add(_botWelcome);
+
+    // Init session from provider (persisted across app restarts)
+    final provider = context.read<ChatSessionProvider>();
+    provider.init();
 
     _slideController = AnimationController(
       duration: const Duration(milliseconds: 320),
@@ -177,24 +174,10 @@ class _ChatWindowOverlayState extends State<ChatWindowOverlay>
       CurvedAnimation(parent: _slideController, curve: Curves.easeOut),
     );
     _slideController.forward();
-
-    // Auto-clear session after 30 minutes
-    _sessionTimer = Timer(const Duration(minutes: 30), () {
-      if (mounted) {
-        _clearSession();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Phiên chat đã kết thúc. Tin nhắn đã được xóa.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    });
   }
 
   @override
   void dispose() {
-    _sessionTimer?.cancel();
     _sessionVersion.dispose();
     _slideController.dispose();
     _textController.dispose();
@@ -218,72 +201,70 @@ class _ChatWindowOverlayState extends State<ChatWindowOverlay>
     final text = _textController.text.trim();
     if (text.isEmpty || _isLoading) return;
 
+    final provider = context.read<ChatSessionProvider>();
+
     _textController.clear();
-    setState(() {
-      _messages.add(ChatMessageVM(role: 'user', text: text));
-      _isLoading = true;
-    });
+    provider.addUserMessage(text);
+    setState(() => _isLoading = true);
     _scrollToBottom();
 
     try {
       final resp = await ApiService.sendChat(
         text: text,
-        sessionId: _sessionId,
+        sessionId: provider.sessionId,
         activeScreen: ChatbotContext.activeScreen,
         activeProductId: ChatbotContext.activeProductId,
         activeProductDetails: ChatbotContext.activeProductDetails,
       );
       if (!mounted) return;
-      setState(() {
-        _messages.add(ChatMessageVM(
-          role: 'assistant',
-          text: resp.answer,
-          products: resp.retrievedProducts,
-          decisionAction: resp.decisionAction,
-        ));
-        _sessionId = resp.sessionId;
-        _isLoading = false;
-      });
+      provider.addAssistantMessage(ChatMessageVM(
+        role: 'assistant',
+        text: resp.answer,
+        products: resp.retrievedProducts,
+        decisionAction: resp.decisionAction,
+      ));
+      provider.updateSessionId(resp.sessionId);
+      setState(() => _isLoading = false);
       _scrollToBottom();
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _messages.add(ChatMessageVM(
-          role: 'assistant',
-          text: 'Xin lỗi bạn, đã có lỗi xảy ra. Bạn thử lại nhé!',
-        ));
-        _isLoading = false;
-      });
+      provider.addAssistantMessage(ChatMessageVM(
+        role: 'assistant',
+        text: 'Xin lỗi bạn, đã có lỗi xảy ra. Bạn thử lại nhé!',
+      ));
+      setState(() => _isLoading = false);
       _scrollToBottom();
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<ChatSessionProvider>();
+
     return FadeTransition(
       opacity: _fadeAnim,
       child: Stack(
         children: [
-          // Dimmed backdrop
           GestureDetector(
             onTap: () => _dismiss(),
             child: Container(color: Colors.black.withValues(alpha: 0.35)),
           ),
-
-          // Chat window
           Positioned(
             bottom: 90,
             right: 16,
             child: SlideTransition(
               position: _slideAnim,
               child: _ChatWindow(
-                messages: _messages,
+                messages: provider.messages,
                 isLoading: _isLoading,
                 textController: _textController,
                 scrollController: _scrollController,
                 onSend: _sendMessage,
                 onClose: () => _dismiss(),
-                onClear: _clearSession,
+                onClear: () {
+                  provider.resetSession();
+                  _sessionVersion.value++;
+                },
                 sessionVersion: _sessionVersion,
               ),
             ),
@@ -296,28 +277,6 @@ class _ChatWindowOverlayState extends State<ChatWindowOverlay>
   void _dismiss() {
     _slideController.reverse().then((_) {
       if (mounted) Navigator.of(context).pop();
-    });
-  }
-
-  void _clearSession() {
-    _sessionTimer?.cancel();
-    _sessionVersion.value++;
-    setState(() {
-      _messages.clear();
-      _sessionId = DateTime.now().millisecondsSinceEpoch.toString();
-      _sessionStartTime = DateTime.now();
-    });
-    // Restart 30-minute timer
-    _sessionTimer = Timer(const Duration(minutes: 30), () {
-      if (mounted) {
-        _clearSession();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Phiên chat đã kết thúc. Tin nhắn đã được xóa.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
     });
   }
 }
@@ -648,7 +607,7 @@ class _AssistantBubble extends StatelessWidget {
   Future<void> _applyBuild(BuildContext context, List<RetrievedProduct> products) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       final existingJson = prefs.getString('build_selected_new_products');
       final data = <String, dynamic>{};
       if (existingJson != null && existingJson.isNotEmpty) {
@@ -661,47 +620,98 @@ class _AssistantBubble extends StatelessWidget {
       }
 
       int appliedCount = 0;
+      int skippedCount = 0;
+
       for (final p in products) {
+        if (p.productItemId == null || p.productItemId == 0) {
+          skippedCount++;
+          continue;
+        }
+
         final categoryKey = _resolveCategory(p);
         if (categoryKey == 'unknown') continue;
 
-        data[categoryKey] = {
-          'productItemId': p.productItemId,
-          'productId': p.productItemId,
-          'sku': p.sku ?? 'SKU-${p.productItemId}',
-          'description': p.description ?? '',
-          'stockQuantity': p.stock,
-          'soldQuantity': 0,
-          'status': 'active',
-          'price': p.price,
-          'salePrice': p.salePrice,
-          'mainImageUrl': p.mainImageUrl ?? '',
-          'productName': p.productName,
-          'categoryName': p.categoryName ?? categoryKey.toUpperCase(),
-        };
-        appliedCount++;
+        // Fetch full product details from API
+        try {
+          final resp = await ApiService.getProductItemDetail(p.productItemId!);
+          if (resp.success && resp.data != null) {
+            final detail = resp.data!;
+            data[categoryKey] = {
+              'productItemId': detail.productItemId,
+              'productId': detail.productId,
+              'sku': detail.sku ?? p.sku ?? 'SKU-${detail.productItemId}',
+              'description': detail.description ?? p.description ?? '',
+              'stockQuantity': detail.stockQuantity ?? p.stock,
+              'soldQuantity': 0,
+              'status': detail.status ?? 'active',
+              'price': detail.price ?? p.price,
+              'salePrice': detail.salePrice ?? p.salePrice,
+              'mainImageUrl': detail.mainImageUrl ?? p.mainImageUrl ?? '',
+              'productName': detail.productName ?? p.productName,
+              'categoryName': detail.categoryName ?? p.categoryName ?? categoryKey.toUpperCase(),
+            };
+            appliedCount++;
+          } else {
+            // Fallback: store with chatbot data if API fails
+            data[categoryKey] = {
+              'productItemId': p.productItemId,
+              'productId': p.productItemId,
+              'sku': p.sku ?? 'SKU-${p.productItemId}',
+              'description': p.description ?? '',
+              'stockQuantity': p.stock,
+              'soldQuantity': 0,
+              'status': 'active',
+              'price': p.price,
+              'salePrice': p.salePrice,
+              'mainImageUrl': p.mainImageUrl ?? '',
+              'productName': p.productName,
+              'categoryName': p.categoryName ?? categoryKey.toUpperCase(),
+            };
+            appliedCount++;
+          }
+        } catch (_) {
+          // Fallback: store with chatbot data if request fails
+          data[categoryKey] = {
+            'productItemId': p.productItemId,
+            'productId': p.productItemId,
+            'sku': p.sku ?? 'SKU-${p.productItemId}',
+            'description': p.description ?? '',
+            'stockQuantity': p.stock,
+            'soldQuantity': 0,
+            'status': 'active',
+            'price': p.price,
+            'salePrice': p.salePrice,
+            'mainImageUrl': p.mainImageUrl ?? '',
+            'productName': p.productName,
+            'categoryName': p.categoryName ?? categoryKey.toUpperCase(),
+          };
+          appliedCount++;
+        }
       }
 
       await prefs.setString('build_selected_new_products', jsonEncode(data));
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Đã áp dụng cấu hình ($appliedCount linh kiện) thành công! Hãy vào trang Xây dựng cấu hình để kiểm tra.'),
-            backgroundColor: const Color(0xFF16A34A),
-            duration: const Duration(seconds: 4),
-          ),
-        );
+      if (!context.mounted) return;
+
+      String message = 'Đã áp dụng cấu hình ($appliedCount linh kiện) thành công!';
+      if (skippedCount > 0) {
+        message += ' ($skippedCount sản phẩm không xác định được ID, đã bỏ qua.)';
       }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: const Color(0xFF16A34A),
+          duration: const Duration(seconds: 4),
+        ),
+      );
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi khi áp dụng cấu hình: $e'),
-            backgroundColor: const Color(0xFFDC2626),
-          ),
-        );
-      }
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi khi áp dụng cấu hình: $e'),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
+      );
     }
   }
 
@@ -812,93 +822,211 @@ class _ProductChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final price = product.salePrice ?? product.price;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF4F8FC),
+    final hasDiscount = product.salePrice != null;
+    final discountPct = hasDiscount && product.price > 0
+        ? (((product.price - price) / product.price) * 100).round()
+        : 0;
+    final hasStock = product.stock > 0;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE3EAF5)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE8F4FF),
-              borderRadius: BorderRadius.circular(8),
+        onTap: () {
+          Navigator.of(context).pop();
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => _ProductDetailFromChat(productItemId: product.productItemId),
             ),
-            child: const Icon(
-              Icons.inventory_2_outlined,
-              size: 18,
-              color: Color(0xFF1F67E2),
-            ),
+          );
+        },
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF4F8FC),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE3EAF5)),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product.productName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF14213D),
-                  ),
+          child: Row(
+            children: [
+              // Thumbnail
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F4FF),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                Row(
+                child: const Icon(
+                  Icons.inventory_2_outlined,
+                  size: 22,
+                  color: Color(0xFF1F67E2),
+                ),
+              ),
+              const SizedBox(width: 10),
+              // Info: name + price row + stock
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      formatCurrency(price),
+                      product.productName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF1F67E2),
+                        color: Color(0xFF14213D),
                       ),
                     ),
-                    if (product.salePrice != null) ...[
-                      const SizedBox(width: 6),
-                      Text(
-                        formatCurrency(product.price),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF91A0B8),
-                          decoration: TextDecoration.lineThrough,
+                    const SizedBox(height: 3),
+                    // Price row with optional discount badge
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            formatCurrency(price),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFFD28A00),
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+                        if (hasDiscount) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            formatCurrency(product.price),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF91A0B8),
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFD28A00),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '-$discountPct%',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    // Stock badge (always below price, not to the right)
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: hasStock
+                                ? const Color(0xFF16A34A).withValues(alpha: 0.12)
+                                : const Color(0xFFEF4444).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            hasStock ? 'Còn hàng' : 'Hết hàng',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: hasStock ? const Color(0xFF16A34A) : const Color(0xFFEF4444),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: product.stock > 0
-                  ? const Color(0xFF10B981).withValues(alpha: 0.12)
-                  : const Color(0xFFEF4444).withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              product.stock > 0 ? 'Còn hàng' : 'Hết hàng',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: product.stock > 0
-                    ? const Color(0xFF10B981)
-                    : const Color(0xFFEF4444),
               ),
-            ),
+              const SizedBox(width: 6),
+              // Arrow
+              const Icon(Icons.chevron_right, color: Color(0xFF91A0B8), size: 20),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
+}
+
+// ─── Navigate to Product Detail from Chat ─────────────────────────────────────
+
+class _ProductDetailFromChat extends StatelessWidget {
+  const _ProductDetailFromChat({required this.productItemId});
+
+  final int productItemId;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<_ProductDetailData>(
+      future: _loadProductDetail(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(color: Color(0xFF1F67E2)),
+            ),
+          );
+        }
+        if (!snapshot.hasData) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Chi tiết sản phẩm')),
+            body: const Center(child: Text('Không tải được sản phẩm')),
+          );
+        }
+        // Import and show product detail screen
+        return _buildProductDetailScreen(context, snapshot.data!);
+      },
+    );
+  }
+
+  Future<_ProductDetailData> _loadProductDetail() async {
+    final resp = await ApiService.getProductItemDetail(productItemId);
+    if (!resp.success || resp.data == null) {
+      throw Exception('Không tìm thấy sản phẩm');
+    }
+    return _ProductDetailData(
+      productItem: resp.data!,
+      summary: ProductItemSummary(
+        productItemId: resp.data!.productItemId,
+        productId: resp.data!.productId,
+        sku: resp.data!.sku,
+        description: resp.data!.description,
+        stockQuantity: resp.data!.stockQuantity,
+        soldQuantity: 0,
+        status: resp.data!.status,
+        price: resp.data!.price,
+        salePrice: resp.data!.salePrice,
+        mainImageUrl: resp.data!.mainImageUrl,
+        productName: resp.data!.productName,
+        category: ProductCategory(name: resp.data!.categoryName ?? ''),
+      ),
+    );
+  }
+
+  Widget _buildProductDetailScreen(BuildContext context, _ProductDetailData data) {
+    return ProductDetailScreen(
+      summary: data.summary,
+      initialDetail: data.productItem,
+    );
+  }
+}
+
+class _ProductDetailData {
+  final ProductItemDetail productItem;
+  final ProductItemSummary summary;
+  _ProductDetailData({required this.productItem, required this.summary});
 }
 
 class _TypingIndicator extends StatelessWidget {
@@ -1022,21 +1150,3 @@ class _ChatInputBar extends StatelessWidget {
   }
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-class ChatMessageVM {
-  final String role;
-  final String text;
-  final List<RetrievedProduct>? products;
-  final String? decisionAction;
-
-  ChatMessageVM({
-    required this.role,
-    required this.text,
-    this.products,
-    this.decisionAction,
-  });
-
-  bool get isUser => role == 'user';
-  bool get isAssistant => role == 'assistant';
-}

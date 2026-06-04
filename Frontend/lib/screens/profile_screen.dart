@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../models/order.dart';
 import '../models/ghn_location.dart';
 import '../providers/cart_provider.dart';
+import '../providers/chat_session_provider.dart';
 import '../providers/login_provider.dart';
 import '../services/api_service.dart';
 import '../utils/format_utils.dart';
@@ -309,8 +310,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final loginProvider = context.read<LoginProvider>();
     final cartProvider = context.read<CartProvider>();
+    final chatProvider = context.read<ChatSessionProvider>();
     await loginProvider.logout();
     cartProvider.clearLocal();
+    await chatProvider.clearOnLogout();
 
     if (!context.mounted) return;
     Navigator.pushAndRemoveUntil(

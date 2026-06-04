@@ -212,9 +212,14 @@ public class OrderService {
         }
 
         // Xoa cart items (da chuyen thanh order items roi)
-        cartItemRepository.deleteAll(cartItems);
-        cart.setUpdatedOn(LocalDateTime.now());
-        cartRepository.save(cart);
+        if (Boolean.TRUE.equals(request.getDirectBuy())) {
+            // directBuy: khong xoa cart, chi xoa cac item da duoc chon
+            // (cac item trong cartItems la fake objects, khong co trong DB)
+        } else if (cart != null) {
+            cartItemRepository.deleteAll(cartItems);
+            cart.setUpdatedOn(LocalDateTime.now());
+            cartRepository.save(cart);
+        }
 
         logAudit(account, "CREATE_ORDER", savedOrder.getOrderId());
 
