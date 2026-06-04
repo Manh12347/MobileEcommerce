@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'providers/cart_provider.dart';
 import 'providers/chat_session_provider.dart';
 import 'providers/login_provider.dart';
+import 'providers/notification_provider.dart';
 import 'providers/product_view_history_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell_screen.dart';
@@ -23,6 +24,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => ProductViewHistoryProvider()),
         ChangeNotifierProvider(create: (_) => ChatSessionProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
       child: MaterialApp(
         title: 'TechShop',

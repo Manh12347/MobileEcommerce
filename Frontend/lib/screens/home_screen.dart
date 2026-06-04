@@ -7,8 +7,9 @@ import '../providers/cart_provider.dart';
 import '../providers/login_provider.dart';
 import '../services/api_service.dart';
 import '../utils/app_globals.dart';
-import '../utils/format_utils.dart';
+import '../widgets/notification_bell.dart';
 import '../widgets/product_badge.dart';
+import '../utils/format_utils.dart';
 import 'checkout_screen.dart';
 import 'product_detail_screen.dart';
 
@@ -786,7 +787,7 @@ class _TopBar extends StatelessWidget {
             ],
           ),
         ),
-        _IconActionButton(icon: Icons.notifications_none_rounded, onTap: () {}),
+        const NotificationBell(),
       ],
     );
   }

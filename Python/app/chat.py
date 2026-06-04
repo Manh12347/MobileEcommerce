@@ -23,7 +23,7 @@ def chat_with_gemini(user_message: str) -> str:
     full_prompt = f"{SYSTEM_CONTEXT}\nUser: {user_message}\nChatbot:"
 
     try:
-        response = chat_model.generate_content(full_prompt)
+        response = chat_model.generate_content(full_prompt, generation_config={"request_timeout": 120})
         return response.text
     except Exception as e:
         error_detail = f"{type(e).__name__}: {e}"

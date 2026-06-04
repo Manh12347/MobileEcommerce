@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,6 +19,11 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
     List<Order> findAllByOrderByCreatedOnDesc();
 
     Optional<Order> findByOrderCode(String orderCode);
+
+    long countByStatus(String status);
+
+    @Query("SELECT COALESCE(SUM(o.totalPrice), 0) FROM Order o WHERE o.paymentStatus = :paymentStatus")
+    BigDecimal sumTotalPriceByPaymentStatus(@Param("paymentStatus") String paymentStatus);
 
     @Query("SELECT o FROM Order o " +
            "LEFT JOIN FETCH o.account a " +

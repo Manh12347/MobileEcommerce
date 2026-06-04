@@ -13,6 +13,6 @@ public interface SoldSerialRepository extends JpaRepository<SoldSerial, Integer>
 
     List<SoldSerial> findByOrderItemOrderItemId(Integer orderItemId);
 
-    @Query("SELECT ss FROM SoldSerial ss JOIN FETCH ss.serialNumber sn WHERE ss.orderItem.order.orderId = :orderId")
-    List<SoldSerial> findByOrderIdWithSerial(@Param("orderId") Integer orderId);
+    @Query("SELECT ss FROM SoldSerial ss JOIN FETCH ss.orderItem oi JOIN FETCH oi.order ord JOIN FETCH ord.account WHERE ss.serialNumber.serialId = :serialId")
+    List<SoldSerial> findBySerialIdWithOwner(@Param("serialId") Integer serialId);
 }

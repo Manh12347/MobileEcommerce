@@ -14,10 +14,16 @@ public class OrderSummaryDTO {
     private String orderCode;
     private String status;
     private String paymentStatus;
+    private String paymentMethod;
     private BigDecimal totalPrice;
     private String createdOn;
     private Integer itemCount;
     private String warrantyEndDate;
     private Boolean isWarrantyExpired;
     private String warrantyRemainingText;
+    // Customer info
+    private String customerName;
+    private String phone;
+    private String email;
+    private String shippingAddress;
 }

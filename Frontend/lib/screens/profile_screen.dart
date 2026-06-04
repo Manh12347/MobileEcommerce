@@ -10,8 +10,10 @@ import '../models/ghn_location.dart';
 import '../providers/cart_provider.dart';
 import '../providers/chat_session_provider.dart';
 import '../providers/login_provider.dart';
+import '../providers/notification_provider.dart';
 import '../services/api_service.dart';
 import '../utils/format_utils.dart';
+import '../widgets/notification_bell.dart';
 import 'login_screen.dart';
 import 'main_shell_screen.dart';
 import 'staff_orders_screen.dart';
@@ -123,6 +125,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         actions: [
+          const NotificationBell(),
           IconButton(
             icon: const Icon(Icons.refresh, color: Color(0xFF1F67E2)),
             onPressed: () {

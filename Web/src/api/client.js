@@ -67,6 +67,20 @@ export const authAPI = {
     apiClient.post('/auth/refresh-token', { refreshToken }),
 };
 
+export const ordersAPI = {
+  getAll: (params = {}) =>
+    apiClient.get('/orders/staff', { params }),
+
+  getById: (orderId) =>
+    apiClient.get(`/orders/staff/${orderId}`),
+
+  updateStatus: (orderId, status) =>
+    apiClient.put(`/orders/staff/${orderId}/status`, { status }),
+
+  getStats: () =>
+    apiClient.get('/orders/staff/stats'),
+};
+
 export const warrantyAPI = {
   getClaimGroups: (params = {}) =>
     apiClient.get('/warranty-claims/grouped', { params }),

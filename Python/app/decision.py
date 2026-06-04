@@ -79,10 +79,7 @@ Return only a valid JSON object as specified above.
     try:
         response = decision_model.generate_content(
             prompt,
-            generation_config={
-                "temperature": 0,
-                "response_mime_type": "application/json"
-            }
+            generation_config={"request_timeout": 120, "temperature": 0, "response_mime_type": "application/json"}
         )
     except Exception as e:
         error_detail = f"{type(e).__name__}: {e}"

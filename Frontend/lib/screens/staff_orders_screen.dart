@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/order.dart';
 import '../services/api_service.dart';
 import '../utils/format_utils.dart';
+import '../widgets/notification_bell.dart';
 import 'order_detail_screen.dart';
 
 class StaffOrdersScreen extends StatefulWidget {
@@ -154,6 +155,9 @@ class _StaffOrdersScreenState extends State<StaffOrdersScreen> {
             fontWeight: FontWeight.w800,
           ),
         ),
+        actions: const [
+          NotificationBell(),
+        ],
       ),
       body: Column(
         children: [

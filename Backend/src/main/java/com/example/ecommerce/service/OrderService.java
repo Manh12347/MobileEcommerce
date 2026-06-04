@@ -331,6 +331,19 @@ public class OrderService {
         return orders.stream().map(this::toSummaryDTO).collect(Collectors.toList());
     }
 
+    public DashboardStatsDTO getDashboardStats() {
+        DashboardStatsDTO stats = new DashboardStatsDTO();
+        stats.setTotalUsers(accountRepository.countByRole("customer"));
+        stats.setTotalOrders(orderRepository.count());
+        stats.setTotalProducts(productItemRepository.count());
+        stats.setTotalRevenue(orderRepository.sumTotalPriceByPaymentStatus("paid"));
+        stats.setPendingOrders(orderRepository.countByStatus("pending"));
+        stats.setShippingOrders(orderRepository.countByStatus("shipping"));
+        stats.setCompletedOrders(orderRepository.countByStatus("completed"));
+        stats.setCancelledOrders(orderRepository.countByStatus("cancelled"));
+        return stats;
+    }
+
     public OrderDTO getOrderDetailForStaff(Integer orderId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
@@ -563,9 +576,26 @@ public class OrderService {
         dto.setOrderCode(order.getOrderCode());
         dto.setStatus(order.getStatus());
         dto.setPaymentStatus(order.getPaymentStatus());
+        dto.setPaymentMethod(order.getPaymentMethod());
         dto.setTotalPrice(order.getTotalPrice());
         dto.setCreatedOn(order.getCreatedOn() != null ? order.getCreatedOn().toString() : null);
         dto.setItemCount(itemCount);
+
+        // Populate customer info
+        if (order.getAccount() != null) {
+            String customerName = null;
+            String email = order.getAccount().getEmail();
+            if (order.getAccount().getProfile() != null) {
+                customerName = order.getAccount().getProfile().getFullName();
+            }
+            if (customerName == null || customerName.isBlank()) {
+                customerName = email;
+            }
+            dto.setCustomerName(customerName);
+            dto.setEmail(email);
+        }
+        dto.setPhone(order.getPhone());
+        dto.setShippingAddress(order.getShippingAddress());
 
         populateWarrantyInfo(order, dto);
 

@@ -186,7 +186,7 @@ def _try_parse_json(text: str) -> dict | None:
 def _call_chat_with_retry(prompt: str, max_retries: int = 2) -> str:
     """Call chat_model with retry on JSON parse failure."""
     for attempt in range(max_retries + 1):
-        response = chat_model.generate_content(prompt)
+        response = chat_model.generate_content(prompt, generation_config={"request_timeout": 120})
         result = _try_parse_json(response.text)
         if result is not None:
             return json.dumps(result)
@@ -500,6 +500,7 @@ Your response MUST be in this JSON format:
             response = chat_model.generate_content(
                 compare_prompt,
                 generation_config={
+                    "request_timeout": 120,
                     "temperature": 0.2,
                     "response_mime_type": "application/json"
                 }

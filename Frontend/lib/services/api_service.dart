@@ -20,6 +20,7 @@ import '../models/register_response.dart';
 import '../models/verify_otp_request.dart';
 import '../models/warranty.dart';
 import '../models/chat_message.dart';
+import '../models/notification.dart';
 
 class ApiService {
   static const String baseUrl = API_BASE_URL;
@@ -1242,6 +1243,103 @@ class ApiService {
       );
     } on Exception catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+  // ─── Notifications ───────────────────────────────────────────────────────────
+
+  static Future<ApiResponse<List<AppNotification>>> getNotifications() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/notifications'),
+            headers: _headers(auth: true),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final body = _decodeJsonBody(response.body);
+      return _parseListResponse(body, AppNotification.fromJson);
+    } on Exception catch (e) {
+      return ApiResponse(false, 'Không thể tải thông báo: $e', []);
+    }
+  }
+
+  static Future<ApiResponse<int>> getUnreadCount() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/notifications/unread-count'),
+            headers: _headers(auth: true),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final body = _decodeJsonBody(response.body);
+      final count = (body['data'] as num?)?.toInt() ?? 0;
+      return ApiResponse(body['success'] == true, body['message'] ?? '', count);
+    } on Exception catch (e) {
+      return ApiResponse(false, 'Lỗi: $e', 0);
+    }
+  }
+
+  static Future<ApiResponse<void>> markNotificationRead(int id) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/notifications/$id/read'),
+            headers: _headers(auth: true),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final body = _decodeJsonBody(response.body);
+      return ApiResponse(
+        body['success'] == true,
+        body['message']?.toString() ?? '',
+        null,
+        statusCode: response.statusCode,
+      );
+    } on Exception catch (e) {
+      return ApiResponse(false, 'Lỗi: $e', null);
+    }
+  }
+
+  static Future<ApiResponse<void>> markAllNotificationsRead() async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/notifications/read-all'),
+            headers: _headers(auth: true),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final body = _decodeJsonBody(response.body);
+      return ApiResponse(
+        body['success'] == true,
+        body['message']?.toString() ?? '',
+        null,
+        statusCode: response.statusCode,
+      );
+    } on Exception catch (e) {
+      return ApiResponse(false, 'Lỗi: $e', null);
+    }
+  }
+
+  static Future<ApiResponse<void>> deleteNotification(int id) async {
+    try {
+      final response = await http
+          .delete(
+            Uri.parse('$baseUrl/notifications/$id'),
+            headers: _headers(auth: true),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final body = _decodeJsonBody(response.body);
+      return ApiResponse(
+        body['success'] == true,
+        body['message']?.toString() ?? '',
+        null,
+        statusCode: response.statusCode,
+      );
+    } on Exception catch (e) {
+      return ApiResponse(false, 'Lỗi: $e', null);
     }
   }
 }
