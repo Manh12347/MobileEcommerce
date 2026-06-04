@@ -39,7 +39,7 @@ public class NotificationController {
 
             List<NotificationDTO> notifications = notificationService.getUserNotifications(accountId)
                     .stream()
-                    .map(NotificationDTO::fromEntity)
+                    .map(notification -> NotificationDTO.fromEntity(notification, accountId))
                     .toList();
             return ResponseEntity.ok(new ApiResponse<>(true, "Notifications loaded", notifications));
         } catch (Exception e) {

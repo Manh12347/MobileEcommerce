@@ -25,6 +25,10 @@ public class NotificationDTO {
         Integer accountId = notification.getAccount() != null
                 ? notification.getAccount().getAccountId()
                 : null;
+        return fromEntity(notification, accountId);
+    }
+
+    public static NotificationDTO fromEntity(Notification notification, Integer accountId) {
         return new NotificationDTO(
                 notification.getNotificationId(),
                 accountId,
