@@ -169,6 +169,54 @@ class UpdateEmbeddingRequest(BaseModel):
     product_item_id: int
 
 
+def infer_requested_category(user_text: str) -> str | None:
+    text = user_text.lower()
+    category_patterns = [
+        ("RAM", ["ram", "memory"]),
+        ("GPU", ["card đồ họa", "card do hoa", "vga", "gpu", "graphics card"]),
+        ("CPU", ["cpu", "processor", "vi xử lý", "vi xu ly"]),
+        ("Mainboard", ["mainboard", "motherboard", "bo mạch chủ", "bo mach chu", "main"]),
+        ("PSU", ["nguồn", "nguon", "psu", "power supply"]),
+        ("SSD/HDD", ["ssd", "hdd", "storage", "ổ cứng", "o cung", "nvme"]),
+        ("Case", ["case", "vỏ máy", "vo may", "thùng máy", "thung may"]),
+        ("Cooling", ["tản nhiệt", "tan nhiet", "cooler", "fan", "aio", "heatsink"]),
+    ]
+
+    for category, keywords in category_patterns:
+        if any(keyword in text for keyword in keywords):
+            return category
+    return None
+
+
+def product_matches_category(product: dict, category: str | None) -> bool:
+    if category is None:
+        return True
+
+    category_name = (product.get("category_name") or "").lower()
+    product_name = (product.get("product_name") or "").lower()
+
+    category_aliases = {
+        "RAM": ["ram"],
+        "GPU": ["gpu", "vga", "card đồ họa", "card do hoa", "graphics"],
+        "CPU": ["cpu", "processor", "vi xử lý", "vi xu ly"],
+        "Mainboard": ["mainboard", "motherboard", "bo mạch chủ", "bo mach chu", "main"],
+        "PSU": ["psu", "nguồn", "nguon", "power supply"],
+        "SSD/HDD": ["ssd", "hdd", "storage", "ổ cứng", "o cung", "nvme"],
+        "Case": ["case", "vỏ máy", "vo may", "thùng máy", "thung may"],
+        "Cooling": ["cool", "tản nhiệt", "tan nhiet", "fan", "aio", "heatsink"],
+    }
+
+    aliases = category_aliases.get(category, [])
+    return any(alias in category_name or alias in product_name for alias in aliases)
+
+
+def filter_products_by_category(products: list[dict], category: str | None) -> list[dict]:
+    if category is None:
+        return products
+    filtered = [product for product in products if product_matches_category(product, category)]
+    return filtered if filtered else products
+
+
 # ============================
 # PC Builder Constants & Helpers
 # ============================
@@ -493,45 +541,47 @@ The user is currently viewing the following active product:
 If the active product category belongs to any of the standard build components (CPU, Mainboard, RAM, GPU, PSU, SSD/HDD, Case), you MUST include this EXACT product item in the recommended PC build, unless its price alone exceeds the budget or it is technically impossible to build a compatible PC around it. If it doesn't fit the budget or is incompatible, explain why in your answer.
 """
 
-        build_prompt = f"""
+            build_prompt = f"""
 You are an expert PC Builder chatbot on TechShop.
 The user requested a PC build with the following query:
 "{msg.text}"
 
-Select a set of fully compatible components from the available inventory below that fits their budget and needs.
+Select a full and coherent PC build from the available inventory below that fits their budget and use-case.
 {active_product_instruction}
 
 ---
 ### RULES & SITUATIONS:
-1. A valid build MUST include exactly ONE of each required category:
+1. A valid build should, by default, include one of each core category when the budget allows:
    - CPU
    - Mainboard (must support CPU socket and RAM memory_type)
    - RAM (must match Mainboard ram type, e.g., DDR4 vs DDR5)
    - PSU (Power supply)
    - SSD/HDD (Storage)
    - Case
-2. GPU/VGA is optional but highly recommended if the query is about gaming (like GTA 5, Valorant, PUBG, etc.) or rendering.
-3. Cooler (Tản nhiệt) is optional but recommended if the CPU runs hot.
-4. Total price of the components (using `sale_price` if available, otherwise `price`) MUST NOT exceed the user's budget.
-5. All components must be selected from the available inventory. Do not invent products.
-6. Check compatibility:
+2. GPU/VGA should be included when the budget and use-case support it, especially for gaming, editing, rendering, or AI workloads.
+3. If the budget is under 10 million VND, you may omit a discrete GPU/VGA and instead prioritize a CPU with integrated graphics, then explain that the user can add a GPU later.
+4. Cooler (Tản nhiệt) is optional but recommended if the CPU runs hot.
+5. Total price of the components (using `sale_price` if available, otherwise `price`) MUST NOT exceed the user's budget.
+6. All components must be selected from the available inventory. Do not invent products.
+7. Check compatibility:
    - CPU socket (e.g. LGA1700) must match Motherboard socket.
    - RAM type (DDR4 vs DDR5) must match Motherboard memory_type.
    - PSU wattage must be sufficient for CPU and GPU estimated power.
 
-7. SITUATION - Low Budget Fallback:
-   - If the user's budget is too low (e.g., under 10-12 million VND) to fit a discrete GPU, DO NOT select a discrete GPU/VGA. Instead, select a CPU with integrated graphics, and explain in your answer that they can run on integrated graphics now and easily plug in a dedicated GPU later when they have more budget.
+8. SITUATION - Full Build Guidance:
+    - The answer must guide the user through the full build stack from PSU, CPU, GPU, RAM, SSD/HDD, Mainboard, Case, and cooler when relevant.
+    - If the budget is higher, do not leave major components out without explaining why.
 
-8. SITUATION - Upgrade / Migration:
+9. SITUATION - Upgrade / Migration:
    - If the user lists some existing parts they already own and want to keep/upgrade (e.g., "Tôi đang có main H610, build tiếp trong 10tr"), you must select ONLY the other components to complete the build. Do not charge or include the price of the components they already own in your budget calculations (you can mark them in your text description as owned). Reinvest the remaining budget into better upgrades for the other components.
 
-9. SITUATION - Use-Case Profiling:
+10. SITUATION - Use-Case Profiling:
    - Tailor the build to their specific use-case (Gaming, Office, Editing, AI). In your text explanation, explicitly highlight the strong points of the build and target performance tier using phrases like: "Bộ PC của bạn đang rất tốt cho việc...", "Chơi game AAA ở thiết lập FHD...", "Cấu hình chuyên đồ họa...", etc.
 
-10. SITUATION - Stock & Equivalent Swap:
+11. SITUATION - Stock & Equivalent Swap:
     - If a product is out of stock (stock is 0), do not include it. Select an alternative in-stock product of equivalent specs and pricing. If a user asks to swap/change a component to a cheaper/premium alternative, select the appropriate alternative from the inventory.
 
-11. SITUATION - Assembly & Custom Services:
+12. SITUATION - Assembly & Custom Services:
     - Explain that TechShop offers free assembly & installation services for builds over 15 million VND, or a 200,000 VND standard fee for builds under 15 million VND.
 
 ---
@@ -582,6 +632,8 @@ You MUST respond with a valid JSON object in this format:
 
     elif decision["action"] == "rag":
         top_products = retrieve_products(msg.text)
+        requested_category = infer_requested_category(msg.text)
+        top_products = filter_products_by_category(top_products, requested_category)
 
         retrieved_text = ""
         for p in top_products:
@@ -605,9 +657,11 @@ You MUST respond with a valid JSON object in this format:
 
         prompt = (
             f"User asked: {msg.text}\n"
+            f"Requested category: {requested_category or 'any'}\n"
             f"Here are relevant products:\n{retrieved_text}\n"
+            f"If the user asked for a specific component category, recommend ONLY products from that category and do not mention unrelated categories.\n"
             f"If tồn kho is 0, do not recommend that product.\n"
-            f"Answer naturally in Vietnamese."
+            f"Answer naturally in Vietnamese and keep recommendations tightly matched to the user's request."
         )
         answer = chat_with_gemini(prompt)
 

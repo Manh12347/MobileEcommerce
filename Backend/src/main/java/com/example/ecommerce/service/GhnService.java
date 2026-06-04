@@ -158,6 +158,8 @@ public class GhnService {
             toProvinceName = order.getProvinceName();
         }
 
+        toAddress = buildFullAddress(toAddress, toWardName, toDistrictName, toProvinceName);
+
         // Ward code: prefer order value, fall back to configured default (can be hardcoded in application.properties)
         String toWardCodeValue = order.getShippingWardCode();
         if (toWardCodeValue == null || toWardCodeValue.isBlank()) {
@@ -172,15 +174,18 @@ public class GhnService {
                 .map(item -> {
                     String productName = "San pham";
                     String sku = "";
+                    String image = null;
                     if (item.getProductItem() != null) {
                         if (item.getProductItem().getProduct() != null) {
                             productName = item.getProductItem().getProduct().getName();
                         }
                         sku = item.getProductItem().getSku() != null ? item.getProductItem().getSku() : "";
+                        image = item.getProductItem().getMainImageUrl();
                     }
                     return GhnCreateOrderRequest.GhnOrderItem.builder()
                             .name(productName)
                             .code(sku)
+                            .image(image)
                             .quantity(item.getQuantity())
                             .price(item.getPrice().intValue())
                             .length(ghnConfig.getDefaultLength())
@@ -194,15 +199,13 @@ public class GhnService {
                 })
                 .collect(Collectors.toList());
 
-        // Da thanh toan online roi → payment_type_id = 1 (nguoi ban tra phi van chuyen)
-        // Neu chua thanh toan → payment_type_id = 2 va dat cod_amount = totalPrice
-        boolean isPaid = "paid".equals(order.getPaymentStatus());
-        int codAmount = isPaid ? 0 : order.getTotalPrice().intValue();
+        boolean isCodPayment = "COD".equalsIgnoreCase(order.getPaymentMethod());
+        int codAmount = isCodPayment ? order.getTotalPrice().intValue() : 0;
 
         return GhnCreateOrderRequest.builder()
-                .paymentTypeId(isPaid ? 1 : 2)
-                .note("Don hang: " + order.getOrderCode())
-                .requiredNote("CHOTHUHANG")
+            .paymentTypeId(isCodPayment ? 2 : 1)
+            .note("Hàng kỹ thuật vận chuyển nhẹ nhàng")
+            .requiredNote(resolveRequiredNote())
                 .returnPhone(ghnConfig.getReturnPhone())
                 .returnAddress(ghnConfig.getReturnAddress())
                 .clientOrderCode(order.getOrderCode())
@@ -232,5 +235,27 @@ public class GhnService {
                 .codFailedAmount(2000)
                 .items(ghnItems)
                 .build();
+    }
+
+    private String buildFullAddress(String address, String wardName, String districtName, String provinceName) {
+        List<String> parts = new java.util.ArrayList<>();
+        if (address != null && !address.isBlank()) {
+            parts.add(address.trim());
+        }
+        if (wardName != null && !wardName.isBlank()) {
+            parts.add(wardName.trim());
+        }
+        if (districtName != null && !districtName.isBlank()) {
+            parts.add(districtName.trim());
+        }
+        if (provinceName != null && !provinceName.isBlank()) {
+            parts.add(provinceName.trim());
+        }
+        return String.join(", ", parts);
+    }
+
+    private String resolveRequiredNote() {
+        String requiredNote = ghnConfig.getRequiredNote();
+        return (requiredNote == null || requiredNote.isBlank()) ? "KHONGCHOXEMHANG" : requiredNote;
     }
 }

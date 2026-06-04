@@ -157,6 +157,9 @@ public class GhnCreateOrderRequest {
         @JsonProperty("category")
         private GhnCategory category;
 
+        @JsonProperty("image")
+        private String image;
+
         @Getter
         @Setter
         @NoArgsConstructor
