@@ -1259,7 +1259,7 @@ class ApiService {
       final body = _decodeJsonBody(response.body);
       return _parseListResponse(body, AppNotification.fromJson);
     } on Exception catch (e) {
-      return ApiResponse(false, 'Không thể tải thông báo: $e', []);
+      return ApiResponse(success: false, message: 'Không thể tải thông báo: $e', data: <AppNotification>[]);
     }
   }
 
@@ -1274,9 +1274,9 @@ class ApiService {
 
       final body = _decodeJsonBody(response.body);
       final count = (body['data'] as num?)?.toInt() ?? 0;
-      return ApiResponse(body['success'] == true, body['message'] ?? '', count);
+      return ApiResponse(success: body['success'] == true, message: body['message'] ?? '', data: count);
     } on Exception catch (e) {
-      return ApiResponse(false, 'Lỗi: $e', 0);
+      return ApiResponse(success: false, message: 'Lỗi: $e', data: 0);
     }
   }
 
@@ -1291,13 +1291,13 @@ class ApiService {
 
       final body = _decodeJsonBody(response.body);
       return ApiResponse(
-        body['success'] == true,
-        body['message']?.toString() ?? '',
-        null,
+        success: body['success'] == true,
+        message: body['message']?.toString() ?? '',
+        data: null,
         statusCode: response.statusCode,
       );
     } on Exception catch (e) {
-      return ApiResponse(false, 'Lỗi: $e', null);
+      return ApiResponse(success: false, message: 'Lỗi: $e', data: null);
     }
   }
 
@@ -1312,13 +1312,13 @@ class ApiService {
 
       final body = _decodeJsonBody(response.body);
       return ApiResponse(
-        body['success'] == true,
-        body['message']?.toString() ?? '',
-        null,
+        success: body['success'] == true,
+        message: body['message']?.toString() ?? '',
+        data: null,
         statusCode: response.statusCode,
       );
     } on Exception catch (e) {
-      return ApiResponse(false, 'Lỗi: $e', null);
+      return ApiResponse(success: false, message: 'Lỗi: $e', data: null);
     }
   }
 
@@ -1333,13 +1333,13 @@ class ApiService {
 
       final body = _decodeJsonBody(response.body);
       return ApiResponse(
-        body['success'] == true,
-        body['message']?.toString() ?? '',
-        null,
+        success: body['success'] == true,
+        message: body['message']?.toString() ?? '',
+        data: null,
         statusCode: response.statusCode,
       );
     } on Exception catch (e) {
-      return ApiResponse(false, 'Lỗi: $e', null);
+      return ApiResponse(success: false, message: 'Lỗi: $e', data: null);
     }
   }
 }

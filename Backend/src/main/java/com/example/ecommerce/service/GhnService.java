@@ -26,6 +26,7 @@ public class GhnService {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final RestTemplate restTemplate;
+    private final NotificationService notificationService;
 
     /**
      * Tao don hang van chuyen tren Giao Hang Nhanh
@@ -114,6 +115,13 @@ public class GhnService {
                         orderRepository.save(order);
                         log.info("[GhnService] Async: Saved shipping_fee={} for orderId={}", totalFee, orderId);
                     }
+                    // Thong bao cho khach: don hang dang duoc giao
+                    notificationService.createNotification(
+                            order.getAccount(),
+                            "Đơn hàng đang giao",
+                            "Đơn hàng " + order.getOrderCode() + " đã được tạo vận đơn GHN và đang trên đường giao đến bạn.",
+                            "order"
+                    );
                 } else {
                     log.warn("[GhnService] Async: ⚠️ GHN failed: orderId={}, code={}, message={}",
                             orderId, response.getCode(), response.getMessage());

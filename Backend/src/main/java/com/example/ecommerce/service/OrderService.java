@@ -253,6 +253,14 @@ public class OrderService {
 
             allocateSerials(item, productItem, item.getQuantity());
         }
+
+        // Gửi thông báo cho khách sau khi thanh toán chuyển khoản thành công
+        notificationService.createNotification(
+                order.getAccount(),
+                "Thanh toán thành công",
+                "Đơn hàng " + order.getOrderCode() + " đã được thanh toán thành công và đang được xử lý.",
+                "order"
+        );
     }
 
     public List<OrderSummaryDTO> getMyOrders(Integer accountId) {
