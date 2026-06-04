@@ -186,7 +186,7 @@ def _try_parse_json(text: str) -> dict | None:
 def _call_chat_with_retry(prompt: str, max_retries: int = 2) -> str:
     """Call chat_model with retry on JSON parse failure."""
     for attempt in range(max_retries + 1):
-        response = chat_model.generate_content(prompt, generation_config={"request_timeout": 120})
+        response = chat_model.generate_content(prompt)
         result = _try_parse_json(response.text)
         if result is not None:
             return json.dumps(result)
@@ -500,7 +500,6 @@ Your response MUST be in this JSON format:
             response = chat_model.generate_content(
                 compare_prompt,
                 generation_config={
-                    "request_timeout": 120,
                     "temperature": 0.2,
                     "response_mime_type": "application/json"
                 }
@@ -573,7 +572,7 @@ Evaluate compatibility of the active product based on its category and specific 
             )
         inventory_text = "\n".join(inventory_items_desc)
 
-        # In PC build recommendation flow, include active product if on ProductDetail screen
+        # In PC build recommendation flow, check if there is an active product we should force/incorporate
         active_product_instruction = ""
         if msg.active_screen == "ProductDetail" and active_product:
             active_product_instruction = f"""
@@ -584,7 +583,7 @@ The user is currently viewing the following active product:
 If the active product category belongs to any of the standard build components (CPU, Mainboard, RAM, GPU, PSU, SSD/HDD, Case), you MUST include this EXACT product item in the recommended PC build, unless its price alone exceeds the budget or it is technically impossible to build a compatible PC around it. If it doesn't fit the budget or is incompatible, explain why in your answer.
 """
 
-        build_prompt = f"""
+            build_prompt = f"""
 You are an expert PC Builder chatbot on TechShop.
 The user requested a PC build with the following query:
 "{msg.text}"

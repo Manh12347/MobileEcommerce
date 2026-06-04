@@ -1,5 +1,4 @@
 import json
-import re
 import traceback
 from collections import deque
 
@@ -79,32 +78,21 @@ Return only a valid JSON object as specified above.
     try:
         response = decision_model.generate_content(
             prompt,
-            generation_config={"request_timeout": 120, "temperature": 0, "response_mime_type": "application/json"}
+            generation_config={
+                "temperature": 0,
+                "response_mime_type": "application/json"
+            }
         )
     except Exception as e:
         error_detail = f"{type(e).__name__}: {e}"
         print(f"Decision error: {error_detail}")
         traceback.print_exc()
 
-        pc_build_keywords = [
-            "build pc", "cấu hình", "dựng pc", "lắp pc", "spec pc",
-            "chơi game", "gta", "valorant", "fps", "cấu hình máy tính",
-            "xây dựng", "build máy", "lắp máy", "dựng máy",
-            "linh kiện", "pc mới", "setup pc", "m сборка",
-            "bộ máy", "bộ pc", "máy tính chơi game", "máy tính văn phòng",
-            "máy đồ họa", "render pc", "pc giá rẻ", "pc gaming",
-            "pc văn phòng", "pc 2025", "build 20tr", "build 15tr",
-        ]
+        pc_build_keywords = ["build pc", "cấu hình", "dựng pc", "lắp pc", "spec pc", "chơi game", "gta 5", "gta5"]
         is_build = any(kw.lower() in user_message.lower() for kw in pc_build_keywords)
-
-        # Also check for budget patterns (e.g. "20tr", "20 triệu", "15tr")
-        # that strongly suggest a PC build request, regardless of screen
-        if not is_build:
-            budget_pattern = re.search(
-                r'(\d+)\s*(tr|triệu|million|m)\b',
-                user_message.lower()
-            )
-            if budget_pattern:
+        if not is_build and active_screen in ("ProductDetail", "PCBuild"):
+            import re
+            if re.search(r'\d+\s*(tr|triệu|million|m)', user_message.lower()):
                 is_build = True
 
         if is_build:
