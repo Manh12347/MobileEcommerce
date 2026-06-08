@@ -164,10 +164,17 @@ class LoginProvider extends ChangeNotifier {
     }
 
     if (e.code == GoogleSignInExceptionCode.clientConfigurationError) {
-      return 'Google sign-in is not configured. Add google-services.json or pass GOOGLE_OAUTH_SERVER_CLIENT_ID.';
+      return 'Google sign-in is not configured for this Android app. Add the app SHA-1 to Firebase/Google Cloud, then download google-services.json again.';
     }
 
-    return e.description ?? 'Google sign-in failed. Please try again';
+    final description = e.description;
+    if (description != null &&
+        (description.contains('28444') ||
+            description.toLowerCase().contains('developer console'))) {
+      return 'Google sign-in is not configured for this Android signing certificate. Add this app SHA-1 to Firebase/Google Cloud, then download google-services.json again.';
+    }
+
+    return description ?? 'Google sign-in failed. Please try again';
   }
 
   void clearError({bool notify = true}) {
