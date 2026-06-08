@@ -23,6 +23,7 @@ public class OrderSummaryDTO {
     private Boolean isWarrantyExpired;
     private String warrantyRemainingText;
     private List<OrderSerialDTO> serials;
+    private List<OrderItemDTO> items;
     // Customer info
     private String customerName;
     private String phone;

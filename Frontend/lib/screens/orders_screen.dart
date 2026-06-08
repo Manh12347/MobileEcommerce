@@ -22,7 +22,7 @@ class OrdersScreen extends StatefulWidget {
 class _OrdersScreenState extends State<OrdersScreen> {
   final _searchController = TextEditingController();
   String _query = '';
-  String? _selectedStatus = 'completed';
+  String? _selectedStatus = 'all';
 
   bool _isLoading = true;
   String? _error;
@@ -30,8 +30,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
   List<OrderSummary> _filteredOrders = const [];
 
   static const _statusFilters = [
+    ('all', 'Tất cả'),
     ('completed', 'Hoàn thành'),
-    ('warranty_expired', 'Hết hạn bảo hành'),
     ('pending', 'Chờ xử lý'),
     ('shipping', 'Đang giao'),
     ('cancelled', 'Đã hủy'),
@@ -60,16 +60,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
   void _applyFilter() {
     setState(() {
       _filteredOrders = _allOrders.where((order) {
-        bool matchesStatus;
-        if (_selectedStatus == 'completed') {
-          matchesStatus =
-              order.status == 'completed' && order.isWarrantyExpired != true;
-        } else if (_selectedStatus == 'warranty_expired') {
-          matchesStatus =
-              order.status == 'completed' && order.isWarrantyExpired == true;
-        } else {
-          matchesStatus = order.status == _selectedStatus;
-        }
+        final matchesStatus =
+            _selectedStatus == 'all' || order.status == _selectedStatus;
 
         if (_query.isEmpty) return matchesStatus;
         return matchesStatus &&
@@ -77,14 +69,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 order.paymentStatus?.toLowerCase().contains(_query) == true);
       }).toList();
 
-      // Sort by valid warranty first, then latest buy (createdOn DESC)
+      // Latest orders first.
       _filteredOrders.sort((a, b) {
-        final aExpired = a.isWarrantyExpired == true;
-        final bExpired = b.isWarrantyExpired == true;
-        if (aExpired != bExpired) {
-          return aExpired ? 1 : -1;
-        }
-
         final aDate = a.createdOn ?? '';
         final bDate = b.createdOn ?? '';
         return bDate.compareTo(aDate);
@@ -334,13 +320,6 @@ class _OrderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final statusColor = orderStatusColor(order.status);
-    final warrantySerials = order.serials
-        .map((s) => s.serialCode)
-        .whereType<String>()
-        .map((code) => code.trim())
-        .where((code) => code.isNotEmpty)
-        .toList();
-    final warrantySerialText = warrantySerials.join(', ');
 
     return Material(
       color: Colors.white,
@@ -402,63 +381,6 @@ class _OrderCard extends StatelessWidget {
                     fontSize: 12,
                   ),
                 ),
-              ],
-              if (order.status == 'completed' &&
-                  order.warrantyRemainingText != null) ...[
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Icon(
-                      order.isWarrantyExpired == true
-                          ? Icons.gpp_bad_rounded
-                          : Icons.verified_user_rounded,
-                      size: 16,
-                      color: order.isWarrantyExpired == true
-                          ? Colors.red.shade600
-                          : const Color(0xFF10B981),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      order.isWarrantyExpired == true
-                          ? 'Bảo hành: Hết hạn'
-                          : 'Bảo hành: ${order.warrantyRemainingText}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: order.isWarrantyExpired == true
-                            ? Colors.red.shade600
-                            : const Color(0xFF10B981),
-                      ),
-                    ),
-                    if (order.warrantyEndDate != null &&
-                        order.isWarrantyExpired != true) ...[
-                      const SizedBox(width: 4),
-                      Text(
-                        '(${order.warrantyEndDate})',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                if (warrantySerialText.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 22),
-                    child: Text(
-                      'Serial: $warrantySerialText',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF42526E),
-                      ),
-                    ),
-                  ),
-                ],
               ],
               if (order.createdOn != null) ...[
                 const SizedBox(height: 4),

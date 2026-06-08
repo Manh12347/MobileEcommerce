@@ -124,6 +124,22 @@ public class OrderController {
         }
     }
 
+    @GetMapping("/purchased-products")
+    public ResponseEntity<ApiResponse<List<PurchasedProductDTO>>> getPurchasedProducts() {
+        try {
+            Integer accountId = requireAccountId();
+            List<PurchasedProductDTO> products = orderService.getPurchasedProducts(accountId);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Lấy danh sách sản phẩm đã mua thành công", products));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (Exception e) {
+            log.error("Lỗi khi lấy danh sách sản phẩm đã mua:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Lỗi server: " + e.getMessage(), null));
+        }
+    }
+
     @GetMapping("/{orderId}")
     public ResponseEntity<ApiResponse<OrderDTO>> getOrderDetail(@PathVariable Integer orderId) {
         try {

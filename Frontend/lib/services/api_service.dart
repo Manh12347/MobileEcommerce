@@ -387,6 +387,29 @@ class ApiService {
     }
   }
 
+  static Future<ApiResponse<List<PurchasedProduct>>> getPurchasedProducts() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl$ORDERS_ENDPOINT/purchased-products'),
+            headers: _headers(auth: true),
+          )
+          .timeout(
+            _requestTimeout,
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      final body = _decodeAndCheckResponse(response);
+      if (response.statusCode == 200) {
+        return _parseListResponse(body, PurchasedProduct.fromJson);
+      }
+      throw Exception(
+        _extractMessage(response, fallback: 'KhÃ´ng thá»ƒ táº£i sáº£n pháº©m Ä‘Ã£ mua'),
+      );
+    } on Exception catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
   static Future<ApiResponse<OrderTrack>> trackOrder(String orderCode) async {
     try {
       final response = await http

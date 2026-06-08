@@ -269,6 +269,45 @@ public class OrderService {
                 .collect(Collectors.toList());
     }
 
+    public List<PurchasedProductDTO> getPurchasedProducts(Integer accountId) {
+        List<OrderItem> items = orderItemRepository.findPurchasedItemsByAccountId(accountId);
+        List<PurchasedProductDTO> products = new ArrayList<>();
+
+        for (OrderItem item : items) {
+            Order order = item.getOrder();
+            ProductItem productItem = item.getProductItem();
+            Product product = productItem != null ? productItem.getProduct() : null;
+            List<SoldSerial> soldSerials = soldSerialRepository.findByOrderItemOrderItemId(item.getOrderItemId());
+
+            if (soldSerials.isEmpty()) {
+                products.add(toPurchasedProductDTO(order, item, productItem, product, null));
+                continue;
+            }
+
+            for (SoldSerial soldSerial : soldSerials) {
+                products.add(toPurchasedProductDTO(
+                        order,
+                        item,
+                        productItem,
+                        product,
+                        soldSerial.getSerialNumber()
+                ));
+            }
+        }
+
+        products.sort((a, b) -> {
+            boolean aValid = Boolean.FALSE.equals(a.getIsWarrantyExpired()) && a.getWarrantyRemainingText() != null;
+            boolean bValid = Boolean.FALSE.equals(b.getIsWarrantyExpired()) && b.getWarrantyRemainingText() != null;
+            if (aValid != bValid) {
+                return aValid ? -1 : 1;
+            }
+            String aDate = a.getCreatedOn() != null ? a.getCreatedOn() : "";
+            String bDate = b.getCreatedOn() != null ? b.getCreatedOn() : "";
+            return bDate.compareTo(aDate);
+        });
+        return products;
+    }
+
     public OrderDTO getOrderDetail(Integer accountId, Integer orderId) {
         Order order = requireOwnedOrder(orderId, accountId);
         return toOrderDTO(order);
@@ -574,10 +613,67 @@ public class OrderService {
         return dto;
     }
 
+    private PurchasedProductDTO toPurchasedProductDTO(
+            Order order,
+            OrderItem item,
+            ProductItem productItem,
+            Product product,
+            SerialNumber serialNumber) {
+        PurchasedProductDTO dto = new PurchasedProductDTO();
+        dto.setOrderId(order.getOrderId());
+        dto.setOrderCode(order.getOrderCode());
+        dto.setOrderStatus(order.getStatus());
+        dto.setCreatedOn(order.getCreatedOn() != null ? order.getCreatedOn().toString() : null);
+        dto.setOrderItemId(item.getOrderItemId());
+        dto.setProductItemId(productItem != null ? productItem.getProductItemId() : null);
+        dto.setSku(productItem != null ? productItem.getSku() : null);
+        dto.setProductName(product != null ? product.getName() : "Sản phẩm");
+        dto.setMainImageUrl(productItem != null ? productItem.getMainImageUrl() : null);
+        dto.setQuantity(item.getQuantity());
+
+        if (serialNumber != null) {
+            dto.setSerialId(serialNumber.getSerialId());
+            dto.setSerialCode(serialNumber.getSerialCode());
+            dto.setSerialStatus(serialNumber.getStatus());
+        }
+
+        if ("completed".equals(order.getStatus())) {
+            java.time.LocalDate endDate = null;
+            if (serialNumber != null) {
+                Warranty warranty = warrantyRepository.findBySerialNumber_SerialId(serialNumber.getSerialId()).orElse(null);
+                if (warranty != null && warranty.getEndDate() != null) {
+                    endDate = warranty.getEndDate();
+                }
+            }
+            if (endDate == null) {
+                LocalDateTime orderDate = order.getCreatedOn() != null ? order.getCreatedOn() : LocalDateTime.now();
+                endDate = orderDate.toLocalDate().plusMonths(12);
+            }
+
+            dto.setWarrantyEndDate(endDate.toString());
+            java.time.LocalDate today = java.time.LocalDate.now();
+            boolean expired = endDate.isBefore(today);
+            dto.setIsWarrantyExpired(expired);
+            dto.setWarrantyRemainingText(expired ? "Hết hạn" : formatRemainingTime(today, endDate));
+        } else {
+            dto.setIsWarrantyExpired(false);
+        }
+
+        return dto;
+    }
+
     private OrderSummaryDTO toSummaryDTO(Order order) {
-        int itemCount = orderItemRepository.findByOrderOrderId(order.getOrderId()).stream()
+        List<OrderItem> items = orderItemRepository.findByOrderOrderId(order.getOrderId());
+        List<SoldSerial> allSoldSerials = soldSerialRepository.findByOrderIdWithSerial(order.getOrderId());
+        Map<Integer, List<SoldSerial>> serialsByOrderItem = allSoldSerials.stream()
+                .collect(Collectors.groupingBy(ss -> ss.getOrderItem().getOrderItemId()));
+
+        int itemCount = items.stream()
                 .mapToInt(OrderItem::getQuantity)
                 .sum();
+        List<OrderItemDTO> itemDTOs = items.stream()
+                .map(item -> toOrderItemDTO(item, serialsByOrderItem.getOrDefault(item.getOrderItemId(), List.of())))
+                .collect(Collectors.toList());
 
         OrderSummaryDTO dto = new OrderSummaryDTO();
         dto.setOrderId(order.getOrderId());
@@ -588,6 +684,7 @@ public class OrderService {
         dto.setTotalPrice(order.getTotalPrice());
         dto.setCreatedOn(order.getCreatedOn() != null ? order.getCreatedOn().toString() : null);
         dto.setItemCount(itemCount);
+        dto.setItems(itemDTOs);
 
         // Populate customer info
         if (order.getAccount() != null) {

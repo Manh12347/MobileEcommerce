@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/order.dart';
 import '../models/warranty.dart';
 import '../providers/login_provider.dart';
 import '../services/api_service.dart';
@@ -15,14 +16,17 @@ class WarrantyScreen extends StatefulWidget {
 class _WarrantyScreenState extends State<WarrantyScreen> {
   bool _isLoading = true;
   String? _error;
+  List<PurchasedProduct> _purchasedProducts = const [];
+  List<OrderSummary> _orders = const [];
+  List<OrderDetail> _orderDetails = const [];
   List<WarrantyClaim> _claims = const [];
-  String _historyFilter = 'all';
+  String _selectedTab = 'products';
 
-  static const _filters = [
-    _WarrantyFilter('all', 'Tất cả'),
-    _WarrantyFilter('completed', 'Đã xong'),
-    _WarrantyFilter('processing', 'Đang xử lý'),
-    _WarrantyFilter('cancelled', 'Bị hủy'),
+  static const _tabs = [
+    _ProductTab('products', 'Sản phẩm'),
+    _ProductTab('claims', 'Yêu cầu bảo hành'),
+    _ProductTab('valid', 'Còn hạn'),
+    _ProductTab('expired', 'Hết hạn'),
   ];
 
   @override
@@ -47,10 +51,31 @@ class _WarrantyScreenState extends State<WarrantyScreen> {
     });
 
     try {
-      final claims = await _loadClaims(accountId);
+      final results = await Future.wait([
+        _loadPurchasedProducts(),
+        ApiService.getMyOrders(),
+        ApiService.getWarrantyClaimsByAccount(accountId),
+      ]);
       if (!mounted) return;
+
+      final purchasedProducts = results[0] as List<PurchasedProduct>;
+      final orderResponse = results[1] as dynamic;
+      final claimResponse = results[2] as dynamic;
+      final orders = orderResponse.data ?? const <OrderSummary>[];
+      final productOrders = orders
+          .where((order) => order.status != 'cancelled')
+          .toList();
+      final detailResults = await Future.wait(
+        productOrders.map(_loadOrderDetail),
+      );
+      final orderDetails = detailResults.whereType<OrderDetail>().toList();
+      if (!mounted) return;
+
       setState(() {
-        _claims = claims;
+        _purchasedProducts = purchasedProducts;
+        _orders = orders;
+        _orderDetails = orderDetails;
+        _claims = _sortClaims(claimResponse.data ?? const <WarrantyClaim>[]);
         _isLoading = false;
       });
     } catch (e) {
@@ -62,23 +87,84 @@ class _WarrantyScreenState extends State<WarrantyScreen> {
     }
   }
 
-  Future<List<WarrantyClaim>> _loadClaims(int accountId) async {
-    final response = await ApiService.getWarrantyClaimsByAccount(accountId);
-    final claims = response.data ?? const <WarrantyClaim>[];
-    final sorted = [...claims];
-    sorted.sort((a, b) {
-      final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      return bDate.compareTo(aDate);
-    });
-    return sorted;
+  Future<OrderDetail?> _loadOrderDetail(OrderSummary order) async {
+    try {
+      final response = await ApiService.getOrderDetail(order.orderId);
+      return response.data;
+    } catch (_) {
+      return null;
+    }
   }
 
-  List<WarrantyClaim> get _filteredClaims {
-    if (_historyFilter == 'all') return _claims;
-    return _claims
-        .where((claim) => _normalizeStatus(claim.status) == _historyFilter)
-        .toList();
+  List<_OwnedProduct> get _products {
+    if (_purchasedProducts.isNotEmpty) {
+      final products = _purchasedProducts.map(_fromPurchasedProduct).toList();
+      products.sort(_compareProducts);
+      return products;
+    }
+
+    final products = <_OwnedProduct>[];
+    final detailsById = {
+      for (final detail in _orderDetails) detail.orderId: detail,
+    };
+
+    for (final order in _orders) {
+      if (order.status == 'cancelled') continue;
+
+      final items = order.items.isNotEmpty
+          ? order.items
+          : detailsById[order.orderId]?.items ?? const <OrderItem>[];
+
+      for (final item in items) {
+        final serials = item.serials.isNotEmpty
+            ? item.serials
+            : <OrderSerial>[OrderSerial()];
+        for (final serial in serials) {
+          products.add(
+            _OwnedProduct(
+              productName: item.productName ?? 'Sản phẩm',
+              sku: item.sku,
+              imageUrl: item.mainImageUrl,
+              serialCode: serial.serialCode,
+              orderCode: order.orderCode,
+              createdOn: order.createdOn,
+              warrantyEndDate: order.warrantyEndDate,
+              hasWarranty: order.status == 'completed' &&
+                  order.warrantyRemainingText != null,
+              isWarrantyExpired: order.isWarrantyExpired == true,
+              warrantyRemainingText: order.warrantyRemainingText,
+            ),
+          );
+        }
+      }
+    }
+
+    products.sort(_compareProducts);
+    return products;
+  }
+
+  Future<List<PurchasedProduct>> _loadPurchasedProducts() async {
+    try {
+      final response = await ApiService.getPurchasedProducts();
+      return response.data ?? const <PurchasedProduct>[];
+    } catch (_) {
+      return const <PurchasedProduct>[];
+    }
+  }
+
+  List<_OwnedProduct> get _visibleProducts {
+    final products = _products;
+    if (_selectedTab == 'valid') {
+      return products
+          .where((product) => product.hasWarranty && !product.isWarrantyExpired)
+          .toList();
+    }
+    if (_selectedTab == 'expired') {
+      return products
+          .where((product) => product.hasWarranty && product.isWarrantyExpired)
+          .toList();
+    }
+    return products;
   }
 
   @override
@@ -89,7 +175,7 @@ class _WarrantyScreenState extends State<WarrantyScreen> {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         title: const Text(
-          'Bảo hành',
+          'Sản phẩm của tôi',
           style: TextStyle(
             color: Color(0xFF14213D),
             fontWeight: FontWeight.w800,
@@ -130,79 +216,285 @@ class _WarrantyScreenState extends State<WarrantyScreen> {
       );
     }
 
-    return _HistoryTab(
-      claims: _filteredClaims,
-      filters: _filters,
-      selectedFilter: _historyFilter,
-      onFilterChanged: (value) => setState(() => _historyFilter = value),
-    );
-  }
-}
-class _HistoryTab extends StatelessWidget {
-  const _HistoryTab({
-    required this.claims,
-    required this.filters,
-    required this.selectedFilter,
-    required this.onFilterChanged,
-  });
-
-  final List<WarrantyClaim> claims;
-  final List<_WarrantyFilter> filters;
-  final String selectedFilter;
-  final ValueChanged<String> onFilterChanged;
-
-  @override
-  Widget build(BuildContext context) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: filters.map((filter) {
-              final selected = selectedFilter == filter.value;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: FilterChip(
-                  selected: selected,
-                  label: Text(filter.label),
-                  onSelected: (_) => onFilterChanged(filter.value),
-                  selectedColor: const Color(0xFFE8F4FF),
-                  checkmarkColor: const Color(0xFF1F67E2),
-                  labelStyle: TextStyle(
-                    color: selected
-                        ? const Color(0xFF1F67E2)
-                        : const Color(0xFF6B7893),
-                    fontWeight: FontWeight.w700,
-                  ),
-                  side: BorderSide(
-                    color: selected
-                        ? const Color(0xFFB9D8FF)
-                        : const Color(0xFFE3EAF5),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
+        _TabRow(
+          tabs: _tabs,
+          selectedTab: _selectedTab,
+          onTabChanged: (value) => setState(() => _selectedTab = value),
         ),
         const SizedBox(height: 14),
-        if (claims.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 90),
-            child: Center(child: Text('Không có lịch sử bảo hành')),
-          )
+        if (_selectedTab == 'claims')
+          _ClaimList(claims: _claims)
         else
-          ...claims.map(
-            (claim) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _WarrantyClaimCard(claim: claim),
-            ),
-          ),
+          _ProductList(products: _visibleProducts),
       ],
     );
   }
 }
+
+class _TabRow extends StatelessWidget {
+  const _TabRow({
+    required this.tabs,
+    required this.selectedTab,
+    required this.onTabChanged,
+  });
+
+  final List<_ProductTab> tabs;
+  final String selectedTab;
+  final ValueChanged<String> onTabChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: tabs.map((tab) {
+          final selected = selectedTab == tab.value;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              selected: selected,
+              label: Text(tab.label),
+              onSelected: (_) => onTabChanged(tab.value),
+              selectedColor: const Color(0xFFE8F4FF),
+              checkmarkColor: const Color(0xFF1F67E2),
+              labelStyle: TextStyle(
+                color: selected
+                    ? const Color(0xFF1F67E2)
+                    : const Color(0xFF6B7893),
+                fontWeight: FontWeight.w700,
+              ),
+              side: BorderSide(
+                color: selected
+                    ? const Color(0xFFB9D8FF)
+                    : const Color(0xFFE3EAF5),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _ProductList extends StatelessWidget {
+  const _ProductList({required this.products});
+
+  final List<_OwnedProduct> products;
+
+  @override
+  Widget build(BuildContext context) {
+    if (products.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 90),
+        child: Center(child: Text('Không có sản phẩm phù hợp')),
+      );
+    }
+
+    return Column(
+      children: products
+          .map(
+            (product) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _OwnedProductCard(product: product),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class _ClaimList extends StatelessWidget {
+  const _ClaimList({required this.claims});
+
+  final List<WarrantyClaim> claims;
+
+  @override
+  Widget build(BuildContext context) {
+    if (claims.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 90),
+        child: Center(child: Text('Không có yêu cầu bảo hành')),
+      );
+    }
+
+    return Column(
+      children: claims
+          .map(
+            (claim) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _WarrantyClaimCard(claim: claim),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class _OwnedProductCard extends StatelessWidget {
+  const _OwnedProductCard({required this.product});
+
+  final _OwnedProduct product;
+
+  @override
+  Widget build(BuildContext context) {
+    final expired = product.isWarrantyExpired;
+    final color = !product.hasWarranty
+        ? const Color(0xFF6B7893)
+        : expired
+        ? Colors.red.shade600
+        : const Color(0xFF10B981);
+    final warrantyText = !product.hasWarranty
+        ? 'Bảo hành: Chưa kích hoạt'
+        : expired
+        ? 'Bảo hành: Hết hạn'
+        : 'Bảo hành: ${product.warrantyRemainingText ?? 'Còn hạn'}';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE3EAF5)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ProductImage(url: product.imageUrl),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  product.productName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF14213D),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                if (product.sku?.isNotEmpty == true)
+                  Text(
+                    'SKU: ${product.sku}',
+                    style: const TextStyle(
+                      color: Color(0xFF6B7893),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                if (product.serialCode?.isNotEmpty == true) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Serial: ${product.serialCode}',
+                    style: const TextStyle(
+                      color: Color(0xFF42526E),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      !product.hasWarranty
+                          ? Icons.hourglass_empty_rounded
+                          : expired
+                          ? Icons.gpp_bad_rounded
+                          : Icons.verified_user_rounded,
+                      size: 16,
+                      color: color,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        warrantyText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (product.warrantyEndDate?.isNotEmpty == true) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    'Hạn bảo hành: ${product.warrantyEndDate}',
+                    style: const TextStyle(
+                      color: Color(0xFF91A0B8),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 3),
+                Text(
+                  'Đơn hàng: ${product.orderCode}',
+                  style: const TextStyle(
+                    color: Color(0xFF91A0B8),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProductImage extends StatelessWidget {
+  const _ProductImage({this.url});
+
+  final String? url;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = url?.trim();
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: imageUrl != null && imageUrl.isNotEmpty
+          ? Image.network(
+              imageUrl,
+              width: 78,
+              height: 78,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => _placeholder(),
+            )
+          : _placeholder(),
+    );
+  }
+
+  Widget _placeholder() {
+    return Container(
+      width: 78,
+      height: 78,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F6FF),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: const Icon(
+        Icons.memory_rounded,
+        size: 32,
+        color: Color(0xFF1F67E2),
+      ),
+    );
+  }
+}
+
 class _WarrantyClaimCard extends StatelessWidget {
   const _WarrantyClaimCard({required this.claim});
 
@@ -237,7 +529,10 @@ class _WarrantyClaimCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
@@ -263,10 +558,7 @@ class _WarrantyClaimCard extends StatelessWidget {
             claim.issueDescription?.isNotEmpty == true
                 ? claim.issueDescription!
                 : 'Chưa có mô tả',
-            style: const TextStyle(
-              color: Color(0xFF42526E),
-              height: 1.4,
-            ),
+            style: const TextStyle(color: Color(0xFF42526E), height: 1.4),
           ),
           const SizedBox(height: 12),
           Row(
@@ -292,11 +584,74 @@ class _WarrantyClaimCard extends StatelessWidget {
     );
   }
 }
-class _WarrantyFilter {
+
+class _OwnedProduct {
+  const _OwnedProduct({
+    required this.productName,
+    required this.orderCode,
+    required this.hasWarranty,
+    required this.isWarrantyExpired,
+    this.sku,
+    this.imageUrl,
+    this.serialCode,
+    this.createdOn,
+    this.warrantyEndDate,
+    this.warrantyRemainingText,
+  });
+
+  final String productName;
+  final String orderCode;
+  final bool hasWarranty;
+  final bool isWarrantyExpired;
+  final String? sku;
+  final String? imageUrl;
+  final String? serialCode;
+  final String? createdOn;
+  final String? warrantyEndDate;
+  final String? warrantyRemainingText;
+}
+
+_OwnedProduct _fromPurchasedProduct(PurchasedProduct product) {
+  final hasWarranty =
+      product.orderStatus == 'completed' && product.warrantyRemainingText != null;
+  return _OwnedProduct(
+    productName: product.productName ?? 'Sản phẩm',
+    sku: product.sku,
+    imageUrl: product.mainImageUrl,
+    serialCode: product.serialCode,
+    orderCode: product.orderCode ?? '-',
+    createdOn: product.createdOn,
+    warrantyEndDate: product.warrantyEndDate,
+    hasWarranty: hasWarranty,
+    isWarrantyExpired: product.isWarrantyExpired,
+    warrantyRemainingText: product.warrantyRemainingText,
+  );
+}
+
+int _compareProducts(_OwnedProduct a, _OwnedProduct b) {
+  final aValid = a.hasWarranty && !a.isWarrantyExpired;
+  final bValid = b.hasWarranty && !b.isWarrantyExpired;
+  if (aValid != bValid) {
+    return aValid ? -1 : 1;
+  }
+  return (b.createdOn ?? '').compareTo(a.createdOn ?? '');
+}
+
+class _ProductTab {
   final String value;
   final String label;
 
-  const _WarrantyFilter(this.value, this.label);
+  const _ProductTab(this.value, this.label);
+}
+
+List<WarrantyClaim> _sortClaims(List<WarrantyClaim> claims) {
+  final sorted = [...claims];
+  sorted.sort((a, b) {
+    final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    return bDate.compareTo(aDate);
+  });
+  return sorted;
 }
 
 String _normalizeStatus(String? status) {

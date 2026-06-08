@@ -81,6 +81,7 @@ class OrderSummary {
   final bool? isWarrantyExpired;
   final String? warrantyRemainingText;
   final List<OrderSerial> serials;
+  final List<OrderItem> items;
 
   OrderSummary({
     required this.orderId,
@@ -94,10 +95,12 @@ class OrderSummary {
     this.isWarrantyExpired,
     this.warrantyRemainingText,
     required this.serials,
+    required this.items,
   });
 
   factory OrderSummary.fromJson(Map<String, dynamic> json) {
     final rawSerials = json['serials'];
+    final rawItems = json['items'];
     return OrderSummary(
       orderId: _toInt(json['orderId']) ?? 0,
       orderCode: json['orderCode']?.toString() ?? '',
@@ -115,6 +118,71 @@ class OrderSummary {
                 .map(OrderSerial.fromJson)
                 .toList()
           : const [],
+      items: rawItems is List
+          ? rawItems
+                .whereType<Map<String, dynamic>>()
+                .map(OrderItem.fromJson)
+                .toList()
+          : const [],
+    );
+  }
+}
+
+class PurchasedProduct {
+  final int? orderId;
+  final String? orderCode;
+  final String? orderStatus;
+  final String? createdOn;
+  final int? orderItemId;
+  final int? productItemId;
+  final String? sku;
+  final String? productName;
+  final String? mainImageUrl;
+  final int quantity;
+  final int? serialId;
+  final String? serialCode;
+  final String? serialStatus;
+  final String? warrantyEndDate;
+  final bool isWarrantyExpired;
+  final String? warrantyRemainingText;
+
+  PurchasedProduct({
+    this.orderId,
+    this.orderCode,
+    this.orderStatus,
+    this.createdOn,
+    this.orderItemId,
+    this.productItemId,
+    this.sku,
+    this.productName,
+    this.mainImageUrl,
+    required this.quantity,
+    this.serialId,
+    this.serialCode,
+    this.serialStatus,
+    this.warrantyEndDate,
+    required this.isWarrantyExpired,
+    this.warrantyRemainingText,
+  });
+
+  factory PurchasedProduct.fromJson(Map<String, dynamic> json) {
+    return PurchasedProduct(
+      orderId: _toInt(json['orderId']),
+      orderCode: json['orderCode']?.toString(),
+      orderStatus: json['orderStatus']?.toString(),
+      createdOn: json['createdOn']?.toString(),
+      orderItemId: _toInt(json['orderItemId']),
+      productItemId: _toInt(json['productItemId']),
+      sku: json['sku']?.toString(),
+      productName: json['productName']?.toString(),
+      mainImageUrl: json['mainImageUrl']?.toString(),
+      quantity: _toInt(json['quantity']) ?? 0,
+      serialId: _toInt(json['serialId']),
+      serialCode: json['serialCode']?.toString(),
+      serialStatus: json['serialStatus']?.toString(),
+      warrantyEndDate: json['warrantyEndDate']?.toString(),
+      isWarrantyExpired: json['isWarrantyExpired'] == true,
+      warrantyRemainingText: json['warrantyRemainingText']?.toString(),
     );
   }
 }
@@ -176,7 +244,10 @@ class OrderDetail {
       status: json['status']?.toString(),
       paymentStatus: json['paymentStatus']?.toString(),
       paymentMethod: json['paymentMethod']?.toString(),
-      shippingMethod: json['shippingMethod']?.toString() ?? json['shipping_method']?.toString() ?? json['shippingMethodName']?.toString(),
+      shippingMethod:
+          json['shippingMethod']?.toString() ??
+          json['shipping_method']?.toString() ??
+          json['shippingMethodName']?.toString(),
       shippingAddress: json['shippingAddress']?.toString(),
       phone: json['phone']?.toString(),
       customerName: json['customerName']?.toString(),
