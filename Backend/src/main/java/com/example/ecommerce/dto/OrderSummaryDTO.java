@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -21,6 +22,7 @@ public class OrderSummaryDTO {
     private String warrantyEndDate;
     private Boolean isWarrantyExpired;
     private String warrantyRemainingText;
+    private List<OrderSerialDTO> serials;
     // Customer info
     private String customerName;
     private String phone;

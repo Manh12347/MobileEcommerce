@@ -1,4 +1,6 @@
 import json
+import os
+import time
 from functools import lru_cache
 
 import numpy as np
@@ -8,21 +10,33 @@ from app.api_key import get_embedding
 from app.database import load_all
 
 
-@lru_cache(maxsize=1)
-def _get_rag_data_cached():
+RAG_CACHE_TTL_SECONDS = int(os.getenv("RAG_CACHE_TTL_SECONDS", "300"))
+
+
+@lru_cache(maxsize=2)
+def _get_rag_data_cached(cache_bucket: int):
     """
-    Lazy loading of RAG data - cached after first call.
-    This avoids loading DB at import time.
+    Lazy loading of RAG data - cached by time bucket.
+    This avoids loading DB at import time while still picking up image/url edits.
     """
     return load_all()
 
 
 def get_rag_data():
     """
-    Get RAG data with lazy loading.
-    Caches the result to avoid repeated DB queries.
+    Get RAG data with lazy loading and a short TTL.
+    Set RAG_CACHE_TTL_SECONDS=0 to disable caching in development.
     """
-    return _get_rag_data_cached()
+    if RAG_CACHE_TTL_SECONDS <= 0:
+        return load_all()
+
+    cache_bucket = int(time.time() // RAG_CACHE_TTL_SECONDS)
+    return _get_rag_data_cached(cache_bucket)
+
+
+def clear_rag_cache():
+    """Clear cached product data after known catalog/vector changes."""
+    _get_rag_data_cached.cache_clear()
 
 
 def retrieve_products(user_input: str, top_k: int = 5) -> list[dict]:

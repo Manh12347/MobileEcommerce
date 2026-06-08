@@ -132,6 +132,11 @@ public class WarrantyClaimController {
     public ResponseEntity<ApiResponse<WarrantyClaimDTO>> createClaim(
             @Valid @RequestBody CreateWarrantyClaimRequest request) {
         try {
+            if (!SecurityUtil.isAdmin()) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new ApiResponse<>(false, "Only admin can create warranty claims", null));
+            }
+
             WarrantyClaim claim = warrantyClaimService.createClaim(
                     request.getSerialId(),
                     request.getAccountId(),
@@ -155,6 +160,11 @@ public class WarrantyClaimController {
     public ResponseEntity<ApiResponse<WarrantyClaimDTO>> createClaimBySerial(
             @Valid @RequestBody CreateWarrantyClaimBySerialRequest request) {
         try {
+            if (!SecurityUtil.isAdmin()) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new ApiResponse<>(false, "Only admin can create warranty claims", null));
+            }
+
             Integer accountId = SecurityUtil.getCurrentAccountId();
             if (accountId == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)

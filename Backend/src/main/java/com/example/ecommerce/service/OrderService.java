@@ -611,6 +611,15 @@ public class OrderService {
     }
 
     private void populateWarrantyInfo(Order order, OrderSummaryDTO dto) {
+        dto.setSerials(List.of());
+
+        if (!"completed".equals(order.getStatus())) {
+            dto.setWarrantyEndDate(null);
+            dto.setIsWarrantyExpired(false);
+            dto.setWarrantyRemainingText(null);
+            return;
+        }
+
         List<SoldSerial> soldSerials = soldSerialRepository.findByOrderIdWithSerial(order.getOrderId());
         
         if (soldSerials.isEmpty()) {
@@ -621,6 +630,17 @@ public class OrderService {
         }
         
         java.time.LocalDate maxEndDate = null;
+        List<OrderSerialDTO> serialDTOs = soldSerials.stream()
+                .map(ss -> ss.getSerialNumber())
+                .filter(sn -> sn != null)
+                .map(sn -> new OrderSerialDTO(
+                        sn.getSerialId(),
+                        sn.getSerialCode(),
+                        sn.getStatus()
+                ))
+                .collect(Collectors.toList());
+        dto.setSerials(serialDTOs);
+
         for (SoldSerial ss : soldSerials) {
             SerialNumber sn = ss.getSerialNumber();
             if (sn == null) continue;

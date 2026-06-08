@@ -58,7 +58,7 @@ public class WarrantyClaimService {
         claim.setSerialNumber(serialNumber);
         claim.setAccount(account);
         claim.setIssueDescription(issueDescription);
-        claim.setStatus("processing");
+        claim.setStatus("pending");
         claim.setCreatedAt(LocalDateTime.now());
 
         return warrantyClaimRepository.save(claim);
@@ -125,18 +125,21 @@ public class WarrantyClaimService {
 
     private String normalizeStatus(String status) {
         if (status == null || status.isBlank()) {
-            return "processing";
+            return "pending";
         }
 
         String normalized = status.trim().toLowerCase();
-        if ("pending".equals(normalized) || "approved".equals(normalized) || "processing".equals(normalized)) {
-            return "processing";
+        if ("processing".equals(normalized)) {
+            return "pending";
         }
-        if ("rejected".equals(normalized) || "canceled".equals(normalized) || "cancelled".equals(normalized)) {
-            return "cancelled";
+        if ("pending".equals(normalized) || "approved".equals(normalized)) {
+            return normalized;
         }
-        if ("completed".equals(normalized)) {
-            return "completed";
+        if ("canceled".equals(normalized) || "cancelled".equals(normalized)) {
+            return "rejected";
+        }
+        if ("rejected".equals(normalized) || "completed".equals(normalized)) {
+            return normalized;
         }
 
         throw new RuntimeException("Invalid warranty claim status: " + status);

@@ -83,6 +83,11 @@ const formatDate = (dateStr) => {
   }
 }
 
+const getSerialCodes = (serials = []) =>
+  serials
+    .map((serial) => serial?.serialCode)
+    .filter(Boolean)
+
 export function OrdersPage() {
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
@@ -328,6 +333,7 @@ export function OrdersPage() {
             ) : (
               pagedOrders.map((order) => {
                 const orderTotal = order.totalPrice
+                const serialCodes = getSerialCodes(order.serials)
                 return (
                   <TableRow key={order.orderId}>
                     <TableCell className="text-left">
@@ -344,6 +350,11 @@ export function OrdersPage() {
                     </TableCell>
                     <TableCell className="text-left text-muted-foreground">
                       {order.itemCount != null ? `${order.itemCount} sản phẩm` : "—"}
+                      {order.status === "completed" && serialCodes.length > 0 && (
+                        <p className="mt-1 max-w-48 truncate text-xs text-foreground">
+                          Serial: {serialCodes.join(", ")}
+                        </p>
+                      )}
                     </TableCell>
                     <TableCell className="text-left">
                       <Badge variant={getPaymentBadge(order.paymentStatus)}>
@@ -465,6 +476,11 @@ export function OrdersPage() {
                         <p className="text-xs text-muted-foreground">
                           {item.sku ? `SKU: ${item.sku}` : ""} {item.quantity ? `x ${item.quantity}` : ""}
                         </p>
+                        {selectedOrder.status === "completed" && getSerialCodes(item.serials).length > 0 && (
+                          <p className="mt-1 text-xs font-medium text-foreground">
+                            Serial: {getSerialCodes(item.serials).join(", ")}
+                          </p>
+                        )}
                       </div>
                       <p className="font-semibold text-foreground">
                         {formatCurrency(item.price ? item.price * (item.quantity || 1) : item.totalPrice)}

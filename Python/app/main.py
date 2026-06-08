@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from app.api_key import chat_model
 from app.chat import chat_with_gemini
 from app.database import load_all_active_products
-from app.retriever import get_rag_data, generate_product_embedding, retrieve_products
+from app.retriever import clear_rag_cache, get_rag_data, generate_product_embedding, retrieve_products
 from app.decision import decide_chat
 
 repo_root = Path(__file__).resolve().parents[2]
@@ -753,6 +753,7 @@ def update_vector(req: UpdateEmbeddingRequest):
                 )
                 conn.commit()
 
+        clear_rag_cache()
         logging.info("Embedding updated successfully")
         return {
             "status": "success",

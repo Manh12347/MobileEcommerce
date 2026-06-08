@@ -41,4 +41,8 @@ public class SecurityUtil {
         String role = getCurrentRole();
         return "staff".equals(role) || "admin".equals(role);
     }
+
+    public static boolean isAdmin() {
+        return "admin".equals(getCurrentRole());
+    }
 }

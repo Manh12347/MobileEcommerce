@@ -80,6 +80,7 @@ class OrderSummary {
   final String? warrantyEndDate;
   final bool? isWarrantyExpired;
   final String? warrantyRemainingText;
+  final List<OrderSerial> serials;
 
   OrderSummary({
     required this.orderId,
@@ -92,9 +93,11 @@ class OrderSummary {
     this.warrantyEndDate,
     this.isWarrantyExpired,
     this.warrantyRemainingText,
+    required this.serials,
   });
 
   factory OrderSummary.fromJson(Map<String, dynamic> json) {
+    final rawSerials = json['serials'];
     return OrderSummary(
       orderId: _toInt(json['orderId']) ?? 0,
       orderCode: json['orderCode']?.toString() ?? '',
@@ -106,6 +109,12 @@ class OrderSummary {
       warrantyEndDate: json['warrantyEndDate']?.toString(),
       isWarrantyExpired: json['isWarrantyExpired'] == true,
       warrantyRemainingText: json['warrantyRemainingText']?.toString(),
+      serials: rawSerials is List
+          ? rawSerials
+                .whereType<Map<String, dynamic>>()
+                .map(OrderSerial.fromJson)
+                .toList()
+          : const [],
     );
   }
 }

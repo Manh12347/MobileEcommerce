@@ -79,7 +79,13 @@ class _HomeScreenState extends State<HomeScreen> {
         sortBy: 'newest',
         sortDir: 'desc',
       );
-      final categoryFuture = ApiService.getCategories();
+      final categoryFuture = () async {
+        try {
+          return await ApiService.getCategories();
+        } catch (_) {
+          return null;
+        }
+      }();
 
       final response = await productFuture;
       final categoryResponse = await categoryFuture;
@@ -149,8 +155,8 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
 
       final normalizedCategories = <ProductCategory>[];
-      if (categoryResponse.success) {
-        for (final category in categoryResponse.data ?? const <ProductCategory>[]) {
+      if (categoryResponse?.success == true) {
+        for (final category in categoryResponse?.data ?? const <ProductCategory>[]) {
           final name = category.name?.trim();
           if (name == null || name.isEmpty) continue;
           final status = category.status?.trim().toLowerCase() ?? '';
@@ -1244,7 +1250,22 @@ class _ProductImage extends StatelessWidget {
       borderRadius: BorderRadius.circular(22),
       child: Image.network(
         url!,
+        width: double.infinity,
+        height: double.infinity,
         fit: fit,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return const Center(
+            child: SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFF1F67E2),
+              ),
+            ),
+          );
+        },
         errorBuilder: (context, error, stackTrace) {
           return const Center(
             child: Icon(

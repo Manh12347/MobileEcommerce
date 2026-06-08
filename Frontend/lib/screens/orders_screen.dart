@@ -334,6 +334,13 @@ class _OrderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final statusColor = orderStatusColor(order.status);
+    final warrantySerials = order.serials
+        .map((s) => s.serialCode)
+        .whereType<String>()
+        .map((code) => code.trim())
+        .where((code) => code.isNotEmpty)
+        .toList();
+    final warrantySerialText = warrantySerials.join(', ');
 
     return Material(
       color: Colors.white,
@@ -436,6 +443,22 @@ class _OrderCard extends StatelessWidget {
                     ],
                   ],
                 ),
+                if (warrantySerialText.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 22),
+                    child: Text(
+                      'Serial: $warrantySerialText',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF42526E),
+                      ),
+                    ),
+                  ),
+                ],
               ],
               if (order.createdOn != null) ...[
                 const SizedBox(height: 4),

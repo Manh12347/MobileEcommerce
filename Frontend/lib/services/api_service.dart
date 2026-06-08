@@ -24,7 +24,7 @@ import '../models/notification.dart';
 
 class ApiService {
   static const String baseUrl = API_BASE_URL;
-  static const Duration _requestTimeout = Duration(seconds: 30);
+  static const Duration _requestTimeout = Duration(seconds: 90);
   static String? accessToken;
   static void Function()? onUnauthorized;
 
@@ -603,7 +603,7 @@ class ApiService {
             ),
           )
           .timeout(
-            const Duration(seconds: 10),
+            _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
 
@@ -682,7 +682,7 @@ class ApiService {
       final response = await http
           .get(Uri.parse('$baseUrl$CATEGORIES_ENDPOINT'))
           .timeout(
-            const Duration(seconds: 10),
+            _requestTimeout,
             onTimeout: () => throw Exception('Request timeout'),
           );
 
