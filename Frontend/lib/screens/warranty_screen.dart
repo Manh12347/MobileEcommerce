@@ -51,24 +51,24 @@ class _WarrantyScreenState extends State<WarrantyScreen> {
     });
 
     try {
-      final results = await Future.wait([
-        _loadPurchasedProducts(),
-        ApiService.getMyOrders(),
-        ApiService.getWarrantyClaimsByAccount(accountId),
-      ]);
+      final purchasedProducts = await _loadPurchasedProducts();
+      final orderResponse = await ApiService.getMyOrders();
+      final claimResponse = await ApiService.getWarrantyClaimsByAccount(
+        accountId,
+      );
       if (!mounted) return;
 
-      final purchasedProducts = results[0] as List<PurchasedProduct>;
-      final orderResponse = results[1] as dynamic;
-      final claimResponse = results[2] as dynamic;
       final orders = orderResponse.data ?? const <OrderSummary>[];
       final productOrders = orders
           .where((order) => order.status != 'cancelled')
           .toList();
-      final detailResults = await Future.wait(
-        productOrders.map(_loadOrderDetail),
-      );
-      final orderDetails = detailResults.whereType<OrderDetail>().toList();
+      final orderDetails = <OrderDetail>[];
+      for (final order in productOrders) {
+        final detail = await _loadOrderDetail(order);
+        if (detail != null) {
+          orderDetails.add(detail);
+        }
+      }
       if (!mounted) return;
 
       setState(() {
